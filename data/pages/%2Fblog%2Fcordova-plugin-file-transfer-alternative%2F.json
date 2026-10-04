@@ -1,0 +1,4739 @@
+{
+  "version": 1,
+  "route": "/blog/cordova-plugin-file-transfer-alternative/",
+  "source": "corpus/source/apps/web/src/content/blog/en/cordova-plugin-file-transfer-alternative.md",
+  "sourceSha256": "770f1e7573b0184318693d29de82712fe6079e8d745898e9b411ed9dee563db6",
+  "metadata": {
+    "slug": "cordova-plugin-file-transfer-alternative",
+    "title": "cordova-plugin-file-transfer Alternative for Capacitor",
+    "description": "Replace cordova-plugin-file-transfer in Capacitor apps: @capacitor/file-transfer for simple transfers, Capgo uploader and downloader for background jobs.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/migrating-cordova-to-capacitor.webp",
+    "head_image_alt": "Illustration of migrating a Cordova app to Capacitor, used for a file transfer plugin guide",
+    "keywords": "cordova-plugin-file-transfer alternative, capacitor file transfer, capacitor upload file, capacitor download file, background upload capacitor, @capacitor/file-transfer, @capgo/capacitor-uploader",
+    "tag": "Alternatives, Capacitor, Migration",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Is cordova-plugin-file-transfer deprecated?",
+        "answer": "Apache announced in 2017 that it planned to deprecate it in favor of XMLHttpRequest Level 2, but the plugin is not marked deprecated on npm and received releases in 2023 (2.0.0) and August 2026 (2.0.1). In Capacitor apps it still depends on cordova-plugin-file and file:// paths, so native Capacitor plugins are the better fit."
+      },
+      {
+        "question": "What should I use instead of cordova-plugin-file-transfer in Capacitor?",
+        "answer": "Use @capacitor/file-transfer for foreground uploads and downloads with progress. Use @capgo/capacitor-uploader and @capgo/capacitor-downloader when transfers must continue in the background, be retried, paused or resumed."
+      },
+      {
+        "question": "Why not just use fetch or XMLHttpRequest?",
+        "answer": "Web requests load the whole file into WebView memory as a Blob or ArrayBuffer and pass it across the bridge. Large videos or archives can crash the WebView, and requests stop when the app is suspended. Native transfers stream from and to disk."
+      },
+      {
+        "question": "Can I cancel or pause a transfer?",
+        "answer": "@capacitor/file-transfer has no cancel method. @capgo/capacitor-uploader can cancel with removeUpload, and @capgo/capacitor-downloader supports pause, resume and stop."
+      },
+      {
+        "question": "Do transfers continue if the user closes the app?",
+        "answer": "Capgo's uploader uses a background URLSession on iOS and a foreground upload service with a notification on Android, and the downloader uses the platform background download APIs, so transfers can continue after the app is backgrounded. @capacitor/file-transfer runs while the app is active."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "The best cordova-plugin-file-transfer alternative for a Capacitor app depends on one question: does the transfer need to survive the app going to the background? For normal uploads and downloads with progress, use the official "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 2,
+            "column": 228
+          },
+          "url": "https://capacitorjs.com/docs/apis/file-transfer",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 2,
+                "column": 229
+              },
+              "text": "@capacitor/file-transfer"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 305
+          },
+          "text": " plugin. For large files, flaky networks, or transfers that must keep going when the user switches apps, use "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 2,
+            "column": 414
+          },
+          "url": "/plugins/capacitor-uploader/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 2,
+                "column": 415
+              },
+              "text": "@capgo/capacitor-uploader"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 473
+          },
+          "text": " and "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 2,
+            "column": 478
+          },
+          "url": "/plugins/capacitor-downloader/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 2,
+                "column": 479
+              },
+              "text": "@capgo/capacitor-downloader"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 541
+          },
+          "text": ", which run on native background transfer APIs. This guide compares them and maps every "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 629
+          },
+          "text": "FileTransfer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 643
+          },
+          "text": " call."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "Is cordova-plugin-file-transfer still deprecated?"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "The history is confusing, so here are the facts:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "In 2017 the Apache Cordova team announced it planned to deprecate the plugin and pointed developers to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 8,
+                    "column": 106
+                  },
+                  "text": "XMLHttpRequest"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 122
+                  },
+                  "text": " Level 2."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 9,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 9,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "text": "The plugin was never flagged as deprecated on npm. Version 2.0.0 shipped in September 2023, and 2.0.1 in August 2026. The GitHub repository is active."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 11,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "text": "So it is not dead. But in a Capacitor app it is still a Cordova plugin that:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 13,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 13,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "depends on "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 14
+                  },
+                  "text": "cordova-plugin-file"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 35
+                  },
+                  "text": " and its "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 44
+                  },
+                  "text": "cdvfile://"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 56
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 61
+                  },
+                  "text": "file://"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 70
+                  },
+                  "text": " path model,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 14,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "does not fit Capacitor's "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 14,
+                    "column": 28
+                  },
+                  "text": "Filesystem"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 40
+                  },
+                  "text": " directories and URI conversions,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 15,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "text": "has no background transfer support,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 16,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "text": "uses callback style APIs."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "text": "If you are migrating from Cordova, replacing it with native Capacitor plugins removes one of the last reasons to keep "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 18,
+            "column": 119
+          },
+          "text": "cordova-plugin-file"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 140
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 20,
+            "column": 4
+          },
+          "text": "Why \"just use fetch\" breaks on large files"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "text": "Apache's suggested replacement, XHR, works for small JSON and images. It fails for real file transfer work in a hybrid app:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 24,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 24,
+                        "column": 5
+                      },
+                      "text": "Memory."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 14
+                  },
+                  "text": " "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 24,
+                    "column": 15
+                  },
+                  "text": "fetch"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 22
+                  },
+                  "text": " and XHR give you a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 24,
+                    "column": 42
+                  },
+                  "text": "Blob"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 48
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 24,
+                    "column": 52
+                  },
+                  "text": "ArrayBuffer"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 65
+                  },
+                  "text": " in the WebView. A 500 MB video means 500 MB in WebView memory, then a copy to write it through the bridge. On mid-range Android devices that crashes the renderer."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 25,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 25,
+                        "column": 5
+                      },
+                      "text": "Suspension."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 18
+                  },
+                  "text": " When the user switches apps, iOS suspends the WebView. In-flight requests stall or fail."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 26,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 26,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 26,
+                        "column": 5
+                      },
+                      "text": "No OS integration."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 25
+                  },
+                  "text": " No system download notification, no Wi-Fi only option, no resume after a dropped connection."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "text": "Native plugins stream directly between disk and network and keep JavaScript out of the data path."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 4
+          },
+          "text": "The options compared"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 3
+                  },
+                  "text": "Need"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 10
+                  },
+                  "text": "cordova-plugin-file-transfer"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 41
+                  },
+                  "text": "@capacitor/file-transfer"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 68
+                  },
+                  "text": "@capgo/capacitor-uploader"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 94
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 96
+                  },
+                  "text": "@capgo/capacitor-downloader"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 3
+                  },
+                  "text": "Download to disk"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 22
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 28
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 34
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 39
+                  },
+                  "text": "Yes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 3
+                  },
+                  "text": "Upload from disk"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 22
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 28
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 34
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 40
+                  },
+                  "text": "No"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 3
+                  },
+                  "text": "Progress events"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 21
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 27
+                  },
+                  "text": "Yes ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 32
+                  },
+                  "text": "progress"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 42
+                  },
+                  "text": " listener)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 53
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 55
+                  },
+                  "text": "Yes ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 60
+                  },
+                  "text": "events"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 68
+                  },
+                  "text": ")"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 70
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 72
+                  },
+                  "text": "Yes ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 77
+                  },
+                  "text": "downloadProgress"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 95
+                  },
+                  "text": ")"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 3
+                  },
+                  "text": "Multipart form data"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 25
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 31
+                  },
+                  "text": "Yes (default)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 47
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 51
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 53
+                  },
+                  "text": "n/a"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 3
+                  },
+                  "text": "Raw binary PUT (presigned URLs)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 37
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 43
+                  },
+                  "text": "Yes (set "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 38,
+                    "column": 52
+                  },
+                  "text": "Content-Type"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 66
+                  },
+                  "text": ")"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 68
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 70
+                  },
+                  "text": "Yes ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 38,
+                    "column": 75
+                  },
+                  "text": "uploadType: 'binary'"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 97
+                  },
+                  "text": ")"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 99
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 101
+                  },
+                  "text": "n/a"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 39,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 3
+                  },
+                  "text": "Multiple files in one request"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 35
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 40
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 45
+                  },
+                  "text": "Yes ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 39,
+                    "column": 50
+                  },
+                  "text": "files"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 57
+                  },
+                  "text": ")"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 61
+                  },
+                  "text": "n/a"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 40,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 40,
+                    "column": 3
+                  },
+                  "text": "Cancel"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 40,
+                    "column": 12
+                  },
+                  "text": "abort()"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 40,
+                    "column": 24
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 40,
+                    "column": 29
+                  },
+                  "text": "removeUpload"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 40,
+                    "column": 46
+                  },
+                  "text": "stop"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 3
+                  },
+                  "text": "Pause / resume"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 20
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 25
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 30
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 41,
+                    "column": 35
+                  },
+                  "text": "pause"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 42
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 41,
+                    "column": 44
+                  },
+                  "text": "resume"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 3
+                  },
+                  "text": "Retries"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 13
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 18
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 42,
+                    "column": 23
+                  },
+                  "text": "maxRetries"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 38
+                  },
+                  "text": "No"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 3
+                  },
+                  "text": "Continues in background"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 29
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 34
+                  },
+                  "text": "While the app is active"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 58
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 60
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 64
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 66
+                  },
+                  "text": "Yes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 3
+                  },
+                  "text": "Wi-Fi only"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 16
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 21
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 26
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 31
+                  },
+                  "text": "network: 'wifi-only'"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 45,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 3
+                  },
+                  "text": "HTTP error details"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 45,
+                    "column": 24
+                  },
+                  "text": "http_status"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 37
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 45,
+                    "column": 39
+                  },
+                  "text": "body"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 45,
+                    "column": 48
+                  },
+                  "text": "httpStatus"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 60
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 45,
+                    "column": 62
+                  },
+                  "text": "body"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 69
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 71
+                  },
+                  "text": "Status code in events"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 93
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 95
+                  },
+                  "text": "Error string in events"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 46,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 3
+                  },
+                  "text": "Web implementation"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 46,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 24
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 46,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 29
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 46,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 35
+                  },
+                  "text": "Yes (fetch based)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 46,
+                "column": 53
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 55
+                  },
+                  "text": "No"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 48,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 1
+          },
+          "text": "Most apps end up with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 48,
+            "column": 23
+          },
+          "text": "@capacitor/file-transfer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 49
+          },
+          "text": " for small, user-visible transfers and the Capgo plugins for media upload queues and offline content downloads."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 4
+          },
+          "text": "Option 1: @capacitor/file-transfer"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capacitor/file-transfer @capacitor/filesystem\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 57,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 57,
+            "column": 1
+          },
+          "text": "The plugin needs a full native path. Get it from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 57,
+            "column": 50
+          },
+          "text": "@capacitor/filesystem"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 57,
+            "column": 73
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 59,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 5
+          },
+          "text": "Download"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "import { FileTransfer } from '@capacitor/file-transfer';\nimport { Filesystem, Directory } from '@capacitor/filesystem';\n\nexport async function downloadReport(url: string) {\n  const { uri } = await Filesystem.getUri({\n    directory: Directory.Data,\n    path: 'reports/latest.pdf',\n  });\n\n  const progress = await FileTransfer.addListener('progress', (p) => {\n    if (p.type === 'download' && p.lengthComputable) {\n      console.log(`Downloaded ${Math.round((p.bytes / p.contentLength) * 100)}%`);\n    }\n  });\n\n  try {\n    const result = await FileTransfer.downloadFile({\n      url,\n      path: uri,\n      progress: true,\n      headers: { Authorization: 'Bearer <token>' },\n    });\n    return result.path;\n  } catch (error: any) {\n    if (error.code === 'OS-PLUG-FLTR-0010') {\n      console.error('HTTP error', error.data?.httpStatus, error.data?.body);\n    }\n    throw error;\n  } finally {\n    await progress.remove();\n  }\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 96,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 5
+          },
+          "text": "Upload"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 98,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "export async function uploadAvatar(path: string) {\n  const result = await FileTransfer.uploadFile({\n    url: 'https://api.example.com/v1/avatar',\n    path,\n    fileKey: 'avatar',\n    mimeType: 'image/jpeg',\n    headers: { Authorization: 'Bearer <token>' },\n    progress: true,\n  });\n  console.log(result.responseCode, result.response);\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 112,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 112,
+            "column": 1
+          },
+          "text": "Uploads are multipart by default. For a raw stream, for example to a presigned S3 URL, set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 112,
+            "column": 92
+          },
+          "text": "method: 'PUT'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 112,
+            "column": 107
+          },
+          "text": " and an explicit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 112,
+            "column": 124
+          },
+          "text": "Content-Type"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 112,
+            "column": 138
+          },
+          "text": " header such as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 112,
+            "column": 154
+          },
+          "text": "application/octet-stream"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 112,
+            "column": 180
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 114,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 1
+          },
+          "text": "Error codes follow the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 24
+          },
+          "text": "OS-PLUG-FLTR-XXXX"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 43
+          },
+          "text": " format. The useful ones: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 69
+          },
+          "text": "0007"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 75
+          },
+          "text": " file not found, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 92
+          },
+          "text": "0008"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 98
+          },
+          "text": " connection failed, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 118
+          },
+          "text": "0010"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 124
+          },
+          "text": " HTTP error status with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 148
+          },
+          "text": "httpStatus"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 160
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 165
+          },
+          "text": "body"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 171
+          },
+          "text": " in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 175
+          },
+          "text": "error.data"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 187
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 116,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 116,
+            "column": 4
+          },
+          "text": "Option 2: background uploads with @capgo/capacitor-uploader"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 118,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-uploader\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 123,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "import { Uploader } from '@capgo/capacitor-uploader';\n\nawait Uploader.addListener('events', async (event) => {\n  switch (event.name) {\n    case 'uploading':\n      console.log(event.id, `${event.payload.percent}%`);\n      break;\n    case 'completed':\n      console.log(event.id, 'done', event.payload.statusCode);\n      break;\n    case 'failed':\n      console.error(event.id, event.payload.error);\n      break;\n  }\n  // Completed and failed events are cached natively until acknowledged\n  if (event.eventId) {\n    await Uploader.acknowledgeEvent({ eventId: event.eventId });\n  }\n});\n\nconst { id } = await Uploader.startUpload({\n  filePath: 'file:///path/to/video.mp4',\n  serverUrl: 'https://api.example.com/v1/videos',\n  method: 'POST',\n  uploadType: 'multipart',\n  fileField: 'video',\n  parameters: { albumId: '7' },\n  headers: { Authorization: 'Bearer <token>' },\n  maxRetries: 3,\n  notificationTitle: 'Uploading video', // Android only\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 157,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 157,
+            "column": 1
+          },
+          "text": "For presigned URLs, use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 157,
+            "column": 25
+          },
+          "text": "method: 'PUT'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 157,
+            "column": 40
+          },
+          "text": ", which defaults to a binary body:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 159,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "await Uploader.startUpload({\n  filePath,\n  serverUrl: presignedUrl,\n  method: 'PUT',\n  headers: { 'Content-Type': 'video/mp4' },\n  mimeType: 'video/mp4',\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 1
+          },
+          "text": "Several files in one multipart request:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 171,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "await Uploader.startUpload({\n  serverUrl: 'https://api.example.com/v1/photos',\n  method: 'POST',\n  uploadType: 'multipart',\n  files: [\n    { filePath: photo1, fieldName: 'images[]', mimeType: 'image/jpeg' },\n    { filePath: photo2, fieldName: 'images[]', mimeType: 'image/jpeg' },\n  ],\n  headers: { Authorization: 'Bearer <token>' },\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 1
+          },
+          "text": "Cancel with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 184,
+            "column": 13
+          },
+          "text": "Uploader.removeUpload({ id })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 44
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 186,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 186,
+                "column": 3
+              },
+              "text": "Why acknowledge events?"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 28
+          },
+          "text": " Completed and failed events are stored in a persistent native cache, so they can be delivered again if the app was closed or backgrounded before it handled them. Acknowledging removes the event so it is not re-broadcast the next time the plugin initializes."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 188,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 188,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 188,
+                "column": 3
+              },
+              "text": "iOS setup."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 188,
+            "column": 15
+          },
+          "text": " The uploader uses a background "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 188,
+            "column": 47
+          },
+          "text": "URLSession"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 188,
+            "column": 59
+          },
+          "text": ". Many apps need no extra setup. If uploads must continue after the app is suspended, add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 188,
+            "column": 149
+          },
+          "text": "fetch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 188,
+            "column": 156
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 188,
+            "column": 160
+          },
+          "text": "UIBackgroundModes"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 188,
+            "column": 179
+          },
+          "text": ". Do not add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 188,
+            "column": 192
+          },
+          "text": "processing"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 188,
+            "column": 204
+          },
+          "text": " unless another feature uses "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 188,
+            "column": 233
+          },
+          "text": "BGTaskScheduler"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 188,
+            "column": 250
+          },
+          "text": ", because App Store Connect rejects builds that declare it without "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 188,
+            "column": 317
+          },
+          "text": "BGTaskSchedulerPermittedIdentifiers"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 188,
+            "column": 354
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 190,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 190,
+            "column": 4
+          },
+          "text": "Option 3: background downloads with @capgo/capacitor-downloader"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 192,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-downloader\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 197,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "import { CapacitorDownloader } from '@capgo/capacitor-downloader';\n\nawait CapacitorDownloader.addListener('downloadProgress', ({ id, progress }) => {\n  console.log(id, `${progress}%`);\n});\nawait CapacitorDownloader.addListener('downloadCompleted', ({ id }) => {\n  console.log(id, 'completed');\n});\nawait CapacitorDownloader.addListener('downloadFailed', ({ id, error }) => {\n  console.error(id, error);\n});\n\nawait CapacitorDownloader.download({\n  id: 'course-42',\n  url: 'https://cdn.example.com/courses/42.zip',\n  destination: 'courses/42.zip',\n  headers: { Authorization: 'Bearer <token>' },\n  network: 'wifi-only',\n  priority: 'normal',\n  notification: 'progress', // Android: remove the system notification when done\n});\n\n// Later\nawait CapacitorDownloader.pause({ id: 'course-42' });\nawait CapacitorDownloader.resume({ id: 'course-42' });\nconst status = await CapacitorDownloader.checkStatus({ id: 'course-42' });\nconsole.log(status.state, status.progress);"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 227,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 1
+          },
+          "text": "A relative "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 227,
+            "column": 12
+          },
+          "text": "destination"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 25
+          },
+          "text": " resolves to the app's Documents directory on iOS and the app-specific external files directory on Android. You can also pass an absolute path or a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 227,
+            "column": 173
+          },
+          "text": "file://"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 182
+          },
+          "text": " URL. Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 227,
+            "column": 192
+          },
+          "text": "getFileInfo({ path })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 215
+          },
+          "text": " to read size and MIME type after download, and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 227,
+            "column": 263
+          },
+          "text": "stop({ id })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 277
+          },
+          "text": " to cancel and delete partial data."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 229,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 229,
+            "column": 4
+          },
+          "text": "Migrating from cordova-plugin-file-transfer"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 231,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 231,
+            "column": 5
+          },
+          "text": "Download"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 233,
+        "column": 1
+      },
+      "lang": "js",
+      "meta": null,
+      "text": "// Before\nconst ft = new FileTransfer();\nft.onprogress = (e) => e.lengthComputable && setProgress(e.loaded / e.total);\nft.download(\n  encodeURI(url),\n  cordova.file.dataDirectory + 'report.pdf',\n  (entry) => console.log(entry.toURL()),\n  (err) => console.error(err.code, err.http_status),\n  false,\n  { headers: { Authorization: 'Bearer <token>' } },\n);"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 247,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "// After\nconst { uri } = await Filesystem.getUri({ directory: Directory.Data, path: 'report.pdf' });\nawait FileTransfer.downloadFile({\n  url,\n  path: uri,\n  progress: true,\n  headers: { Authorization: 'Bearer <token>' },\n});"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 258,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 258,
+            "column": 5
+          },
+          "text": "Upload"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 260,
+        "column": 1
+      },
+      "lang": "js",
+      "meta": null,
+      "text": "// Before\nconst options = new FileUploadOptions();\noptions.fileKey = 'file';\noptions.fileName = 'photo.jpg';\noptions.mimeType = 'image/jpeg';\noptions.params = { albumId: '7' };\noptions.headers = { Authorization: 'Bearer <token>' };\nnew FileTransfer().upload(fileUrl, encodeURI(serverUrl), onSuccess, onError, options);"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 271,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "// After, foreground\nawait FileTransfer.uploadFile({\n  url: serverUrl,\n  path: fileUrl,\n  fileKey: 'file',\n  mimeType: 'image/jpeg',\n  params: { albumId: '7' },\n  headers: { Authorization: 'Bearer <token>' },\n});\n\n// After, background\nawait Uploader.startUpload({\n  filePath: fileUrl,\n  serverUrl,\n  uploadType: 'multipart',\n  fileField: 'file',\n  parameters: { albumId: '7' },\n  headers: { Authorization: 'Bearer <token>' },\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 293,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 293,
+            "column": 1
+          },
+          "text": "Note that "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 293,
+            "column": 11
+          },
+          "text": "params"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 293,
+            "column": 19
+          },
+          "text": " in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 293,
+            "column": 23
+          },
+          "text": "@capacitor/file-transfer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 293,
+            "column": 49
+          },
+          "text": " are URL query parameters. If your server expects form fields, use the Capgo uploader's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 293,
+            "column": 137
+          },
+          "text": "parameters"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 293,
+            "column": 149
+          },
+          "text": ", which are sent as multipart form fields."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 295,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 295,
+            "column": 5
+          },
+          "text": "Mapping table"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 297,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 297,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 297,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 3
+                  },
+                  "text": "cordova-plugin-file-transfer"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 297,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 34
+                  },
+                  "text": "@capacitor/file-transfer"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 297,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 61
+                  },
+                  "text": "Capgo plugins"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 299,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 299,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 299,
+                    "column": 3
+                  },
+                  "text": "download(source, target, ...)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 299,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 299,
+                    "column": 37
+                  },
+                  "text": "downloadFile({ url, path })"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 299,
+                "column": 67
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 299,
+                    "column": 69
+                  },
+                  "text": "CapacitorDownloader.download({ id, url, destination })"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 300,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 300,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 300,
+                    "column": 3
+                  },
+                  "text": "upload(file, server, ...)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 300,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 300,
+                    "column": 33
+                  },
+                  "text": "uploadFile({ url, path })"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 300,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 300,
+                    "column": 63
+                  },
+                  "text": "Uploader.startUpload({ filePath, serverUrl })"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 301,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 301,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 301,
+                    "column": 3
+                  },
+                  "text": "onprogress"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 301,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 301,
+                    "column": 18
+                  },
+                  "text": "addListener('progress')"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 301,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 301,
+                    "column": 46
+                  },
+                  "text": "addListener('events')"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 301,
+                    "column": 69
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 301,
+                    "column": 72
+                  },
+                  "text": "addListener('downloadProgress')"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 302,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 302,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 302,
+                    "column": 3
+                  },
+                  "text": "abort()"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 302,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 302,
+                    "column": 15
+                  },
+                  "text": "not available"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 302,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 302,
+                    "column": 31
+                  },
+                  "text": "removeUpload({ id })"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 302,
+                    "column": 53
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 302,
+                    "column": 56
+                  },
+                  "text": "stop({ id })"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 303,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 303,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 303,
+                    "column": 3
+                  },
+                  "text": "options.fileKey"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 303,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 303,
+                    "column": 23
+                  },
+                  "text": "fileKey"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 303,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 303,
+                    "column": 35
+                  },
+                  "text": "fileField"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 303,
+                    "column": 46
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 303,
+                    "column": 50
+                  },
+                  "text": "files[].fieldName"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 304,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 304,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 304,
+                    "column": 3
+                  },
+                  "text": "options.params"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 304,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 304,
+                    "column": 22
+                  },
+                  "text": "params"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 304,
+                    "column": 30
+                  },
+                  "text": " (query string)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 304,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 304,
+                    "column": 48
+                  },
+                  "text": "parameters"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 304,
+                    "column": 60
+                  },
+                  "text": " (form fields)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 305,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 305,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 305,
+                    "column": 3
+                  },
+                  "text": "options.httpMethod"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 305,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 305,
+                    "column": 26
+                  },
+                  "text": "method"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 305,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 305,
+                    "column": 37
+                  },
+                  "text": "method"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 305,
+                    "column": 45
+                  },
+                  "text": " ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 305,
+                    "column": 47
+                  },
+                  "text": "POST"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 305,
+                    "column": 53
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 305,
+                    "column": 57
+                  },
+                  "text": "PUT"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 305,
+                    "column": 62
+                  },
+                  "text": ")"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 306,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 306,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 306,
+                    "column": 3
+                  },
+                  "text": "options.chunkedMode"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 306,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 306,
+                    "column": 27
+                  },
+                  "text": "chunkedMode"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 306,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 306,
+                    "column": 43
+                  },
+                  "text": "Handled natively"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 307,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 307,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 307,
+                    "column": 3
+                  },
+                  "text": "cordova.file.dataDirectory"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 307,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 307,
+                    "column": 34
+                  },
+                  "text": "Filesystem.getUri({ directory: Directory.Data })"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 307,
+                "column": 85
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 307,
+                    "column": 87
+                  },
+                  "text": "Relative path or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 307,
+                    "column": 104
+                  },
+                  "text": "file://"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 307,
+                    "column": 113
+                  },
+                  "text": " URL"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 308,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 308,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 308,
+                    "column": 3
+                  },
+                  "text": "FileTransferError.http_status"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 308,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 308,
+                    "column": 37
+                  },
+                  "text": "error.data.httpStatus"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 308,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 308,
+                    "column": 63
+                  },
+                  "text": "event.payload.statusCode"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 310,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 310,
+            "column": 4
+          },
+          "text": "Paths: the part that breaks migrations"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 312,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 312,
+            "column": 1
+          },
+          "text": "Cordova code passes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 312,
+            "column": 21
+          },
+          "text": "cdvfile://"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 312,
+            "column": 33
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 312,
+            "column": 37
+          },
+          "text": "cordova.file.*"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 312,
+            "column": 53
+          },
+          "text": " paths everywhere. In Capacitor:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 314,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 314,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 314,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 314,
+                    "column": 3
+                  },
+                  "text": "Get native paths from "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 314,
+                    "column": 25
+                  },
+                  "text": "Filesystem.getUri()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 314,
+                    "column": 46
+                  },
+                  "text": " or from the plugin that created the file (camera, file picker, recorder)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 315,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 315,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 315,
+                    "column": 3
+                  },
+                  "text": "To display a downloaded image in the WebView, convert the native path with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 315,
+                    "column": 78
+                  },
+                  "text": "Capacitor.convertFileSrc(path)"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 315,
+                    "column": 110
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 316,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 316,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 316,
+                    "column": 3
+                  },
+                  "text": "Capgo has a "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 316,
+                    "column": 15
+                  },
+                  "url": "/plugins/capacitor-file/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 316,
+                        "column": 16
+                      },
+                      "text": "file plugin"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 316,
+                    "column": 54
+                  },
+                  "text": " and a "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 316,
+                    "column": 61
+                  },
+                  "url": "/plugins/capacitor-file-picker/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 316,
+                        "column": 62
+                      },
+                      "text": "file picker"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 316,
+                    "column": 107
+                  },
+                  "text": " if "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 316,
+                    "column": 111
+                  },
+                  "text": "@capacitor/filesystem"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 316,
+                    "column": 134
+                  },
+                  "text": " does not cover your case."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 318,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 318,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 320,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 320,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 320,
+                "column": 3
+              },
+              "text": "Upload works on Android but fails on iOS with a file not found error."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 320,
+            "column": 74
+          },
+          "text": " You passed a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 320,
+            "column": 88
+          },
+          "text": "capacitor://"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 320,
+            "column": 102
+          },
+          "text": " WebView URL instead of a native "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 320,
+            "column": 135
+          },
+          "text": "file://"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 320,
+            "column": 144
+          },
+          "text": " path. Use the path from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 320,
+            "column": 169
+          },
+          "text": "Filesystem.getUri()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 320,
+            "column": 190
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 322,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 322,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 322,
+                "column": 3
+              },
+              "text": "Server rejects the upload with 415."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 40
+          },
+          "text": " Multipart vs raw body mismatch. For presigned URLs use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 96
+          },
+          "text": "PUT"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 101
+          },
+          "text": " with an explicit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 119
+          },
+          "text": "Content-Type"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 133
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 324,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 324,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 324,
+                "column": 3
+              },
+              "text": "Background uploads stop on iOS."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 324,
+            "column": 36
+          },
+          "text": " The user force quit the app, which cancels background sessions, or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 324,
+            "column": 104
+          },
+          "text": "fetch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 324,
+            "column": 111
+          },
+          "text": " background mode is missing when you need it."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 326,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 326,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 326,
+                "column": 3
+              },
+              "text": "Android shows a stuck download notification."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 326,
+            "column": 49
+          },
+          "text": " Set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 326,
+            "column": 54
+          },
+          "text": "notification: 'progress'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 326,
+            "column": 80
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 326,
+            "column": 84
+          },
+          "text": "'hidden'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 326,
+            "column": 94
+          },
+          "text": " on the downloader."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 328,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 328,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 328,
+                "column": 3
+              },
+              "text": "Memory crash on large downloads."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 328,
+            "column": 37
+          },
+          "text": " You are still using "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 328,
+            "column": 58
+          },
+          "text": "fetch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 328,
+            "column": 65
+          },
+          "text": " or reading the file as base64 through the bridge. Switch to a native download to disk."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 330,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 330,
+            "column": 4
+          },
+          "text": "Ship the migration"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 332,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 332,
+            "column": 1
+          },
+          "text": "Swapping native plugins needs a new store build, which "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 332,
+            "column": 56
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 332,
+                "column": 57
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 332,
+            "column": 85
+          },
+          "text": " can run in the cloud for iOS and Android. After that, the JavaScript that drives uploads and downloads can be fixed and improved with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 332,
+            "column": 220
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 332,
+                "column": 221
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 332,
+            "column": 255
+          },
+          "text": ". For the rest of the Cordova to Capacitor move, see our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 332,
+            "column": 312
+          },
+          "url": "/blog/migrating-cordova-to-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 332,
+                "column": 313
+              },
+              "text": "migration guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 332,
+            "column": 368
+          },
+          "text": ", and for other paid or legacy native SDKs, the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 332,
+            "column": 416
+          },
+          "url": "/ionic-enterprise-plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 332,
+                "column": 417
+              },
+              "text": "Ionic enterprise plugin alternatives"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 332,
+            "column": 482
+          },
+          "text": "."
+        }
+      ]
+    }
+  ]
+}

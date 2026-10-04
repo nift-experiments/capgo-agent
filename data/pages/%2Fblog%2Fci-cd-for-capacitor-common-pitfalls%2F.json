@@ -1,0 +1,5058 @@
+{
+  "version": 1,
+  "route": "/blog/ci-cd-for-capacitor-common-pitfalls/",
+  "source": "corpus/source/apps/web/src/content/blog/en/ci-cd-for-capacitor-common-pitfalls.md",
+  "sourceSha256": "51b8bc819d67f728c26c2e2de822b58a9d0d5e1c9669416a01f7e2f66568dbaa",
+  "metadata": {
+    "slug": "ci-cd-for-capacitor-common-pitfalls",
+    "title": "CI/CD for Capacitor: Common Pitfalls and Fixes",
+    "description": "The CI/CD pitfalls that break Capacitor builds: iOS signing, macOS runners, Xcode 26, stale cap sync, version codes, store rejections, and fixes for each.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/code_signing_identities.webp",
+    "head_image_alt": "Code signing identities and failing CI steps in a Capacitor pipeline",
+    "keywords": "Capacitor CI/CD pitfalls, Capacitor CI build fails, iOS code signing CI, cap sync CI, Capacitor GitHub Actions errors, Xcode 26 CI, Android versionCode CI, Capacitor build troubleshooting",
+    "tag": "CI/CD, Best Practices, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Why does my Capacitor iOS build work locally but fail in CI?",
+        "answer": "Usually signing. Xcode on your Mac manages certificates and profiles through your keychain and fixes them silently. CI has no keychain state, so an expired certificate, a profile that does not match the bundle ID, or a locked keychain fails the build. Import the certificate into a temporary keychain or use a build service that handles signing."
+      },
+      {
+        "question": "Do I need a native build on every commit?",
+        "answer": "No. Run native builds on release tags or merges to main, and ship web-only changes as live updates. The Capgo CLI build needed command tells your pipeline whether native dependencies changed since the last release."
+      },
+      {
+        "question": "What is the most common reason store uploads fail after a green build?",
+        "answer": "A reused build number or version code. App Store Connect and Google Play reject any upload whose build number was already used. Derive it from the CI run number, or let a build service read the latest value from the store and increment it."
+      },
+      {
+        "question": "Which tool versions does a Capacitor 8 pipeline need?",
+        "answer": "Node.js 22 or newer, JDK 21 for Android, and Xcode 26 for iOS. Xcode 26 is also what App Store Connect requires for uploads since April 28, 2026."
+      },
+      {
+        "question": "Can I build iOS in CI without macOS runners?",
+        "answer": "For Capacitor apps, yes. A Linux job builds the web layer and runs cap sync ios, then the Capgo CLI sends the native project to Capgo Build, which compiles and signs it on Macs and uploads to TestFlight."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "Most Capacitor CI/CD failures come from the same short list: iOS code signing, missing or outdated macOS tooling, a web build that never made it into the native project, reused build numbers, and store requirements that only fail at upload time. Each has a known cause and a fix you can apply once. This guide groups the pitfalls by pipeline stage, with the error you will see, why it happens, and what to change."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "If you are setting up a pipeline from scratch, read "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 4,
+            "column": 53
+          },
+          "url": "/blog/setting-up-cicd-for-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 4,
+                "column": 54
+              },
+              "text": "Setting up CI/CD for Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 133
+          },
+          "text": " first, then use this list to harden it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "Stage 1: Building the web layer"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 5
+          },
+          "text": "Pitfall: the native app ships an old web build"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 10,
+            "column": 13
+          },
+          "text": " CI succeeds, the app installs, but it shows yesterday's UI."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 12,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 12,
+                "column": 3
+              },
+              "text": "Cause:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 11
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 12,
+            "column": 12
+          },
+          "text": "cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 22
+          },
+          "text": " copies whatever is in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 12,
+            "column": 45
+          },
+          "text": "webDir"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 53
+          },
+          "text": " at that moment. If the pipeline runs "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 12,
+            "column": 91
+          },
+          "text": "cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 101
+          },
+          "text": " before the web build, or the web build writes to a different folder than "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 12,
+            "column": 175
+          },
+          "text": "webDir"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 183
+          },
+          "text": " in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 12,
+            "column": 187
+          },
+          "text": "capacitor.config.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 208
+          },
+          "text": ", the native project gets stale files."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 14,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 9
+          },
+          "text": " always run the steps in this order, and fail if the output folder is empty."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun install --frozen-lockfile\nbun run build\ntest -f dist/index.html || { echo \"web build missing\"; exit 1; }\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "text": "Make sure "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 23,
+            "column": 11
+          },
+          "text": "webDir"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 19
+          },
+          "text": " matches your bundler output ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 23,
+            "column": 49
+          },
+          "text": "dist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 55
+          },
+          "text": " for Vite, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 23,
+            "column": 66
+          },
+          "text": "www"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 71
+          },
+          "text": " for Angular with Ionic, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 23,
+            "column": 96
+          },
+          "text": "build"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 103
+          },
+          "text": " for some React setups)."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 25,
+            "column": 5
+          },
+          "text": "Pitfall: dev server URL left in the config"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 27,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 13
+          },
+          "text": " the release build shows a blank screen or tries to load "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 27,
+            "column": 70
+          },
+          "text": "http://192.168.x.x:5173"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 95
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 29,
+                "column": 3
+              },
+              "text": "Cause:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 11
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 29,
+            "column": 12
+          },
+          "text": "server.url"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 24
+          },
+          "text": " in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 29,
+            "column": 28
+          },
+          "text": "capacitor.config.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 49
+          },
+          "text": " was set for live reload and committed."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 31,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 31,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 31,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 31,
+            "column": 9
+          },
+          "text": " never commit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 31,
+            "column": 23
+          },
+          "text": "server.url"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 31,
+            "column": 35
+          },
+          "text": ". Read it from an environment variable that CI never sets:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 33,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "import type { CapacitorConfig } from '@capacitor/cli'\n\nconst config: CapacitorConfig = {\n  appId: 'com.example.app',\n  appName: 'Example',\n  webDir: 'dist',\n  ...(process.env.LIVE_RELOAD_URL && {\n    server: { url: process.env.LIVE_RELOAD_URL, cleartext: true },\n  }),\n}\n\nexport default config"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 48,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 5
+          },
+          "text": "Pitfall: environment variables baked in at the wrong time"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 50,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 50,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 13
+          },
+          "text": " the production app talks to the staging API."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 52,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 52,
+                "column": 3
+              },
+              "text": "Cause:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 11
+          },
+          "text": " Vite, webpack, and Angular inline environment variables at build time. The value present when "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 106
+          },
+          "text": "bun run build"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 121
+          },
+          "text": " ran is the one in the binary, and in any live update built from the same job."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 54,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 9
+          },
+          "text": " set environment-specific variables before the web build, per job, and build separate bundles for staging and production. Do not try to swap them after "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 161
+          },
+          "text": "cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 171
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 5
+          },
+          "text": "Pitfall: lockfile drift"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 58,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 58,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 13
+          },
+          "text": " a plugin version in CI differs from the one on your machine, and native compilation fails with missing symbols."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 60,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 60,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 9
+          },
+          "text": " commit the lockfile and install with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 47
+          },
+          "text": "bun install --frozen-lockfile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 78
+          },
+          "text": " (or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 83
+          },
+          "text": "npm ci"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 91
+          },
+          "text": "). Pin "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 98
+          },
+          "text": "@capacitor/core"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 115
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 117
+          },
+          "text": "@capacitor/ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 133
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 135
+          },
+          "text": "@capacitor/android"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 155
+          },
+          "text": ", and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 161
+          },
+          "text": "@capacitor/cli"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 177
+          },
+          "text": " to the same version. Mismatched versions are a frequent source of native errors; see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 60,
+            "column": 263
+          },
+          "url": "/blog/fix-capacitor-version-mismatch-errors/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 60,
+                "column": 264
+              },
+              "text": "Fix Capacitor version mismatch errors"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 348
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 4
+          },
+          "text": "Stage 2: The native toolchain"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 5
+          },
+          "text": "Pitfall: wrong Node, JDK, or Xcode version"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 66,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 13
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 66,
+            "column": 14
+          },
+          "text": "Unsupported class file major version"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 52
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 66,
+            "column": 54
+          },
+          "text": "The engine \"node\" is incompatible"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 89
+          },
+          "text": ", or Xcode errors about SDK features."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 68,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 68,
+                "column": 3
+              },
+              "text": "Cause:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 68,
+            "column": 11
+          },
+          "text": " hosted runner images change, and Capacitor 8 has firm minimums."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 70,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 70,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 70,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 3
+                  },
+                  "text": "Tool"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 70,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 10
+                  },
+                  "text": "Capacitor 8 requirement"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 72,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 72,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 72,
+                    "column": 3
+                  },
+                  "text": "Node.js"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 72,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 72,
+                    "column": 13
+                  },
+                  "text": "22 or newer"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 73,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 73,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 73,
+                    "column": 3
+                  },
+                  "text": "JDK"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 73,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 73,
+                    "column": 9
+                  },
+                  "text": "21"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 74,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 74,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 74,
+                    "column": 3
+                  },
+                  "text": "Xcode"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 74,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 74,
+                    "column": 11
+                  },
+                  "text": "26 or newer"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 75,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 75,
+                    "column": 3
+                  },
+                  "text": "iOS deployment target"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 75,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 75,
+                    "column": 27
+                  },
+                  "text": "15.0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 76,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 76,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 3
+                  },
+                  "text": "Android "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 76,
+                    "column": 11
+                  },
+                  "text": "minSdkVersion"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 26
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 76,
+                    "column": 29
+                  },
+                  "text": "targetSdkVersion"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 76,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 50
+                  },
+                  "text": "24 / 36"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 78,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 78,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 78,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 9
+          },
+          "text": " pin every version explicitly in the pipeline instead of trusting "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 78,
+            "column": 75
+          },
+          "text": "latest"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 83
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "- uses: actions/setup-node@v6\n  with:\n    node-version-file: .nvmrc\n- uses: actions/setup-java@v4\n  with:\n    distribution: temurin\n    java-version: '21'\n- uses: maxim-lobanov/setup-xcode@v1\n  with:\n    xcode-version: '26'"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 93,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 93,
+            "column": 5
+          },
+          "text": "Pitfall: building against an Xcode Apple no longer accepts"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 95,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 95,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 95,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 95,
+            "column": 13
+          },
+          "text": " the upload fails with a message that the app was built with an unsupported SDK."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 97,
+                "column": 3
+              },
+              "text": "Cause:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 11
+          },
+          "text": " since April 28, 2026, App Store Connect requires Xcode 26 and the iOS 26 SDK. Self-hosted Macs and older runner images still default to Xcode 16."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 99,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 99,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 99,
+            "column": 9
+          },
+          "text": " select a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 99,
+            "column": 19
+          },
+          "text": "macos-26"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 99,
+            "column": 29
+          },
+          "text": " image or install Xcode 26 on your runners. Details in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 99,
+            "column": 84
+          },
+          "url": "/blog/xcode-26-requirement-for-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 99,
+                "column": 85
+              },
+              "text": "Apple's Xcode 26 requirement for Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 99,
+            "column": 181
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 101,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 5
+          },
+          "text": "Pitfall: CocoaPods and SPM confusion"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 103,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 103,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 13
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 103,
+            "column": 14
+          },
+          "text": "xcodebuild: error: 'App.xcworkspace' does not exist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 67
+          },
+          "text": ", or pods not found."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 105,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 105,
+                "column": 3
+              },
+              "text": "Cause:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 11
+          },
+          "text": " new Capacitor 8 projects use Swift Package Manager and build "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 105,
+            "column": 73
+          },
+          "text": "ios/App/App.xcodeproj"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 96
+          },
+          "text": ". Older projects use CocoaPods and build "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 105,
+            "column": 137
+          },
+          "text": "ios/App/App.xcworkspace"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 162
+          },
+          "text": " after "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 105,
+            "column": 169
+          },
+          "text": "pod install"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 182
+          },
+          "text": ". Pipelines copied from older tutorials assume the workspace."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 107,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 107,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 107,
+            "column": 9
+          },
+          "text": " check which one your project uses and build the right file. If you are migrating, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 107,
+            "column": 96
+          },
+          "url": "/blog/how-to-migrate-your-capacitor-app-to-spm/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 107,
+                "column": 97
+              },
+              "text": "How to migrate your Capacitor app to SPM"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 107,
+            "column": 187
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 109,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 109,
+            "column": 5
+          },
+          "text": "Pitfall: Android plugin builds break after a Gradle upgrade"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 111,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 111,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 111,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 13
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 111,
+            "column": 14
+          },
+          "text": "Namespace not specified"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 39
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 111,
+            "column": 41
+          },
+          "text": "package attribute is deprecated"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 74
+          },
+          "text": ", or errors from a plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 111,
+            "column": 102
+          },
+          "text": "build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 116
+          },
+          "text": " after updating Android Studio."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 113,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 113,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 113,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 9
+          },
+          "text": " pin the Android Gradle Plugin in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 43
+          },
+          "text": "android/build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 65
+          },
+          "text": ", upgrade on a branch, and update plugins first. Specific errors are covered in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 113,
+            "column": 145
+          },
+          "url": "/blog/fix-capacitor-plugin-build-errors-with-agp-9/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 113,
+                "column": 146
+              },
+              "text": "Fix Capacitor plugin build errors with AGP 9"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 244
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 115,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 4
+          },
+          "text": "Stage 3: Code signing"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 5
+          },
+          "text": "Pitfall: iOS signing works on your Mac only"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 119,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 119,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 119,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 13
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 119,
+            "column": 14
+          },
+          "text": "No signing certificate \"iOS Distribution\" found"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 63
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 119,
+            "column": 65
+          },
+          "text": "No profiles for 'com.example.app' were found"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 111
+          },
+          "text": ", or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 119,
+            "column": 116
+          },
+          "text": "errSecInternalComponent"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 141
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 121,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 121,
+                "column": 3
+              },
+              "text": "Cause:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 121,
+            "column": 11
+          },
+          "text": " your Mac's keychain holds the certificate and Xcode downloads profiles for you. A CI runner has neither, and its keychain is locked in a non-interactive session."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 123,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 123,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 123,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 123,
+            "column": 9
+          },
+          "text": " import the certificate into a temporary unlocked keychain and install the profile where Xcode 16 and later look for it:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "security create-keychain -p \"$KEYCHAIN_PASSWORD\" ci.keychain\nsecurity set-keychain-settings -lut 21600 ci.keychain\nsecurity unlock-keychain -p \"$KEYCHAIN_PASSWORD\" ci.keychain\nsecurity import dist.p12 -k ci.keychain -P \"$P12_PASSWORD\" -T /usr/bin/codesign\nsecurity set-key-partition-list -S apple-tool:,apple: -s -k \"$KEYCHAIN_PASSWORD\" ci.keychain\nsecurity list-keychains -d user -s ci.keychain login.keychain\n\nPROFILES=\"$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles\"\nmkdir -p \"$PROFILES\"\ncp app.mobileprovision \"$PROFILES/\""
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 138,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 1
+          },
+          "text": "Use the identity name "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 138,
+            "column": 23
+          },
+          "text": "Apple Distribution"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 43
+          },
+          "text": ", not the legacy "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 138,
+            "column": 60
+          },
+          "text": "iOS Distribution"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 78
+          },
+          "text": ". fastlane's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 138,
+            "column": 91
+          },
+          "text": "setup_ci"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 101
+          },
+          "text": " plus "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 138,
+            "column": 107
+          },
+          "text": "match"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 114
+          },
+          "text": " automates this. Capgo Build takes the certificate and profile as environment variables and does the keychain work on its own machines, so the Linux job never touches "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 138,
+            "column": 281
+          },
+          "text": "security"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 291
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 140,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 140,
+            "column": 5
+          },
+          "text": "Pitfall: expired or revoked certificates"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 142,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 142,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 142,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 13
+          },
+          "text": " a pipeline that worked for a year fails overnight."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 144,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 144,
+                "column": 3
+              },
+              "text": "Cause:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 11
+          },
+          "text": " Apple distribution certificates and provisioning profiles expire after a year. A teammate creating a new certificate in Xcode can also invalidate the profile your CI uses."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 146,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 146,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 9
+          },
+          "text": " put the expiry dates in your team calendar, keep one shared distribution certificate for CI, and check before building. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 130
+          },
+          "text": "bunx @capgo/cli@latest build prescan --platform ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 183
+          },
+          "text": " checks certificate expiry, password, and profile pairing before anything is uploaded."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 5
+          },
+          "text": "Pitfall: Apple ID logins and two-factor prompts"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 150,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 150,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 150,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 150,
+            "column": 13
+          },
+          "text": " fastlane hangs waiting for a 6-digit code."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 152,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 152,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 152,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 9
+          },
+          "text": " use an App Store Connect API key ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 152,
+            "column": 44
+          },
+          "text": ".p8"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 49
+          },
+          "text": ", key ID, issuer ID) instead of an Apple ID and password. It does not require two-factor authentication and can be scoped to App Manager. If authentication still fails with a correct key, check the runner clock: the token is signed with the local time, and Apple rejects tokens with a skewed timestamp."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 5
+          },
+          "text": "Pitfall: base64 secrets that do not decode"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 156,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 156,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 156,
+            "column": 13
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 156,
+            "column": 14
+          },
+          "text": "MAC verification failed"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 156,
+            "column": 39
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 156,
+            "column": 41
+          },
+          "text": "invalid keystore format"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 156,
+            "column": 66
+          },
+          "text": ", or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 156,
+            "column": 71
+          },
+          "text": "base64: invalid input"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 156,
+            "column": 94
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 158,
+                "column": 3
+              },
+              "text": "Cause:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 11
+          },
+          "text": " line breaks added when copying the base64 value, or a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 158,
+            "column": 66
+          },
+          "text": ".p12"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 72
+          },
+          "text": " created with OpenSSL 3 defaults that macOS cannot read."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 160,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 9
+          },
+          "text": " encode on one line, and use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 38
+          },
+          "text": "-legacy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 47
+          },
+          "text": " when creating a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 64
+          },
+          "text": ".p12"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 70
+          },
+          "text": " with OpenSSL 3:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 162,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "base64 -i dist.p12 | tr -d '\\n' > dist.p12.b64\nopenssl pkcs12 -export -legacy -inkey key.pem -in cert.pem -out dist.p12"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 167,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 5
+          },
+          "text": "Pitfall: a lost Android keystore"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 169,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 169,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 13
+          },
+          "text": " you cannot sign an update because nobody has the keystore."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 171,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 171,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 171,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 9
+          },
+          "text": " with Play App Signing, the keystore is the upload key, and Play Console support can register a new one. Store the keystore in your CI secrets and in an offline backup. Never let it live only on one laptop. The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 171,
+            "column": 220
+          },
+          "url": "/tools/android-keystore-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 171,
+                "column": 221
+              },
+              "text": "Android keystore generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 284
+          },
+          "text": " creates a new one if you are starting fresh."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 173,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 4
+          },
+          "text": "Stage 4: Pipeline design"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 175,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 175,
+            "column": 5
+          },
+          "text": "Pitfall: native builds on every pull request"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 177,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 177,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 177,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 177,
+            "column": 13
+          },
+          "text": " slow PR checks and a large macOS minutes bill."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 179,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 179,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 179,
+                "column": 3
+              },
+              "text": "Cause:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 179,
+            "column": 11
+          },
+          "text": " iOS builds on hosted macOS runners are the most expensive minutes in most CI plans, and most commits only touch JavaScript."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 181,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 181,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 181,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 9
+          },
+          "text": " run lint, tests, and the web build on every PR. Run native builds on release tags or merges to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 181,
+            "column": 105
+          },
+          "text": "main"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 111
+          },
+          "text": ". For PR previews, ship the web bundle to a Capgo channel instead of building a binary, as described in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 181,
+            "column": 215
+          },
+          "url": "/blog/comparing-ci-cd-platforms-for-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 181,
+                "column": 216
+              },
+              "text": "Comparing CI/CD platforms for Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 314
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 183,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 183,
+            "column": 5
+          },
+          "text": "Pitfall: building iOS and Android sequentially"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 185,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 185,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 185,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 185,
+            "column": 9
+          },
+          "text": " use a matrix so both platforms build in parallel, and set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 185,
+            "column": 68
+          },
+          "text": "fail-fast: false"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 185,
+            "column": 86
+          },
+          "text": " so an iOS signing problem does not cancel a good Android build."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 187,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "strategy:\n  fail-fast: false\n  matrix:\n    platform: [ios, android]"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 194,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 194,
+            "column": 5
+          },
+          "text": "Pitfall: no caching, or the wrong cache"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 196,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 196,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 196,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 196,
+            "column": 13
+          },
+          "text": " every build downloads Gradle dependencies and CocoaPods from scratch, or a staging build ships production config from a stale cache."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 198,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 198,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 198,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 9
+          },
+          "text": " cache "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 198,
+            "column": 16
+          },
+          "text": "~/.gradle/caches"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 34
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 198,
+            "column": 36
+          },
+          "text": "~/.gradle/wrapper"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 55
+          },
+          "text": ", and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 198,
+            "column": 61
+          },
+          "text": "ios/App/Pods"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 75
+          },
+          "text": " keyed on the lockfiles. Partition caches by environment. With Capgo Build, the per-app build cache can be split with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 198,
+            "column": 193
+          },
+          "text": "--cache-key prod"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 211
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 198,
+            "column": 216
+          },
+          "text": "--cache-key staging"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 237
+          },
+          "text": ", or skipped with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 198,
+            "column": 255
+          },
+          "text": "--no-cache"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 267
+          },
+          "text": " for a clean build."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 200,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 200,
+            "column": 5
+          },
+          "text": "Pitfall: monorepo paths"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 202,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 202,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 202,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 202,
+            "column": 13
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 202,
+            "column": 14
+          },
+          "text": "could not find capacitor.config"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 202,
+            "column": 47
+          },
+          "text": " or plugins missing from the native project."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 204,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 204,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 204,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 9
+          },
+          "text": " run Capacitor commands from the app package, and point tools at hoisted "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 204,
+            "column": 82
+          },
+          "text": "node_modules"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 96
+          },
+          "text": ". The Capgo CLI accepts "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 204,
+            "column": 120
+          },
+          "text": "--path"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 128
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 204,
+            "column": 133
+          },
+          "text": "--node-modules"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 149
+          },
+          "text": " for this."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 206,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 4
+          },
+          "text": "Stage 5: Store submission"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 208,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 208,
+            "column": 5
+          },
+          "text": "Pitfall: reused build numbers"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 210,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 210,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 210,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 210,
+            "column": 13
+          },
+          "text": " \"The bundle version must be higher than the previously uploaded version\" on iOS, or \"Version code has already been used\" on Google Play."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 212,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 212,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 212,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 212,
+            "column": 9
+          },
+          "text": " generate the number in CI. With fastlane, read the latest TestFlight build and add one. With Capgo Build, this is the default: it fetches the latest build number from App Store Connect or the highest "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 212,
+            "column": 210
+          },
+          "text": "versionCode"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 212,
+            "column": 223
+          },
+          "text": " from Google Play and increments it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 214,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 214,
+            "column": 5
+          },
+          "text": "Pitfall: builds stuck in TestFlight"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 216,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 216,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 216,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 216,
+            "column": 13
+          },
+          "text": " upload succeeds but testers never see the build."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 218,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 218,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 218,
+                "column": 3
+              },
+              "text": "Cause:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 11
+          },
+          "text": " missing export compliance answer."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 220,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 220,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 220,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 220,
+            "column": 9
+          },
+          "text": " declare it once in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 220,
+            "column": 29
+          },
+          "text": "ios/App/App/Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 220,
+            "column": 53
+          },
+          "text": " if you only use standard encryption:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 222,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<key>ITSAppUsesNonExemptEncryption</key>\n<false/>"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 227,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 5
+          },
+          "text": "Pitfall: privacy manifest rejections"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 229,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 229,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 229,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 229,
+            "column": 13
+          },
+          "text": " email from Apple about missing required reason API declarations (ITMS-91053)."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 231,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 231,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 231,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 231,
+            "column": 9
+          },
+          "text": " add a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 231,
+            "column": 16
+          },
+          "text": "PrivacyInfo.xcprivacy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 231,
+            "column": 39
+          },
+          "text": " to the app target and update plugins that ship their own. See the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 231,
+            "column": 106
+          },
+          "url": "/blog/privacy-manifest-for-capacitor-apps-guide/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 231,
+                "column": 107
+              },
+              "text": "privacy manifest guide for Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 231,
+            "column": 199
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 233,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 233,
+            "column": 5
+          },
+          "text": "Pitfall: wrong artifact type"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 235,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 235,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 235,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 235,
+            "column": 9
+          },
+          "text": " Google Play needs an AAB ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 235,
+            "column": 36
+          },
+          "text": "bundleRelease"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 235,
+            "column": 51
+          },
+          "text": "), not an APK. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 235,
+            "column": 66
+          },
+          "text": "bundleRelease"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 235,
+            "column": 81
+          },
+          "text": " still succeeds without a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 235,
+            "column": 107
+          },
+          "text": "release"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 235,
+            "column": 116
+          },
+          "text": " signing config and produces an unsigned AAB that Play rejects, so configure "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 235,
+            "column": 193
+          },
+          "text": "signingConfigs.release"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 235,
+            "column": 217
+          },
+          "text": " in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 235,
+            "column": 221
+          },
+          "text": "android/app/build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 235,
+            "column": 247
+          },
+          "text": " first. iOS needs an App Store export, not a development or ad hoc IPA. Check the export method in your build step."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 237,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 237,
+            "column": 4
+          },
+          "text": "Stage 6: Live updates"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 239,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 239,
+            "column": 5
+          },
+          "text": "Pitfall: shipping a live update that needs a new native build"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 241,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 241,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 241,
+                "column": 3
+              },
+              "text": "Symptom:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 13
+          },
+          "text": " after an over-the-air update, the app crashes calling a plugin method that does not exist in the installed binary."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 243,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 243,
+                "column": 3
+              },
+              "text": "Cause:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 11
+          },
+          "text": " the web bundle depends on a plugin version newer than the one compiled into the app on users' devices."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 245,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 245,
+                "column": 3
+              },
+              "text": "Fix:"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 9
+          },
+          "text": " let the pipeline decide. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 245,
+            "column": 35
+          },
+          "text": "build needed"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 49
+          },
+          "text": " exits 0 when native dependencies match what is live on the channel and 1 when a new binary is required:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 247,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "if bunx @capgo/cli@latest build needed com.example.app --channel production; then\n  bunx @capgo/cli@latest bundle upload com.example.app --channel production\nelse\n  bunx cap sync\n  bunx @capgo/cli@latest build request com.example.app --platform ios\n  bunx @capgo/cli@latest build request com.example.app --platform android\nfi"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 257,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 1
+          },
+          "text": "Also force the native path when files under "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 257,
+            "column": 45
+          },
+          "text": "ios/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 51
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 257,
+            "column": 53
+          },
+          "text": "android/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 63
+          },
+          "text": ", or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 257,
+            "column": 68
+          },
+          "text": "capacitor.config.*"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 88
+          },
+          "text": " change. The complete pattern is in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 257,
+            "column": 124
+          },
+          "url": "/docs/builder/ci-ota-or-native/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 257,
+                "column": 125
+              },
+              "text": "Auto choose live update or native build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 198
+          },
+          "text": ", and the compatibility rules are in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 257,
+            "column": 235
+          },
+          "url": "/docs/live-updates/compatibility/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 257,
+                "column": 236
+              },
+              "text": "native compatibility"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 292
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 259,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 259,
+            "column": 4
+          },
+          "text": "The fix that removes the most pitfalls"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 261,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 261,
+            "column": 1
+          },
+          "text": "If you only change one thing, move iOS compilation and signing out of your CI runners. Keychain setup, Xcode upgrades, macOS costs, and profile installation all disappear from your pipeline when a Linux job hands the prepared project to "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 261,
+            "column": 238
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 261,
+                "column": 239
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 261,
+            "column": 267
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 263,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun install --frozen-lockfile && bun run build\nbunx cap sync ios\nbunx @capgo/cli@latest build request com.example.app --platform ios --build-mode release"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 269,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 269,
+            "column": 1
+          },
+          "text": "The pitfalls in stages 1, 5, and 6 still apply, because they are about your project, not the runner. For more on debugging failing jobs, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 269,
+            "column": 142
+          },
+          "url": "/blog/fixing-build-failures-in-capacitor-ci-cd-pipelines/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 269,
+                "column": 143
+              },
+              "text": "Fixing build failures in Capacitor CI/CD pipelines"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 269,
+            "column": 253
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 271,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 271,
+            "column": 4
+          },
+          "text": "Quick reference"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 273,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 273,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 273,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 273,
+                    "column": 3
+                  },
+                  "text": "Error"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 273,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 273,
+                    "column": 11
+                  },
+                  "text": "Pitfall"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 273,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 273,
+                    "column": 21
+                  },
+                  "text": "Section"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 275,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 275,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 275,
+                    "column": 3
+                  },
+                  "text": "Old UI in a new build"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 275,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 275,
+                    "column": 27
+                  },
+                  "text": "cap sync"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 275,
+                    "column": 37
+                  },
+                  "text": " before web build"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 275,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 275,
+                    "column": 57
+                  },
+                  "text": "Stage 1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 276,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 276,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 276,
+                    "column": 3
+                  },
+                  "text": "No profiles for ... were found"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 276,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 276,
+                    "column": 38
+                  },
+                  "text": "Profile not installed or mismatched"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 276,
+                "column": 74
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 276,
+                    "column": 76
+                  },
+                  "text": "Stage 3"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 277,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 277,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 277,
+                    "column": 3
+                  },
+                  "text": "errSecInternalComponent"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 277,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 277,
+                    "column": 31
+                  },
+                  "text": "Locked keychain"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 277,
+                "column": 47
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 277,
+                    "column": 49
+                  },
+                  "text": "Stage 3"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 278,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 278,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 278,
+                    "column": 3
+                  },
+                  "text": "MAC verification failed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 278,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 278,
+                    "column": 31
+                  },
+                  "text": "Wrong password or OpenSSL 3 "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 278,
+                    "column": 59
+                  },
+                  "text": ".p12"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 278,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 278,
+                    "column": 68
+                  },
+                  "text": "Stage 3"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 279,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 279,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 279,
+                    "column": 3
+                  },
+                  "text": "Unsupported class file major version"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 279,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 279,
+                    "column": 44
+                  },
+                  "text": "Wrong JDK"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 279,
+                "column": 54
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 279,
+                    "column": 56
+                  },
+                  "text": "Stage 2"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 280,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 280,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 280,
+                    "column": 3
+                  },
+                  "text": "SDK too old on upload"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 280,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 280,
+                    "column": 27
+                  },
+                  "text": "Xcode older than 26"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 280,
+                "column": 47
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 280,
+                    "column": 49
+                  },
+                  "text": "Stage 2"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 281,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 281,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 281,
+                    "column": 3
+                  },
+                  "text": "Bundle version must be higher"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 281,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 281,
+                    "column": 35
+                  },
+                  "text": "Reused build number"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 281,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 281,
+                    "column": 57
+                  },
+                  "text": "Stage 5"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 282,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 282,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 282,
+                    "column": 3
+                  },
+                  "text": "Version code already used"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 282,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 282,
+                    "column": 31
+                  },
+                  "text": "Reused "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 282,
+                    "column": 38
+                  },
+                  "text": "versionCode"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 282,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 282,
+                    "column": 54
+                  },
+                  "text": "Stage 5"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 283,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 283,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 283,
+                    "column": 3
+                  },
+                  "text": "Crash after live update"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 283,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 283,
+                    "column": 29
+                  },
+                  "text": "Native change shipped over the air"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 283,
+                "column": 64
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 283,
+                    "column": 66
+                  },
+                  "text": "Stage 6"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

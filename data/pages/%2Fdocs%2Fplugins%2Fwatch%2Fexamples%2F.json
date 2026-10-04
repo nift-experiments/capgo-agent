@@ -1,0 +1,1137 @@
+{
+  "version": 1,
+  "route": "/docs/plugins/watch/examples/",
+  "source": "corpus/source/apps/docs/src/content/docs/docs/plugins/watch/examples.mdx",
+  "sourceSha256": "5afc8334436b9ff6e4e38de974f381e4c80c33dbf12af64c393f320b69cb829a",
+  "metadata": {
+    "title": "Examples & Use Cases",
+    "description": "Real-world examples and patterns for building Apple Watch apps with Capacitor.",
+    "sidebar": {
+      "order": 4
+    }
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide provides practical examples for common Apple Watch app patterns using "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 4,
+            "column": 82
+          },
+          "text": "@capgo/capacitor-watch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 106
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "Example 1: Health & Fitness Tracker"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "Sync workout data between watch and phone."
+        }
+      ]
+    },
+    {
+      "type": "component",
+      "name": "Tabs",
+      "props": {},
+      "blocks": [
+        {
+          "type": "component",
+          "name": "TabItem",
+          "props": {
+            "label": "Watch (SwiftUI)"
+          },
+          "blocks": [
+            {
+              "type": "code",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "lang": "swift",
+              "meta": null,
+              "text": "import SwiftUI\nimport CapgoWatchSDK\n\nstruct WorkoutView: View {\n    @ObservedObject var connector = WatchConnector.shared\n    @State private var heartRate: Double = 0\n    @State private var calories: Double = 0\n    @State private var isTracking = false\n\n    var body: some View {\n        VStack(spacing: 12) {\n            // Heart Rate Display\n            HStack {\n                Image(systemName: \"heart.fill\")\n                    .foregroundColor(.red)\n                Text(\"\\(Int(heartRate)) BPM\")\n                    .font(.title2)\n            }\n\n            // Calories\n            HStack {\n                Image(systemName: \"flame.fill\")\n                    .foregroundColor(.orange)\n                Text(\"\\(Int(calories)) cal\")\n            }\n\n            // Start/Stop Button\n            Button(isTracking ? \"Stop\" : \"Start\") {\n                toggleTracking()\n            }\n            .buttonStyle(.borderedProminent)\n            .tint(isTracking ? .red : .green)\n        }\n        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in\n            if isTracking {\n                updateMetrics()\n            }\n        }\n    }\n\n    private func toggleTracking() {\n        isTracking.toggle()\n        if isTracking {\n            // Notify phone that workout started\n            connector.sendMessage([\n                \"event\": \"workoutStarted\",\n                \"timestamp\": Date().timeIntervalSince1970\n            ])\n        } else {\n            // Send final summary to phone\n            do {\n                try connector.updateApplicationContext([\n                    \"workoutComplete\": true,\n                    \"totalCalories\": calories,\n                    \"avgHeartRate\": heartRate,\n                    \"endTime\": Date().timeIntervalSince1970\n                ])\n            } catch {\n                print(\"Failed to update context: \\(error)\")\n            }\n        }\n    }\n\n    private func updateMetrics() {\n        // Simulate heart rate (in real app, use HealthKit)\n        heartRate = Double.random(in: 120...160)\n        calories += Double.random(in: 0.1...0.3)\n\n        // Send real-time updates if phone is reachable\n        if connector.isReachable {\n            connector.sendMessage([\n                \"heartRate\": heartRate,\n                \"calories\": calories,\n                \"timestamp\": Date().timeIntervalSince1970\n            ])\n        }\n    }\n}"
+            }
+          ],
+          "location": {
+            "line": 11,
+            "column": 3
+          }
+        },
+        {
+          "type": "component",
+          "name": "TabItem",
+          "props": {
+            "label": "Phone (Capacitor)"
+          },
+          "blocks": [
+            {
+              "type": "code",
+              "location": {
+                "line": 94,
+                "column": 1
+              },
+              "lang": "typescript",
+              "meta": null,
+              "text": "import { CapgoWatch } from '@capgo/capacitor-watch';\n\nclass WorkoutTracker {\n  private heartRateData: number[] = [];\n  private totalCalories = 0;\n\n  async initialize() {\n    // Listen for real-time workout updates\n    await CapgoWatch.addListener('messageReceived', (event) => {\n      const { heartRate, calories, timestamp } = event.message;\n\n      if (heartRate) {\n        this.heartRateData.push(heartRate);\n        this.updateUI(heartRate, calories);\n      }\n\n      if (event.message.event === 'workoutStarted') {\n        this.onWorkoutStarted(timestamp);\n      }\n    });\n\n    // Listen for workout completion via context\n    await CapgoWatch.addListener('applicationContextReceived', (event) => {\n      if (event.context.workoutComplete) {\n        this.onWorkoutComplete(event.context);\n      }\n    });\n  }\n\n  private onWorkoutStarted(timestamp: number) {\n    console.log('Workout started at:', new Date(timestamp * 1000));\n    this.heartRateData = [];\n    this.totalCalories = 0;\n  }\n\n  private onWorkoutComplete(data: any) {\n    const avgHeartRate = data.avgHeartRate;\n    const totalCalories = data.totalCalories;\n\n    // Save to your backend\n    this.saveWorkout({\n      avgHeartRate,\n      totalCalories,\n      endTime: data.endTime,\n      heartRateHistory: this.heartRateData\n    });\n  }\n\n  private updateUI(heartRate: number, calories: number) {\n    // Update your app's UI\n    document.getElementById('heart-rate')!.textContent = `${Math.round(heartRate)} BPM`;\n    document.getElementById('calories')!.textContent = `${Math.round(calories)} cal`;\n  }\n\n  private async saveWorkout(data: any) {\n    // Save to your backend\n    console.log('Saving workout:', data);\n  }\n}\n\nconst tracker = new WorkoutTracker();\ntracker.initialize();"
+            }
+          ],
+          "location": {
+            "line": 93,
+            "column": 3
+          }
+        }
+      ],
+      "location": {
+        "line": 10,
+        "column": 1
+      }
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 161,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 4
+          },
+          "text": "Example 2: Smart Home Remote"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 1
+          },
+          "text": "Control smart home devices from your watch."
+        }
+      ]
+    },
+    {
+      "type": "component",
+      "name": "Tabs",
+      "props": {},
+      "blocks": [
+        {
+          "type": "component",
+          "name": "TabItem",
+          "props": {
+            "label": "Watch (SwiftUI)"
+          },
+          "blocks": [
+            {
+              "type": "code",
+              "location": {
+                "line": 167,
+                "column": 1
+              },
+              "lang": "swift",
+              "meta": null,
+              "text": "import SwiftUI\nimport CapgoWatchSDK\n\nstruct SmartHomeView: View {\n    @ObservedObject var connector = WatchConnector.shared\n    @State private var devices: [SmartDevice] = []\n    @State private var isLoading = false\n\n    var body: some View {\n        NavigationView {\n            Group {\n                if isLoading {\n                    ProgressView(\"Loading...\")\n                } else if devices.isEmpty {\n                    Text(\"No devices\")\n                        .foregroundColor(.secondary)\n                } else {\n                    List(devices) { device in\n                        DeviceRow(device: device, onToggle: { toggleDevice(device) })\n                    }\n                }\n            }\n            .navigationTitle(\"Home\")\n            .toolbar {\n                Button(action: refreshDevices) {\n                    Image(systemName: \"arrow.clockwise\")\n                }\n            }\n        }\n        .onAppear {\n            refreshDevices()\n        }\n        .onChange(of: connector.lastMessage) { message in\n            handleMessage(message)\n        }\n    }\n\n    private func refreshDevices() {\n        guard connector.isReachable else {\n            // Load from cached context\n            loadFromContext()\n            return\n        }\n\n        isLoading = true\n        connector.sendMessage([\"action\": \"getDevices\"]) { reply in\n            DispatchQueue.main.async {\n                isLoading = false\n                if let deviceList = reply[\"devices\"] as? [[String: Any]] {\n                    devices = deviceList.compactMap { SmartDevice(from: $0) }\n                }\n            }\n        }\n    }\n\n    private func toggleDevice(_ device: SmartDevice) {\n        connector.sendMessage([\n            \"action\": \"toggleDevice\",\n            \"deviceId\": device.id,\n            \"newState\": !device.isOn\n        ]) { reply in\n            DispatchQueue.main.async {\n                if reply[\"success\"] as? Bool == true {\n                    // Update local state\n                    if let index = devices.firstIndex(where: { $0.id == device.id }) {\n                        devices[index].isOn.toggle()\n                    }\n                }\n            }\n        }\n    }\n\n    private func loadFromContext() {\n        if let deviceList = connector.applicationContext[\"devices\"] as? [[String: Any]] {\n            devices = deviceList.compactMap { SmartDevice(from: $0) }\n        }\n    }\n\n    private func handleMessage(_ message: [String: Any]) {\n        // Handle push updates from phone\n        if let update = message[\"deviceUpdate\"] as? [String: Any],\n           let deviceId = update[\"id\"] as? String,\n           let isOn = update[\"isOn\"] as? Bool {\n            if let index = devices.firstIndex(where: { $0.id == deviceId }) {\n                devices[index].isOn = isOn\n            }\n        }\n    }\n}\n\nstruct SmartDevice: Identifiable {\n    let id: String\n    let name: String\n    let type: String\n    var isOn: Bool\n\n    init?(from dict: [String: Any]) {\n        guard let id = dict[\"id\"] as? String,\n              let name = dict[\"name\"] as? String,\n              let type = dict[\"type\"] as? String,\n              let isOn = dict[\"isOn\"] as? Bool else {\n            return nil\n        }\n        self.id = id\n        self.name = name\n        self.type = type\n        self.isOn = isOn\n    }\n}\n\nstruct DeviceRow: View {\n    let device: SmartDevice\n    let onToggle: () -> Void\n\n    var body: some View {\n        HStack {\n            Image(systemName: iconName)\n                .foregroundColor(device.isOn ? .yellow : .gray)\n            Text(device.name)\n            Spacer()\n            Toggle(\"\", isOn: .constant(device.isOn))\n                .labelsHidden()\n                .onTapGesture { onToggle() }\n        }\n    }\n\n    var iconName: String {\n        switch device.type {\n        case \"light\": return device.isOn ? \"lightbulb.fill\" : \"lightbulb\"\n        case \"thermostat\": return \"thermometer\"\n        case \"lock\": return device.isOn ? \"lock.fill\" : \"lock.open\"\n        default: return \"power\"\n        }\n    }\n}"
+            }
+          ],
+          "location": {
+            "line": 166,
+            "column": 3
+          }
+        },
+        {
+          "type": "component",
+          "name": "TabItem",
+          "props": {
+            "label": "Phone (Capacitor)"
+          },
+          "blocks": [
+            {
+              "type": "code",
+              "location": {
+                "line": 306,
+                "column": 1
+              },
+              "lang": "typescript",
+              "meta": null,
+              "text": "import { CapgoWatch } from '@capgo/capacitor-watch';\n\ninterface SmartDevice {\n  id: string;\n  name: string;\n  type: string;\n  isOn: boolean;\n}\n\nclass SmartHomeController {\n  private devices: SmartDevice[] = [];\n\n  async initialize() {\n    // Handle requests from watch\n    await CapgoWatch.addListener('messageReceivedWithReply', async (event) => {\n      const { action, deviceId, newState } = event.message;\n\n      let response: any = { success: false };\n\n      switch (action) {\n        case 'getDevices':\n          response = { devices: this.devices };\n          break;\n\n        case 'toggleDevice':\n          const success = await this.toggleDevice(deviceId, newState);\n          response = { success };\n          break;\n      }\n\n      await CapgoWatch.replyToMessage({\n        callbackId: event.callbackId,\n        data: response\n      });\n    });\n\n    // Load initial devices\n    await this.loadDevices();\n\n    // Keep watch updated with device states\n    await this.syncDevicesToWatch();\n  }\n\n  private async loadDevices() {\n    // Load from your smart home API\n    this.devices = [\n      { id: '1', name: 'Living Room', type: 'light', isOn: true },\n      { id: '2', name: 'Bedroom', type: 'light', isOn: false },\n      { id: '3', name: 'Thermostat', type: 'thermostat', isOn: true },\n      { id: '4', name: 'Front Door', type: 'lock', isOn: true }\n    ];\n  }\n\n  private async toggleDevice(deviceId: string, newState: boolean): Promise<boolean> {\n    try {\n      // Call your smart home API\n      const device = this.devices.find(d => d.id === deviceId);\n      if (device) {\n        device.isOn = newState;\n\n        // Push update to watch\n        const info = await CapgoWatch.getInfo();\n        if (info.isReachable) {\n          await CapgoWatch.sendMessage({\n            data: {\n              deviceUpdate: { id: deviceId, isOn: newState }\n            }\n          });\n        }\n        return true;\n      }\n      return false;\n    } catch (error) {\n      console.error('Failed to toggle device:', error);\n      return false;\n    }\n  }\n\n  private async syncDevicesToWatch() {\n    // Update application context for offline access\n    await CapgoWatch.updateApplicationContext({\n      context: { devices: this.devices }\n    });\n  }\n\n  // Call this when devices change on the phone\n  async onDeviceStateChanged(deviceId: string, isOn: boolean) {\n    const device = this.devices.find(d => d.id === deviceId);\n    if (device) {\n      device.isOn = isOn;\n      await this.syncDevicesToWatch();\n    }\n  }\n}\n\nconst controller = new SmartHomeController();\ncontroller.initialize();"
+            }
+          ],
+          "location": {
+            "line": 305,
+            "column": 3
+          }
+        }
+      ],
+      "location": {
+        "line": 165,
+        "column": 1
+      }
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 408,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 408,
+            "column": 4
+          },
+          "text": "Example 3: Notification Center"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 410,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 410,
+            "column": 1
+          },
+          "text": "Send custom notifications to the watch."
+        }
+      ]
+    },
+    {
+      "type": "component",
+      "name": "Tabs",
+      "props": {},
+      "blocks": [
+        {
+          "type": "component",
+          "name": "TabItem",
+          "props": {
+            "label": "Phone (Capacitor)"
+          },
+          "blocks": [
+            {
+              "type": "code",
+              "location": {
+                "line": 414,
+                "column": 1
+              },
+              "lang": "typescript",
+              "meta": null,
+              "text": "import { CapgoWatch } from '@capgo/capacitor-watch';\n\nclass NotificationService {\n  async sendNotification(title: string, body: string, data?: any) {\n    const info = await CapgoWatch.getInfo();\n\n    if (info.isReachable) {\n      // Send immediately if watch is reachable\n      await CapgoWatch.sendMessage({\n        data: {\n          type: 'notification',\n          title,\n          body,\n          data,\n          timestamp: Date.now()\n        }\n      });\n    } else {\n      // Queue for later delivery\n      await CapgoWatch.transferUserInfo({\n        userInfo: {\n          type: 'notification',\n          title,\n          body,\n          data,\n          timestamp: Date.now()\n        }\n      });\n    }\n  }\n\n  async sendUrgentAlert(message: string) {\n    // Use sendMessage for urgent alerts (requires watch to be reachable)\n    const info = await CapgoWatch.getInfo();\n\n    if (!info.isReachable) {\n      console.warn('Watch not reachable for urgent alert');\n      return false;\n    }\n\n    await CapgoWatch.sendMessage({\n      data: {\n        type: 'urgentAlert',\n        message,\n        haptic: 'warning',\n        timestamp: Date.now()\n      }\n    });\n\n    return true;\n  }\n}\n\n// Usage\nconst notifications = new NotificationService();\n\n// Regular notification (queued if watch unavailable)\nawait notifications.sendNotification(\n  'Order Update',\n  'Your order has shipped!',\n  { orderId: '12345' }\n);\n\n// Urgent alert (requires watch to be active)\nconst sent = await notifications.sendUrgentAlert('Security alert: New login detected');"
+            }
+          ],
+          "location": {
+            "line": 413,
+            "column": 3
+          }
+        },
+        {
+          "type": "component",
+          "name": "TabItem",
+          "props": {
+            "label": "Watch (SwiftUI)"
+          },
+          "blocks": [
+            {
+              "type": "code",
+              "location": {
+                "line": 483,
+                "column": 1
+              },
+              "lang": "swift",
+              "meta": null,
+              "text": "import SwiftUI\nimport WatchKit\nimport CapgoWatchSDK\n\nstruct NotificationView: View {\n    @ObservedObject var connector = WatchConnector.shared\n    @State private var notifications: [WatchNotification] = []\n    @State private var showAlert = false\n    @State private var alertMessage = \"\"\n\n    var body: some View {\n        NavigationView {\n            List(notifications) { notification in\n                NotificationRow(notification: notification)\n            }\n            .navigationTitle(\"Notifications\")\n        }\n        .onReceive(connector.$lastMessage) { message in\n            handleMessage(message)\n        }\n        .alert(\"Alert\", isPresented: $showAlert) {\n            Button(\"OK\") { }\n        } message: {\n            Text(alertMessage)\n        }\n    }\n\n    private func handleMessage(_ message: [String: Any]) {\n        guard let type = message[\"type\"] as? String else { return }\n\n        switch type {\n        case \"notification\":\n            let notification = WatchNotification(\n                id: UUID().uuidString,\n                title: message[\"title\"] as? String ?? \"\",\n                body: message[\"body\"] as? String ?? \"\",\n                timestamp: Date(timeIntervalSince1970: (message[\"timestamp\"] as? Double ?? 0) / 1000)\n            )\n            notifications.insert(notification, at: 0)\n\n            // Play haptic\n            WKInterfaceDevice.current().play(.notification)\n\n        case \"urgentAlert\":\n            alertMessage = message[\"message\"] as? String ?? \"Alert\"\n            showAlert = true\n\n            // Play strong haptic for urgent alerts\n            if let hapticType = message[\"haptic\"] as? String {\n                switch hapticType {\n                case \"warning\":\n                    WKInterfaceDevice.current().play(.notification)\n                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {\n                        WKInterfaceDevice.current().play(.notification)\n                    }\n                default:\n                    WKInterfaceDevice.current().play(.notification)\n                }\n            }\n\n        default:\n            break\n        }\n    }\n}\n\nstruct WatchNotification: Identifiable {\n    let id: String\n    let title: String\n    let body: String\n    let timestamp: Date\n}\n\nstruct NotificationRow: View {\n    let notification: WatchNotification\n\n    var body: some View {\n        VStack(alignment: .leading, spacing: 4) {\n            Text(notification.title)\n                .font(.headline)\n            Text(notification.body)\n                .font(.caption)\n                .foregroundColor(.secondary)\n            Text(notification.timestamp, style: .relative)\n                .font(.caption2)\n                .foregroundColor(.secondary)\n        }\n        .padding(.vertical, 4)\n    }\n}"
+            }
+          ],
+          "location": {
+            "line": 482,
+            "column": 3
+          }
+        }
+      ],
+      "location": {
+        "line": 412,
+        "column": 1
+      }
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 578,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 578,
+            "column": 4
+          },
+          "text": "Example 4: Data Sync Service"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 580,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 580,
+            "column": 1
+          },
+          "text": "Keep data synchronized between phone and watch."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 582,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { CapgoWatch } from '@capgo/capacitor-watch';\n\nclass DataSyncService {\n  private syncQueue: any[] = [];\n  private isSyncing = false;\n\n  async initialize() {\n    // Listen for sync requests from watch\n    await CapgoWatch.addListener('messageReceivedWithReply', async (event) => {\n      if (event.message.action === 'sync') {\n        const data = await this.getDataForSync(event.message.lastSyncTime);\n        await CapgoWatch.replyToMessage({\n          callbackId: event.callbackId,\n          data: { items: data, syncTime: Date.now() }\n        });\n      }\n    });\n\n    // Listen for data from watch\n    await CapgoWatch.addListener('userInfoReceived', (event) => {\n      this.handleWatchData(event.userInfo);\n    });\n\n    // Monitor connectivity for sync opportunities\n    await CapgoWatch.addListener('reachabilityChanged', (event) => {\n      if (event.isReachable && this.syncQueue.length > 0) {\n        this.processSyncQueue();\n      }\n    });\n  }\n\n  // Push important data to watch (guaranteed delivery)\n  async pushToWatch(data: any) {\n    await CapgoWatch.transferUserInfo({\n      userInfo: {\n        type: 'dataUpdate',\n        data,\n        timestamp: Date.now()\n      }\n    });\n  }\n\n  // Update shared state (latest value only)\n  async updateSharedState(state: any) {\n    await CapgoWatch.updateApplicationContext({\n      context: {\n        ...state,\n        lastUpdated: Date.now()\n      }\n    });\n  }\n\n  // Queue data for sync when watch becomes available\n  queueForSync(data: any) {\n    this.syncQueue.push(data);\n    this.attemptSync();\n  }\n\n  private async attemptSync() {\n    const info = await CapgoWatch.getInfo();\n    if (info.isReachable) {\n      await this.processSyncQueue();\n    }\n  }\n\n  private async processSyncQueue() {\n    if (this.isSyncing || this.syncQueue.length === 0) return;\n\n    this.isSyncing = true;\n\n    while (this.syncQueue.length > 0) {\n      const item = this.syncQueue.shift();\n      await CapgoWatch.transferUserInfo({ userInfo: item });\n    }\n\n    this.isSyncing = false;\n  }\n\n  private async getDataForSync(lastSyncTime: number): Promise<any[]> {\n    // Return data modified since lastSyncTime\n    // This would query your database/API\n    return [];\n  }\n\n  private handleWatchData(data: any) {\n    console.log('Received from watch:', data);\n    // Process and save data from watch\n  }\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 674,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 674,
+            "column": 4
+          },
+          "text": "Best Practices"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 676,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 676,
+            "column": 5
+          },
+          "text": "1. Choose the Right Transfer Method"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 678,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 678,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 678,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 678,
+                    "column": 3
+                  },
+                  "text": "Method"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 678,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 678,
+                    "column": 12
+                  },
+                  "text": "Use Case"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 678,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 678,
+                    "column": 23
+                  },
+                  "text": "Delivery"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 680,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 680,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 680,
+                    "column": 3
+                  },
+                  "text": "sendMessage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 680,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 680,
+                    "column": 19
+                  },
+                  "text": "Interactive, time-sensitive"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 680,
+                "column": 47
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 680,
+                    "column": 49
+                  },
+                  "text": "Immediate (fails if unreachable)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 681,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 681,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 681,
+                    "column": 3
+                  },
+                  "text": "updateApplicationContext"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 681,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 681,
+                    "column": 32
+                  },
+                  "text": "Current app state"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 681,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 681,
+                    "column": 52
+                  },
+                  "text": "Latest value only"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 682,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 682,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 682,
+                    "column": 3
+                  },
+                  "text": "transferUserInfo"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 682,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 682,
+                    "column": 24
+                  },
+                  "text": "Important data"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 682,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 682,
+                    "column": 41
+                  },
+                  "text": "Queued, guaranteed"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 684,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 684,
+            "column": 5
+          },
+          "text": "2. Handle Offline Gracefully"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 686,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "async function smartSend(data: any, important: boolean) {\n  const info = await CapgoWatch.getInfo();\n\n  if (info.isReachable) {\n    // Send immediately\n    await CapgoWatch.sendMessage({ data });\n  } else if (important) {\n    // Queue for later\n    await CapgoWatch.transferUserInfo({ userInfo: data });\n  } else {\n    // Update context (will be available when watch opens app)\n    await CapgoWatch.updateApplicationContext({ context: data });\n  }\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 703,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 703,
+            "column": 5
+          },
+          "text": "3. Minimize Data Size"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 705,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "// Bad - sending large objects\nconnector.sendMessage([\"user\": fullUserObject])\n\n// Good - send only what's needed\nconnector.sendMessage([\n    \"userId\": user.id,\n    \"name\": user.displayName,\n    \"avatarUrl\": user.avatarUrl\n])"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 717,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 717,
+            "column": 5
+          },
+          "text": "4. Use Haptics Appropriately"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 719,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "import WatchKit\n\n// Success feedback\nWKInterfaceDevice.current().play(.success)\n\n// Failure feedback\nWKInterfaceDevice.current().play(.failure)\n\n// Navigation feedback\nWKInterfaceDevice.current().play(.click)\n\n// Notification\nWKInterfaceDevice.current().play(.notification)"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 735,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 735,
+            "column": 5
+          },
+          "text": "5. Cache on Watch"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 737,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "class DataCache {\n    private let defaults = UserDefaults.standard\n\n    func save(_ data: [String: Any], forKey key: String) {\n        if let encoded = try? JSONSerialization.data(withJSONObject: data) {\n            defaults.set(encoded, forKey: key)\n        }\n    }\n\n    func load(forKey key: String) -> [String: Any]? {\n        guard let data = defaults.data(forKey: key),\n              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {\n            return nil\n        }\n        return dict\n    }\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 757,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 757,
+            "column": 4
+          },
+          "text": "Next Steps"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 759,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 759,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 759,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 759,
+                    "column": 3
+                  },
+                  "url": "/docs/plugins/watch/watch-app-setup/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 759,
+                        "column": 4
+                      },
+                      "text": "Watch App Setup"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 759,
+                    "column": 58
+                  },
+                  "text": " - Create your first watch app"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 760,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 760,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 760,
+                    "column": 3
+                  },
+                  "url": "/docs/plugins/watch/getting-started/#api-reference",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 760,
+                        "column": 4
+                      },
+                      "text": "API Reference"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 760,
+                    "column": 70
+                  },
+                  "text": " - Complete API documentation"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 761,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 761,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 761,
+                    "column": 3
+                  },
+                  "url": "https://github.com/Cap-go/capacitor-watch",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 761,
+                        "column": 4
+                      },
+                      "text": "GitHub Repository"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 761,
+                    "column": 65
+                  },
+                  "text": " - Source code and issues"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 763,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 763,
+            "column": 4
+          },
+          "text": "Keep going from Examples & Use Cases"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 765,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 765,
+            "column": 1
+          },
+          "text": "If you are using "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 765,
+            "column": 18
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 765,
+                "column": 20
+              },
+              "text": "Examples & Use Cases"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 765,
+            "column": 42
+          },
+          "text": " to plan native plugin work, connect it with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 765,
+            "column": 87
+          },
+          "url": "/plugins/capacitor-watch/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 765,
+                "column": 88
+              },
+              "text": "Using @capgo/capacitor-watch"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 765,
+            "column": 144
+          },
+          "text": " for the native capability in Using @capgo/capacitor-watch, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 765,
+            "column": 204
+          },
+          "url": "/plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 765,
+                "column": 205
+              },
+              "text": "Capgo Plugin Directory"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 765,
+            "column": 239
+          },
+          "text": " for the product workflow in Capgo Plugin Directory, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 765,
+            "column": 292
+          },
+          "url": "/docs/plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 765,
+                "column": 293
+              },
+              "text": "Capacitor Plugins by Capgo"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 765,
+            "column": 336
+          },
+          "text": " for the implementation detail in Capacitor Plugins by Capgo, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 765,
+            "column": 398
+          },
+          "url": "/docs/contributing/adding-plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 765,
+                "column": 399
+              },
+              "text": "Adding or Updating Plugins"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 765,
+            "column": 462
+          },
+          "text": " for the implementation detail in Adding or Updating Plugins, and "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 765,
+            "column": 528
+          },
+          "url": "/ionic-enterprise-plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 765,
+                "column": 529
+              },
+              "text": "Ionic Enterprise Plugin Alternatives"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 765,
+            "column": 594
+          },
+          "text": " for the product workflow in Ionic Enterprise Plugin Alternatives."
+        }
+      ]
+    }
+  ]
+}

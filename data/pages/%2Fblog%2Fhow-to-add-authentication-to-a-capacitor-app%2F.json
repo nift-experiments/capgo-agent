@@ -1,0 +1,4266 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-add-authentication-to-a-capacitor-app/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-add-authentication-to-a-capacitor-app.md",
+  "sourceSha256": "3a3f57a80a50a8c5439bd7ac7affc89f30cc42ef975b279575f5950ac1cf1c86",
+  "metadata": {
+    "slug": "how-to-add-authentication-to-a-capacitor-app",
+    "title": "How to Add Authentication to a Capacitor App (2026)",
+    "description": "Compare every way to add authentication to a Capacitor app: native Google and Apple login, OIDC SSO, Firebase, Supabase, Better Auth, passkeys and biometrics.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/mfa-login.webp",
+    "head_image_alt": "Login screen of a Capacitor app offering social, SSO and passkey sign-in",
+    "keywords": "capacitor authentication, add authentication to capacitor app, ionic capacitor login, capacitor social login, capacitor oauth, capacitor passkeys, capacitor biometric login, capacitor firebase auth, capacitor supabase auth",
+    "tag": "Guides, Security, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Can I use more than one authentication method in the same Capacitor app?",
+        "answer": "Yes, and most consumer apps do. A common setup is Sign in with Apple, Google and email with password or passkeys, all creating the same user record on the backend. Link accounts by the provider's verified email or let signed-in users connect extra providers from their settings."
+      },
+      {
+        "question": "Why does Google login fail inside my Capacitor WebView?",
+        "answer": "Google blocks OAuth pages loaded in embedded WebViews and returns disallowed_useragent. Use native Google Sign-In through a plugin, which uses Credential Manager on Android and the Google SDK on iOS, then send the ID token to your backend."
+      },
+      {
+        "question": "Is biometric authentication a replacement for a password?",
+        "answer": "No. Face ID or fingerprint checks happen on the device and only prove that the device owner is present. Use biometrics to unlock a session token or credential that a real login created earlier, and keep the server as the authority on who the user is."
+      },
+      {
+        "question": "What does Apple require for login in iOS apps?",
+        "answer": "If you offer a third-party login such as Google or Facebook as the main account system, guideline 4.8 requires an equivalent privacy-focused login, which Sign in with Apple satisfies. If users can create accounts, guideline 5.1.1(v) requires in-app account deletion, including revoking Sign in with Apple tokens."
+      },
+      {
+        "question": "Do these authentication plugins support Capacitor 8 and the web?",
+        "answer": "Yes. @capgo/capacitor-social-login v8 targets Capacitor 8 and runs on iOS, Android and web. The Google and Apple providers use Google Identity Services and Apple JS on the web, and the OAuth2 engine uses a popup or redirect."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To add authentication to a Capacitor app, pick an identity source (your own backend, a hosted service like Firebase or Supabase, an OIDC provider like Auth0, Okta or Entra ID, or a self-hosted library like Better Auth), use native plugins for anything that opens a provider login page, verify tokens on a server, and store the resulting session in the Keychain or Keystore. Biometrics and passkeys then make the next sign-in fast."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide maps every common option to the right Capacitor plugin and flow, with code for the parts that are the same in every app: the login call, token verification, session storage and biometric unlock. It is up to date for Capacitor 8 in October 2026. Each provider has its own step-by-step guide linked below."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "The auth flow every Capacitor app ends up with"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "No matter which provider you choose, the shape is the same:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 10,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 10,
+                        "column": 6
+                      },
+                      "text": "Identify"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 16
+                  },
+                  "text": " the user: native social sheet, provider login page in the system browser, passkey prompt, or a form that posts email and password."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 11,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 11,
+                        "column": 6
+                      },
+                      "text": "Get a proof"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 19
+                  },
+                  "text": ": an ID token, an authorization code, or a session token from your auth server."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 12,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 12,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 12,
+                        "column": 6
+                      },
+                      "text": "Verify on the server"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 28
+                  },
+                  "text": ": check signature, issuer, audience and expiry, then create or find the user."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 13,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 13,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 13,
+                        "column": 6
+                      },
+                      "text": "Issue a session"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 23
+                  },
+                  "text": ": your own token or the provider's tokens, with a refresh strategy."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 14,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 14,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 14,
+                        "column": 6
+                      },
+                      "text": "Store it securely"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 25
+                  },
+                  "text": " on the device and attach it to API calls."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 15,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 15,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 15,
+                        "column": 6
+                      },
+                      "text": "Unlock quickly"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 22
+                  },
+                  "text": " next time with biometrics, and handle logout and account deletion."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 17,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "text": "Steps 1 and 2 change with the provider. Steps 3 to 6 are your responsibility in every option except fully hosted BaaS, where the SDK does most of it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 19,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 19,
+            "column": 4
+          },
+          "text": "Why WebView login pages break"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 21,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "text": "A Capacitor app runs your web code in a WKWebView (iOS) or Android WebView with a local origin ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 21,
+            "column": 97
+          },
+          "text": "capacitor://localhost"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 120
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 21,
+            "column": 124
+          },
+          "text": "https://localhost"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 143
+          },
+          "text": "). Loading a provider's login page inside that WebView causes three problems:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 23,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "text": "Google returns "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 23,
+                    "column": 18
+                  },
+                  "text": "disallowed_useragent"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 40
+                  },
+                  "text": " and refuses to show the page."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 24,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "text": "The app cannot prove the page is the real provider, which is why RFC 8252 tells native apps to use the system browser."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 25,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "text": "A full-page redirect navigates away from your bundled app and loses state."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "text": "So every flow below uses either a native SDK (Apple, Google, Facebook) or a system browser session ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 27,
+            "column": 101
+          },
+          "text": "ASWebAuthenticationSession"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 129
+          },
+          "text": " on iOS, Chrome Custom Tabs on Android) that returns to the app through a custom scheme."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 4
+          },
+          "text": "Your options at a glance"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 31,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 31,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 3
+                  },
+                  "text": "Approach"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 14
+                  },
+                  "text": "Best for"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 25
+                  },
+                  "text": "Capacitor plugin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 44
+                  },
+                  "text": "Backend work"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 57
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 59
+                  },
+                  "text": "Guide"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 33,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 33,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 3
+                  },
+                  "text": "Sign in with Apple"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 33,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 24
+                  },
+                  "text": "Any iOS app with third-party login"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 33,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 33,
+                    "column": 61
+                  },
+                  "text": "@capgo/capacitor-social-login"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 33,
+                "column": 93
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 95
+                  },
+                  "text": "Verify ID token"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 33,
+                "column": 111
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 33,
+                    "column": 113
+                  },
+                  "url": "/blog/how-to-sign-in-with-apple-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 33,
+                        "column": 114
+                      },
+                      "text": "Apple guide"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 3
+                  },
+                  "text": "Google Sign-In"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 20
+                  },
+                  "text": "Consumer apps, Android first"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 49
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 34,
+                    "column": 51
+                  },
+                  "text": "@capgo/capacitor-social-login"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 83
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 85
+                  },
+                  "text": "Verify ID token"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 101
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 34,
+                    "column": 103
+                  },
+                  "url": "/blog/how-to-sign-in-with-google-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 34,
+                        "column": 104
+                      },
+                      "text": "Google guide"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 3
+                  },
+                  "text": "Auth0"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 11
+                  },
+                  "text": "Hosted login with many connections"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 48
+                  },
+                  "text": "@capgo/capacitor-social-login"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 79
+                  },
+                  "text": " (OAuth2)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 89
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 91
+                  },
+                  "text": "Validate access tokens"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 114
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 35,
+                    "column": 116
+                  },
+                  "url": "/blog/how-to-sign-in-with-auth0-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 35,
+                        "column": 117
+                      },
+                      "text": "Auth0 guide"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 3
+                  },
+                  "text": "Okta"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 10
+                  },
+                  "text": "Workforce and B2B SSO"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 34
+                  },
+                  "text": "@capgo/capacitor-social-login"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 65
+                  },
+                  "text": " (OAuth2)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 75
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 77
+                  },
+                  "text": "Validate access tokens"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 100
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 36,
+                    "column": 102
+                  },
+                  "url": "/blog/how-to-sign-in-with-okta-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 36,
+                        "column": 103
+                      },
+                      "text": "Okta guide"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 3
+                  },
+                  "text": "Microsoft Entra ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 24
+                  },
+                  "text": "Microsoft 365 organizations"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 37,
+                    "column": 54
+                  },
+                  "text": "@capgo/capacitor-social-login"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 85
+                  },
+                  "text": " (OAuth2)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 95
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 97
+                  },
+                  "text": "Validate access tokens, Graph"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 127
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 37,
+                    "column": 129
+                  },
+                  "url": "/blog/how-to-sign-in-with-azure-entra-id-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 37,
+                        "column": 130
+                      },
+                      "text": "Entra ID guide"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 3
+                  },
+                  "text": "Better Auth"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 17
+                  },
+                  "text": "Self-hosted, own user database"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 38,
+                    "column": 50
+                  },
+                  "text": "better-auth"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 63
+                  },
+                  "text": " client + Social Login"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 86
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 88
+                  },
+                  "text": "Run the Better Auth server"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 115
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 38,
+                    "column": 117
+                  },
+                  "url": "/blog/how-to-use-better-auth-in-capacitor-apps/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 38,
+                        "column": 118
+                      },
+                      "text": "Better Auth guide"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 39,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 3
+                  },
+                  "text": "Supabase Auth"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 19
+                  },
+                  "text": "Postgres backend with built-in auth"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 57
+                  },
+                  "text": "Social Login + "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 39,
+                    "column": 72
+                  },
+                  "text": "supabase-js"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 86
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 88
+                  },
+                  "text": "Minimal"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 96
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 39,
+                    "column": 98
+                  },
+                  "url": "/blog/setup-supabase-with-capacitor-social-login/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 39,
+                        "column": 99
+                      },
+                      "text": "Supabase guide"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 40,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 40,
+                    "column": 3
+                  },
+                  "text": "Firebase Authentication"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 40,
+                    "column": 29
+                  },
+                  "text": "Apps already on Firebase"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 54
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 40,
+                    "column": 56
+                  },
+                  "text": "@capgo/capacitor-firebase-authentication"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 99
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 40,
+                    "column": 101
+                  },
+                  "text": "Minimal"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 109
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 40,
+                    "column": 111
+                  },
+                  "url": "/docs/plugins/firebase-authentication/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 40,
+                        "column": 112
+                      },
+                      "text": "Firebase docs"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 3
+                  },
+                  "text": "Passkeys"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 14
+                  },
+                  "text": "Passwordless login on your own domain"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 41,
+                    "column": 54
+                  },
+                  "text": "@capgo/capacitor-passkey"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 81
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 83
+                  },
+                  "text": "WebAuthn server"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 99
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 41,
+                    "column": 101
+                  },
+                  "url": "/docs/plugins/passkey/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 41,
+                        "column": 102
+                      },
+                      "text": "Passkey docs"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 3
+                  },
+                  "text": "Email and password"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 24
+                  },
+                  "text": "Simple apps, own backend"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 49
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 51
+                  },
+                  "text": "None (HTTP)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 63
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 65
+                  },
+                  "text": "Hashing, reset, rate limits"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 93
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 95
+                  },
+                  "text": "This article"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 44,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 44,
+            "column": 4
+          },
+          "text": "Native social sign-in (Apple, Google, Facebook)"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 46,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "text": "One plugin covers the three big consumer providers plus a generic OAuth2 engine:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 48,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-social-login\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 53,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { SocialLogin } from '@capgo/capacitor-social-login';\n\nawait SocialLogin.initialize({\n  apple: { clientId: 'com.example.app' },\n  google: {\n    webClientId: 'WEB_CLIENT_ID.apps.googleusercontent.com',\n    iOSClientId: 'IOS_CLIENT_ID.apps.googleusercontent.com',\n  },\n});\n\nconst { result } = await SocialLogin.login({ provider: 'google', options: {} });\n// send result.idToken to your server"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 68,
+            "column": 1
+          },
+          "text": "Turn off providers you do not use in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 68,
+            "column": 38
+          },
+          "text": "capacitor.config.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 68,
+            "column": 59
+          },
+          "text": " ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 68,
+            "column": 61
+          },
+          "text": "plugins.SocialLogin.providers"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 68,
+            "column": 92
+          },
+          "text": ") so their SDKs are not compiled into the app. That also removes the Facebook SDK's advertising ID permission if you do not use Facebook."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 70,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 1
+          },
+          "text": "Each provider has native setup: Apple needs the capability in Xcode and a Services ID for Android, Google needs SHA-1 fingerprints and a reversed client ID URL scheme. The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 70,
+            "column": 173
+          },
+          "url": "/blog/how-to-sign-in-with-apple-using-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 70,
+                "column": 174
+              },
+              "text": "Apple"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 230
+          },
+          "text": " and "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 70,
+            "column": 235
+          },
+          "url": "/blog/how-to-sign-in-with-google-using-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 70,
+                "column": 236
+              },
+              "text": "Google"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 294
+          },
+          "text": " guides go through every step and the common errors."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 72,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 72,
+            "column": 4
+          },
+          "text": "Enterprise SSO with OAuth 2.0 and OpenID Connect"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 74,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 74,
+            "column": 1
+          },
+          "text": "For Auth0, Okta, Microsoft Entra ID, Keycloak, Cognito, OneLogin or your own OIDC server, use the plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 74,
+            "column": 108
+          },
+          "text": "oauth2"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 74,
+            "column": 116
+          },
+          "text": " provider. It runs the authorization code flow with PKCE in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 74,
+            "column": 176
+          },
+          "text": "ASWebAuthenticationSession"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 74,
+            "column": 204
+          },
+          "text": " on iOS and in Custom Tabs on Android when you set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 74,
+            "column": 255
+          },
+          "text": "androidUseCustomTabs: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 74,
+            "column": 283
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 76,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await SocialLogin.initialize({\n  oauth2: {\n    corp: {\n      issuerUrl: 'https://sso.example.com/realms/mobile', // OIDC discovery\n      clientId: 'mobile-app',\n      redirectUrl: 'com.example.app://oauth/corp',\n      scope: 'openid profile email offline_access',\n      pkceEnabled: true,\n      androidUseCustomTabs: true,\n    },\n  },\n});\n\nconst { result } = await SocialLogin.login({\n  provider: 'oauth2',\n  options: { providerId: 'corp' },\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 96,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 1
+          },
+          "text": "You can register several providers in the same map and pick one with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 96,
+            "column": 70
+          },
+          "text": "providerId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 82
+          },
+          "text": ", which is how multi-tenant B2B apps let each customer bring their own IdP. The plugin also handles refresh ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 96,
+            "column": 191
+          },
+          "text": "SocialLogin.refresh"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 212
+          },
+          "text": "), logout with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 96,
+            "column": 227
+          },
+          "text": "id_token_hint"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 242
+          },
+          "text": ", and an Ionic Auth Connect compatible wrapper ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 96,
+            "column": 290
+          },
+          "text": "SocialLoginAuthConnect"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 314
+          },
+          "text": ") for teams migrating off Auth Connect. Provider walkthroughs: "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 96,
+            "column": 377
+          },
+          "url": "/blog/how-to-sign-in-with-auth0-using-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 96,
+                "column": 378
+              },
+              "text": "Auth0"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 434
+          },
+          "text": ", "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 96,
+            "column": 436
+          },
+          "url": "/blog/how-to-sign-in-with-okta-using-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 96,
+                "column": 437
+              },
+              "text": "Okta"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 491
+          },
+          "text": ", "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 96,
+            "column": 493
+          },
+          "url": "/blog/how-to-sign-in-with-azure-entra-id-using-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 96,
+                "column": 494
+              },
+              "text": "Entra ID"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 562
+          },
+          "text": ". For the protocol background, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 96,
+            "column": 597
+          },
+          "url": "/blog/5-steps-to-implement-oauth2-in-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 96,
+                "column": 598
+              },
+              "text": "5 steps to implement OAuth2 in Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 698
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 98,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 98,
+            "column": 4
+          },
+          "text": "Hosted backends: Firebase and Supabase"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 100,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 1
+          },
+          "text": "If your data already lives in Firebase or Supabase, use their auth so security rules and row-level security work without extra glue."
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 102,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 102,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 102,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 102,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 102,
+                        "column": 5
+                      },
+                      "text": "Supabase"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 102,
+                    "column": 15
+                  },
+                  "text": ": get an ID token with the Social Login plugin and call "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 102,
+                    "column": 71
+                  },
+                  "text": "supabase.auth.signInWithIdToken({ provider: 'google', token })"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 102,
+                    "column": 135
+                  },
+                  "text": ". Supabase verifies it and returns a session. Full setup: "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 102,
+                    "column": 193
+                  },
+                  "url": "/blog/setup-supabase-with-capacitor-social-login/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 102,
+                        "column": 194
+                      },
+                      "text": "Supabase with Capacitor Social Login"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 102,
+                    "column": 282
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 103,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 103,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 103,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 103,
+                        "column": 5
+                      },
+                      "text": "Firebase"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 103,
+                    "column": 15
+                  },
+                  "text": ": either use "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 103,
+                    "column": 28
+                  },
+                  "text": "@capgo/capacitor-firebase-authentication"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 103,
+                    "column": 70
+                  },
+                  "text": ", which wraps the native Firebase Auth SDKs, or get an ID token with Social Login and create a Firebase credential from it in the JS SDK. See the "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 103,
+                    "column": 216
+                  },
+                  "url": "/docs/plugins/social-login/firebase/introduction/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 103,
+                        "column": 217
+                      },
+                      "text": "Firebase Google login docs"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 103,
+                    "column": 295
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 4
+          },
+          "text": "Self-hosted: Better Auth"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 107,
+            "column": 1
+          },
+          "text": "Better Auth is an open-source TypeScript auth library that stores users in your own database. It works in Capacitor once you trust the app origins and switch to bearer tokens, because cross-site cookies are unreliable in WKWebView. Social login goes through the native plugin and an ID token handoff. Step-by-step: "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 107,
+            "column": 316
+          },
+          "url": "/blog/how-to-use-better-auth-in-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 107,
+                "column": 317
+              },
+              "text": "How to use Better Auth in Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 107,
+            "column": 407
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 109,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 109,
+            "column": 4
+          },
+          "text": "Passkeys"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 111,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 1
+          },
+          "text": "Passkeys replace passwords with a key pair stored in iCloud Keychain or Google Password Manager. They need your app to be associated with your website domain ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 111,
+            "column": 160
+          },
+          "text": "apple-app-site-association"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 188
+          },
+          "text": " on iOS, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 111,
+            "column": 197
+          },
+          "text": "assetlinks.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 214
+          },
+          "text": " on Android) and a WebAuthn server."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 113,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 1
+          },
+          "text": "@capgo/capacitor-passkey"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 27
+          },
+          "text": " lets you keep standard WebAuthn code. Configure the relying party in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 97
+          },
+          "text": "capacitor.config.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 118
+          },
+          "text": ", call the shim once at startup, and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 155
+          },
+          "text": "navigator.credentials.create()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 187
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 192
+          },
+          "text": ".get()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 200
+          },
+          "text": " are routed to the native passkey APIs:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 115,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { CapacitorPasskey } from '@capgo/capacitor-passkey';\n\nawait CapacitorPasskey.autoShimWebAuthn();\n\n// existing WebAuthn code keeps working\nconst assertion = await navigator.credentials.get({\n  publicKey: requestOptionsFromServer,\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 126,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 126,
+            "column": 1
+          },
+          "text": "Libraries like Better Auth, and hosted providers like Auth0 and Okta, can act as the WebAuthn server. See the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 126,
+            "column": 111
+          },
+          "url": "/plugins/capacitor-passkey/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 126,
+                "column": 112
+              },
+              "text": "passkey plugin page"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 126,
+            "column": 161
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 128,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 128,
+            "column": 4
+          },
+          "text": "Email and password with your own backend"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 130,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 130,
+            "column": 1
+          },
+          "text": "No plugin is needed, it is just "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 130,
+            "column": 33
+          },
+          "text": "fetch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 130,
+            "column": 40
+          },
+          "text": ". The work is on the server: hash with Argon2id or bcrypt, rate-limit login attempts, send verification and reset emails, and support account deletion. Open reset and verification links in the app with Universal Links and App Links, so the link lands in the right place on a phone. Unless you have a reason to own all of that, a library like Better Auth or a hosted service gives you the same features with less risk."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 132,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 132,
+            "column": 4
+          },
+          "text": "Verify tokens on the server, always"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 134,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 134,
+            "column": 1
+          },
+          "text": "Client-side checks can be bypassed. Whatever the provider, the server must verify the token before creating a session:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 136,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { createRemoteJWKSet, jwtVerify } from 'jose';\n\ntype IssuerConfig = {\n  jwks: ReturnType<typeof createRemoteJWKSet>;\n  issuer: string | string[];\n  audience: string[];\n};\n\nconst issuers: Record<'google' | 'apple', IssuerConfig> = {\n  google: {\n    jwks: createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs')),\n    issuer: ['https://accounts.google.com', 'accounts.google.com'],\n    audience: ['WEB_CLIENT_ID.apps.googleusercontent.com', 'IOS_CLIENT_ID.apps.googleusercontent.com'],\n  },\n  apple: {\n    jwks: createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys')),\n    issuer: 'https://appleid.apple.com',\n    audience: ['com.example.app', 'com.example.app.signin'],\n  },\n};\n\nexport async function verifyIdToken(provider: 'google' | 'apple', idToken: string) {\n  const cfg = issuers[provider];\n  const { payload } = await jwtVerify(idToken, cfg.jwks, {\n    issuer: cfg.issuer,\n    audience: cfg.audience,\n  });\n  return payload; // use payload.sub as the stable provider user ID\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 168,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 1
+          },
+          "text": "Key users on the provider's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 168,
+            "column": 29
+          },
+          "text": "sub"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 34
+          },
+          "text": " (plus provider name), not on email. Only link accounts by email when the provider marks it verified ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 168,
+            "column": 136
+          },
+          "text": "email_verified: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 158
+          },
+          "text": "). Meta's Limited Login tokens do not include that claim."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 4
+          },
+          "text": "Store the session securely"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 172,
+            "column": 1
+          },
+          "text": "localStorage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 15
+          },
+          "text": " and Capacitor Preferences are plain files. Put long-lived tokens in the Keychain (iOS) or Keystore-encrypted storage (Android). "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 172,
+            "column": 144
+          },
+          "text": "@capgo/capacitor-native-biometric"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 179
+          },
+          "text": " has simple "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 172,
+            "column": 191
+          },
+          "text": "setData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 200
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 172,
+            "column": 202
+          },
+          "text": "getData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 211
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 172,
+            "column": 216
+          },
+          "text": "deleteData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 228
+          },
+          "text": " methods for that:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-native-biometric\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 179,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { NativeBiometric } from '@capgo/capacitor-native-biometric';\n\nexport const sessionStore = {\n  async save(token: string) {\n    await NativeBiometric.setData({ key: 'session.token', value: token });\n  },\n  async load(): Promise<string | null> {\n    try {\n      const { value } = await NativeBiometric.getData({ key: 'session.token' });\n      return value;\n    } catch {\n      return null;\n    }\n  },\n  async clear() {\n    await NativeBiometric.deleteData({ key: 'session.token' }).catch(() => {});\n  },\n};"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 200,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 200,
+            "column": 1
+          },
+          "text": "Keep access tokens short-lived and refresh them with a refresh token or a server session. Our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 200,
+            "column": 95
+          },
+          "url": "/blog/secure-token-storage-best-practices-for-mobile-developers/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 200,
+                "column": 96
+              },
+              "text": "secure token storage guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 200,
+            "column": 189
+          },
+          "text": " covers rotation and revocation in more depth."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 202,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 202,
+            "column": 4
+          },
+          "text": "Biometrics: unlock, not identity"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 204,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 1
+          },
+          "text": "Face ID and fingerprint only prove that the person holding the phone can unlock it. Use them to gate access to a stored session:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 206,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { AccessControl, NativeBiometric } from '@capgo/capacitor-native-biometric';\n\n// after a real login, offer biometric unlock\nawait NativeBiometric.setData({\n  key: 'session.refresh',\n  value: refreshToken,\n  accessControl: AccessControl.BIOMETRY_ANY,\n});\n\n// next app start\nconst { value } = await NativeBiometric.getSecureData({\n  key: 'session.refresh',\n  reason: 'Unlock your account',\n});\n// exchange `value` with your server for a fresh access token"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 224,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 224,
+            "column": 1
+          },
+          "text": "With "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 224,
+            "column": 6
+          },
+          "text": "accessControl"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 224,
+            "column": 21
+          },
+          "text": " set, the OS releases the value only after a successful biometric check, so the protection is enforced by the Keychain or Keystore, not by JavaScript. Pair it with server-side session expiry and, for high-risk apps, root and jailbreak detection. More in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 224,
+            "column": 275
+          },
+          "url": "/blog/biometric-authentication-in-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 224,
+                "column": 276
+              },
+              "text": "Biometric authentication in Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 224,
+            "column": 370
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 226,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 4
+          },
+          "text": "Choosing a method"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 228,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 228,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 228,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 228,
+                    "column": 3
+                  },
+                  "text": "If you..."
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 228,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 228,
+                    "column": 15
+                  },
+                  "text": "Use"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 230,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 230,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 230,
+                    "column": 3
+                  },
+                  "text": "Ship a consumer app on iOS and Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 230,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 230,
+                    "column": 44
+                  },
+                  "text": "Apple + Google via Social Login, plus email or passkeys"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 231,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 231,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 231,
+                    "column": 3
+                  },
+                  "text": "Sell to companies that use Microsoft 365"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 231,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 231,
+                    "column": 46
+                  },
+                  "text": "Entra ID via OAuth2 provider"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 232,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 232,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 232,
+                    "column": 3
+                  },
+                  "text": "Need many enterprise IdPs per customer"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 232,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 232,
+                    "column": 44
+                  },
+                  "text": "Auth0 or Okta as a broker, or several OAuth2 providers by "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 232,
+                    "column": 102
+                  },
+                  "text": "providerId"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 233,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 233,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 233,
+                    "column": 3
+                  },
+                  "text": "Already use Supabase or Firebase"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 233,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 233,
+                    "column": 38
+                  },
+                  "text": "Their auth with native ID token sign-in"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 234,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 234,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 234,
+                    "column": 3
+                  },
+                  "text": "Want your own user table without a vendor"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 234,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 234,
+                    "column": 47
+                  },
+                  "text": "Better Auth"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 235,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 235,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 235,
+                    "column": 3
+                  },
+                  "text": "Want passwordless"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 235,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 235,
+                    "column": 23
+                  },
+                  "text": "Passkeys, with a fallback such as email magic link"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 236,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 236,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 236,
+                    "column": 3
+                  },
+                  "text": "Need fast re-login"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 236,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 236,
+                    "column": 24
+                  },
+                  "text": "Biometric unlock of a stored session, on top of any of the above"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 238,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 4
+          },
+          "text": "App Store and Play rules that affect login"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 240,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 240,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 240,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 240,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 240,
+                        "column": 5
+                      },
+                      "text": "Apple 4.8 Login Services"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 240,
+                    "column": 31
+                  },
+                  "text": ": third-party login as the main account system requires an equivalent privacy-focused option. Sign in with Apple satisfies it."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 241,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 241,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 241,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 241,
+                        "column": 5
+                      },
+                      "text": "Apple 5.1.1(v)"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 241,
+                    "column": 21
+                  },
+                  "text": ": account creation requires in-app account deletion, and Sign in with Apple tokens should be revoked. See "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 241,
+                    "column": 127
+                  },
+                  "url": "/blog/account-deletion-compliance-apple-guidelines/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 241,
+                        "column": 128
+                      },
+                      "text": "account deletion compliance"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 241,
+                    "column": 209
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 242,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 242,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 242,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 242,
+                        "column": 5
+                      },
+                      "text": "Google Play account deletion"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 242,
+                    "column": 35
+                  },
+                  "text": ": apps with accounts must offer deletion in the app and through a web link declared in Play Console."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 243,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 243,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 243,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 243,
+                        "column": 5
+                      },
+                      "text": "Reviewer access"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 243,
+                    "column": 22
+                  },
+                  "text": ": give reviewers a working demo account. If login is SSO only, provide a test tenant user."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 244,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 244,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 244,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 244,
+                        "column": 5
+                      },
+                      "text": "Xcode 26"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 244,
+                    "column": 15
+                  },
+                  "text": ": App Store Connect has required builds made with Xcode 26 and the iOS 26 SDK since April 2026, so update before you submit a release that adds new auth capabilities."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 246,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 246,
+            "column": 4
+          },
+          "text": "Ship auth changes safely"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 248,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 1
+          },
+          "text": "Auth bugs block every user, so you want to fix them fast. Native changes (entitlements, URL schemes, intent filters) need a store build. Everything in TypeScript, like provider config, scopes, error handling and UI, can be pushed with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 248,
+            "column": 236
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 248,
+                "column": 237
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 271
+          },
+          "text": " and rolled back if something breaks. "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 248,
+            "column": 309
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 248,
+                "column": 310
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 338
+          },
+          "text": " produces the signed iOS and Android binaries in the cloud when you do need a new native release."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 250,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 250,
+            "column": 4
+          },
+          "text": "Next steps"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 252,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 252,
+            "column": 1
+          },
+          "text": "Pick your provider and follow the matching guide:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 254,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 254,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 254,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 254,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-sign-in-with-apple-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 254,
+                        "column": 4
+                      },
+                      "text": "Sign in with Apple"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 255,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 255,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 255,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-sign-in-with-google-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 255,
+                        "column": 4
+                      },
+                      "text": "Sign in with Google"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 256,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 256,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 256,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-sign-in-with-auth0-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 256,
+                        "column": 4
+                      },
+                      "text": "Auth0"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 257,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 257,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 257,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-sign-in-with-okta-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 257,
+                        "column": 4
+                      },
+                      "text": "Okta"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 258,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 258,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 258,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-sign-in-with-azure-entra-id-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 258,
+                        "column": 4
+                      },
+                      "text": "Microsoft Entra ID"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 259,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 259,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 259,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-use-better-auth-in-capacitor-apps/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 259,
+                        "column": 4
+                      },
+                      "text": "Better Auth"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 260,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 260,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 260,
+                    "column": 3
+                  },
+                  "url": "/docs/plugins/social-login/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 260,
+                        "column": 4
+                      },
+                      "text": "Social Login plugin documentation"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

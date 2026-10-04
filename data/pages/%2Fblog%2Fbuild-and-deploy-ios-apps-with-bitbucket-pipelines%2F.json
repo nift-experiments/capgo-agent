@@ -1,0 +1,4051 @@
+{
+  "version": 1,
+  "route": "/blog/build-and-deploy-ios-apps-with-bitbucket-pipelines/",
+  "source": "corpus/source/apps/web/src/content/blog/en/build-and-deploy-ios-apps-with-bitbucket-pipelines.md",
+  "sourceSha256": "c9cfe7d70b6a3abcbb87d0f4c330af4b1b08a6ea909d2818535aa5f61645f2c6",
+  "metadata": {
+    "slug": "build-and-deploy-ios-apps-with-bitbucket-pipelines",
+    "title": "Build and Deploy iOS Apps with Bitbucket Pipelines",
+    "description": "Build, sign, and ship iOS apps to TestFlight from Bitbucket Pipelines without hosted macOS runners: cloud builds from a Linux step or a self-hosted Mac.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_ci-cd-illustration.webp",
+    "head_image_alt": "Bitbucket Pipelines building and shipping an iOS app to TestFlight",
+    "keywords": "Bitbucket Pipelines iOS, Bitbucket Pipelines macOS, build iOS app Bitbucket, Bitbucket TestFlight, Capacitor iOS CI/CD, self-hosted macOS runner, Capgo Build",
+    "tag": "CI/CD, iOS, Tutorial",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Does Bitbucket Pipelines have hosted macOS runners?",
+        "answer": "No. Atlassian's cloud runners execute steps in Linux Docker containers. To run xcodebuild you either register your own Mac as a self-hosted runner, or keep the step on Linux and send the iOS build to a cloud build service such as Capgo Build."
+      },
+      {
+        "question": "Can I build a Capacitor iOS app from Bitbucket without owning a Mac?",
+        "answer": "Yes. A Linux step installs dependencies, builds the web assets, runs cap sync ios, and calls the Capgo CLI build request command. Capgo compiles, signs, and uploads the app to TestFlight on its own Mac fleet, and streams the logs back into the Bitbucket step."
+      },
+      {
+        "question": "Where should I store iOS signing files for Bitbucket Pipelines?",
+        "answer": "Store them base64-encoded as secured repository or deployment variables. Bitbucket masks secured values in logs. Deployment variables are better for production credentials because you can restrict who can run the production deployment."
+      },
+      {
+        "question": "How do I avoid a native iOS build on every commit?",
+        "answer": "Trigger native builds only on version tags or a custom pipeline, and ship web-only changes as Capgo live updates. The Capgo CLI build needed command tells your pipeline whether native dependencies changed since the last release on a channel."
+      },
+      {
+        "question": "Does Apple require a specific Xcode version for uploads?",
+        "answer": "Yes. Since April 28, 2026, apps uploaded to App Store Connect must be built with Xcode 26 and the iOS 26 SDK or later. A self-hosted Mac runner must be upgraded by you; Capgo Build keeps its build machines on the required Xcode."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "Bitbucket Pipelines cannot build an iOS app on its hosted runners, because every step runs in a Linux container and Xcode only runs on macOS. You have two working options: register your own Mac as a self-hosted Bitbucket runner, or keep the step on Linux and hand the iOS compile, signing, and TestFlight upload to a cloud build service. This guide shows both, with complete "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 376
+          },
+          "text": "bitbucket-pipelines.yml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 401
+          },
+          "text": " files for a Capacitor app."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "If your team already lives in Bitbucket for code review, Jira links, and deployments, you do not need a second CI tool just for iOS. The pipeline stays in Bitbucket. Only the part that needs a Mac moves."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "Why iOS builds break on Bitbucket Pipelines"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "Bitbucket Pipelines runs each step inside a Docker image you choose ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 70
+          },
+          "text": "node:22"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 79
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 81
+          },
+          "text": "cimg/android"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 95
+          },
+          "text": ", and so on) on Atlassian's Linux infrastructure. That is fine for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 162
+          },
+          "text": "bun install"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 175
+          },
+          "text": ", unit tests, linting, and even full Android builds. It stops at iOS:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "xcodebuild"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 15
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 17
+                  },
+                  "text": "codesign"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 27
+                  },
+                  "text": ", and the iOS SDK only exist on macOS."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "Apple's license only allows macOS to run on Apple hardware, so there is no Linux image that can produce a signed "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 116
+                  },
+                  "text": ".ipa"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 122
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 12,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Since April 28, 2026, App Store Connect rejects uploads that were not built with Xcode 26 and the iOS 26 SDK, so whatever Mac you use has to stay current. See "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 12,
+                    "column": 162
+                  },
+                  "url": "/blog/xcode-26-requirement-for-capacitor-apps/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 12,
+                        "column": 163
+                      },
+                      "text": "Apple's Xcode 26 requirement for Capacitor apps"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 259
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "text": "Bitbucket does support self-hosted runners on Linux, Windows, and macOS. Atlassian does not bill build minutes for steps that run on your own runners, but you pay in hardware and maintenance."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 4
+          },
+          "text": "Your three options"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "text": "Option"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 12
+                  },
+                  "text": "Where the iOS build runs"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 39
+                  },
+                  "text": "What you maintain"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 57
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 59
+                  },
+                  "text": "Good fit"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "text": "Self-hosted macOS runner"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 30
+                  },
+                  "text": "Your Mac mini or a rented Mac"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 60
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 62
+                  },
+                  "text": "macOS, Xcode, keychain, certificates, disk space, uptime"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 119
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 121
+                  },
+                  "text": "Teams that already own Macs and have someone to run them"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 3
+                  },
+                  "text": "Second CI just for mobile"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 31
+                  },
+                  "text": "Another vendor's Macs"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 53
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 55
+                  },
+                  "text": "Two pipelines, two sets of secrets and triggers"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 103
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 105
+                  },
+                  "text": "Teams that want a dedicated mobile CI anyway"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 3
+                  },
+                  "text": "Cloud build called from a Linux step"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 42
+                  },
+                  "text": "Capgo Build's Mac fleet"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 68
+                  },
+                  "text": "One CLI call and a few secured variables"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 109
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 111
+                  },
+                  "text": "Capacitor teams that want Bitbucket to stay the only CI"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "text": "The rest of this guide covers the first and third options in detail. For a broader view of the platforms, read "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 24,
+            "column": 112
+          },
+          "url": "/blog/comparing-ci-cd-platforms-for-ios-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 24,
+                "column": 113
+              },
+              "text": "Comparing CI/CD platforms for iOS apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 199
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 4
+          },
+          "text": "Option 1: Build iOS from a Linux step with Capgo Build"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "link",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 28,
+                "column": 2
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 30
+          },
+          "text": " compiles and signs Capacitor apps on Capgo-managed Macs. Your Bitbucket step does what it already does well on Linux: install dependencies, build the web layer, and run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 28,
+            "column": 200
+          },
+          "text": "cap sync ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 214
+          },
+          "text": ". Then the Capgo CLI uploads the prepared native project (not your web source code or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 28,
+            "column": 300
+          },
+          "text": "node_modules"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 314
+          },
+          "text": "), runs the Xcode build, signs it with your certificate, and can upload the result to TestFlight. Logs stream back into the Bitbucket step, and the command exits non-zero if the build fails, so a failed iOS build fails the pipeline."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "text": "Because your runner pushes the project to Capgo, Capgo never needs access to your Bitbucket repository. There is no repository connection to authorize and no OAuth app to approve."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 5
+          },
+          "text": "Prerequisites"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 34,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 3
+                  },
+                  "text": "A Capacitor app that builds locally (Capacitor 8 needs Node.js 22 or newer)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 35,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 3
+                  },
+                  "text": "An Apple Developer Program membership with admin rights on the team"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 36,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 3
+                  },
+                  "text": "A Capgo account and an API key with upload permission"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 37,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 3
+                  },
+                  "text": "The app registered in Capgo: "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 37,
+                    "column": 32
+                  },
+                  "text": "bunx @capgo/cli@latest app add"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 5
+          },
+          "text": "One-time setup on your machine"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "text": "Run the onboarding once. On iOS it creates or reuses your distribution certificate and provisioning profile, and asks for an App Store Connect API key:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx @capgo/cli@latest login\nbunx @capgo/cli@latest build init --platform ios"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 48,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 1
+          },
+          "text": "If you do not have a Mac at hand, you can still create the certificate signing request in the browser with the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 48,
+            "column": 112
+          },
+          "url": "/tools/ios-certificate-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 48,
+                "column": 113
+              },
+              "text": "iOS certificate generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 174
+          },
+          "text": ", or follow "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 48,
+            "column": 186
+          },
+          "url": "/blog/build-ios-app-from-windows-capacitor-capgo-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 48,
+                "column": 187
+              },
+              "text": "Build an iOS app from Windows with Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 291
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 1
+          },
+          "text": "Run one build from your laptop before touching CI. CI is a bad place to debug a first build:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun run build\nbunx cap sync ios\nbunx @capgo/cli@latest build request com.example.app --platform ios --build-mode release"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 5
+          },
+          "text": "Export the credentials for Bitbucket"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 1
+          },
+          "text": "The CLI keeps credentials on your machine. To move them into Bitbucket, export them to a dotenv file:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx @capgo/cli@latest build credentials manage --appId com.example.app --platform ios\n# choose \"Export to .env\" in the menu"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 67,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 1
+          },
+          "text": "This writes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 67,
+            "column": 13
+          },
+          "text": ".env.capgo.com.example.app.ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 45
+          },
+          "text": " with mode "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 67,
+            "column": 56
+          },
+          "text": "0600"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 62
+          },
+          "text": ". It contains these keys:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 69,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 69,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 69,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 3
+                  },
+                  "text": "Variable"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 69,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 14
+                  },
+                  "text": "Content"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 71,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 71,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 71,
+                    "column": 3
+                  },
+                  "text": "BUILD_CERTIFICATE_BASE64"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 71,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 32
+                  },
+                  "text": "Base64 of your "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 71,
+                    "column": 47
+                  },
+                  "text": ".p12"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 53
+                  },
+                  "text": " distribution certificate"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 72,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 72,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 72,
+                    "column": 3
+                  },
+                  "text": "P12_PASSWORD"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 72,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 72,
+                    "column": 20
+                  },
+                  "text": "Certificate password (empty if none)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 73,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 73,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 73,
+                    "column": 3
+                  },
+                  "text": "CAPGO_IOS_PROVISIONING_MAP_BASE64"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 73,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 73,
+                    "column": 41
+                  },
+                  "text": "Provisioning profile mapping generated by the CLI"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 74,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 74,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 74,
+                    "column": 3
+                  },
+                  "text": "APPLE_KEY_ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 74,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 74,
+                    "column": 20
+                  },
+                  "text": "App Store Connect API key ID"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 75,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 75,
+                    "column": 3
+                  },
+                  "text": "APPLE_ISSUER_ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 75,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 75,
+                    "column": 23
+                  },
+                  "text": "App Store Connect issuer ID"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 76,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 76,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 76,
+                    "column": 3
+                  },
+                  "text": "APPLE_KEY_CONTENT"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 76,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 25
+                  },
+                  "text": "Base64 of the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 76,
+                    "column": 39
+                  },
+                  "text": ".p8"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 44
+                  },
+                  "text": " API key"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 77,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 77,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 77,
+                    "column": 3
+                  },
+                  "text": "APP_STORE_CONNECT_TEAM_ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 77,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 33
+                  },
+                  "text": "Your Apple team ID"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 79,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 1
+          },
+          "text": "Add each line as a "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 79,
+            "column": 20
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 79,
+                "column": 22
+              },
+              "text": "secured"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 31
+          },
+          "text": " variable in Bitbucket under "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 79,
+            "column": 60
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 79,
+                "column": 62
+              },
+              "text": "Repository settings > Pipelines > Repository variables"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 118
+          },
+          "text": ", plus "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 79,
+            "column": 125
+          },
+          "text": "CAPGO_TOKEN"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 138
+          },
+          "text": " with your Capgo API key. Secured variables are masked in logs and cannot be read back from the UI."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 1
+          },
+          "text": "If you prefer the API, this loop creates them in one go. It uses a Bitbucket API token with the pipeline variables write scope:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "WORKSPACE=my-team\nREPO=my-app\nENV_FILE=.env.capgo.com.example.app.ios\n\ngrep -v '^#' \"$ENV_FILE\" | grep '=' | while IFS= read -r line; do\n  key=\"${line%%=*}\"\n  value=\"${line#*=}\"\n  value=\"${value%\\\"}\"; value=\"${value#\\\"}\"\n  jq -n --arg k \"$key\" --arg v \"$value\" '{key:$k, value:$v, secured:true}' |\n    curl -s -u \"$BB_EMAIL:$BB_API_TOKEN\" \\\n      -H 'Content-Type: application/json' \\\n      -X POST --data @- \\\n      \"https://api.bitbucket.org/2.0/repositories/$WORKSPACE/$REPO/pipelines_config/variables\" > /dev/null\n  echo \"created $key\"\ndone\n\nrm \"$ENV_FILE\""
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 1
+          },
+          "text": "Delete the file afterwards and add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 103,
+            "column": 36
+          },
+          "text": ".env.capgo.*"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 50
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 103,
+            "column": 54
+          },
+          "text": ".gitignore"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 66
+          },
+          "text": ". It holds plaintext signing material."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 1
+          },
+          "text": "For production credentials, consider "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 105,
+            "column": 38
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 105,
+                "column": 40
+              },
+              "text": "deployment variables"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 62
+          },
+          "text": " instead of repository variables. They are scoped to a deployment environment (for example "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 105,
+            "column": 153
+          },
+          "text": "Production"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 165
+          },
+          "text": "), and you can restrict that environment to admins or specific branches on Premium plans."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 107,
+            "column": 5
+          },
+          "text": "The pipeline file"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 109,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 109,
+            "column": 1
+          },
+          "text": "Bitbucket injects repository and deployment variables as environment variables, so the Capgo CLI picks them up without any mapping. This file runs tests on every push, builds an ad hoc iOS build on demand, and ships to TestFlight on version tags:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 111,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "# bitbucket-pipelines.yml\nimage: node:22\n\ndefinitions:\n  caches:\n    bun: ~/.bun/install/cache\n\npipelines:\n  default:\n    - step:\n        name: Lint and test\n        caches:\n          - bun\n        script:\n          - curl -fsSL https://bun.sh/install | bash\n          - export PATH=\"$HOME/.bun/bin:$PATH\"\n          - bun install --frozen-lockfile\n          - bun run lint\n          - bun run test\n\n  tags:\n    'v*':\n      - step:\n          name: Build iOS and upload to TestFlight\n          deployment: Production\n          caches:\n            - bun\n          script:\n            - curl -fsSL https://bun.sh/install | bash\n            - export PATH=\"$HOME/.bun/bin:$PATH\"\n            - bun install --frozen-lockfile\n            - bun run build\n            - bunx cap sync ios\n            - >\n              bunx @capgo/cli@latest build request com.example.app\n              --platform ios\n              --build-mode release\n              --ios-distribution app_store\n\n  custom:\n    ios-adhoc:\n      - step:\n          name: Ad hoc iOS build for testers\n          caches:\n            - bun\n          script:\n            - curl -fsSL https://bun.sh/install | bash\n            - export PATH=\"$HOME/.bun/bin:$PATH\"\n            - bun install --frozen-lockfile\n            - bun run build\n            - bunx cap sync ios\n            - echo \"$ADHOC_PROFILE_BASE64\" | base64 --decode > adhoc.mobileprovision\n            - >\n              bunx @capgo/cli@latest build request com.example.app\n              --platform ios\n              --build-mode release\n              --ios-distribution ad_hoc\n              --ios-provisioning-profile ./adhoc.mobileprovision\n              --output-upload\n              --output-retention 2d\n              --output-record /tmp/build.json\n            - bunx @capgo/cli@latest build last-output --path /tmp/build.json --field outputUrl"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 1
+          },
+          "text": "A few details that matter:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 178,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 178,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 178,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 178,
+                    "column": 3
+                  },
+                  "text": "The image is a plain Linux "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 178,
+                    "column": 30
+                  },
+                  "text": "node:22"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 178,
+                    "column": 39
+                  },
+                  "text": ". Nothing in this file needs macOS."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 179,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 179,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 179,
+                    "column": 3
+                  },
+                  "text": "On Linux, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 179,
+                    "column": 13
+                  },
+                  "text": "cap sync ios"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 179,
+                    "column": 27
+                  },
+                  "text": " copies web assets and updates native config but cannot run CocoaPods. That is fine. The Mac that runs the build installs pods or resolves Swift packages itself."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 180,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 180,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 3
+                  },
+                  "text": "Capgo reads the latest build number from App Store Connect and increments it, so you never hit \"bundle version must be higher than the previously uploaded version\". Pass "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 180,
+                    "column": 173
+                  },
+                  "text": "--skip-build-number-bump"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 199
+                  },
+                  "text": " if you manage it yourself."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 181,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 181,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 3
+                  },
+                  "text": "The ad hoc build needs an Ad Hoc provisioning profile, which only installs on the devices it lists. Store it as a secured "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 181,
+                    "column": 125
+                  },
+                  "text": "ADHOC_PROFILE_BASE64"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 147
+                  },
+                  "text": " variable; the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 181,
+                    "column": 162
+                  },
+                  "text": "--ios-provisioning-profile"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 190
+                  },
+                  "text": " flag overrides the App Store profile from the environment for this build only. Collect tester UDIDs with the "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 181,
+                    "column": 300
+                  },
+                  "url": "/tools/ios-udid-finder/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 181,
+                        "column": 301
+                      },
+                      "text": "iOS UDID finder"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 342
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 182,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 3
+                  },
+                  "text": "Pin the CLI to an exact version (for example "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 182,
+                    "column": 48
+                  },
+                  "text": "@capgo/cli@7.104.0"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 68
+                  },
+                  "text": ") once your pipeline is stable, so a CLI release cannot change behavior mid-sprint."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 1
+          },
+          "text": "Run the custom pipeline from "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 184,
+            "column": 30
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 184,
+                "column": 32
+              },
+              "text": "Pipelines > Run pipeline > ios-adhoc"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 70
+          },
+          "text": ". The last command prints a download link that expires after the retention period."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 5
+          },
+          "text": "Manual approval before TestFlight"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 188,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 188,
+            "column": 1
+          },
+          "text": "Bitbucket supports "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 188,
+            "column": 20
+          },
+          "text": "trigger: manual"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 188,
+            "column": 37
+          },
+          "text": " on a step. Split the release into a build step and a gated upload step if you want a human to approve each TestFlight upload:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 190,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "  tags:\n    'v*':\n      - step:\n          name: Test\n          script:\n            - curl -fsSL https://bun.sh/install | bash\n            - export PATH=\"$HOME/.bun/bin:$PATH\"\n            - bun install --frozen-lockfile\n            - bun run test\n      - step:\n          name: Ship iOS to TestFlight\n          trigger: manual\n          deployment: Production\n          script:\n            - curl -fsSL https://bun.sh/install | bash\n            - export PATH=\"$HOME/.bun/bin:$PATH\"\n            - bun install --frozen-lockfile\n            - bun run build\n            - bunx cap sync ios\n            - bunx @capgo/cli@latest build request com.example.app --platform ios --build-mode release"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 213,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 213,
+            "column": 1
+          },
+          "text": "To go straight to App Review after the TestFlight upload, add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 213,
+            "column": 63
+          },
+          "text": "--submit-to-store-review"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 213,
+            "column": 89
+          },
+          "text": " with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 213,
+            "column": 95
+          },
+          "text": "--store-release-name \"$BITBUCKET_TAG\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 213,
+            "column": 134
+          },
+          "text": ". Your App Store listing, screenshots, and compliance answers still have to be complete in App Store Connect first."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 215,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 215,
+            "column": 5
+          },
+          "text": "Add Android in parallel"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 217,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 217,
+            "column": 1
+          },
+          "text": "Android builds can run directly on Bitbucket's Linux runners, but you can also send them to Capgo Build so both platforms use the same signing and upload flow. Use a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 217,
+            "column": 167
+          },
+          "text": "parallel"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 217,
+            "column": 177
+          },
+          "text": " block:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 219,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "  tags:\n    'v*':\n      - parallel:\n          - step:\n              name: iOS release\n              script:\n                - curl -fsSL https://bun.sh/install | bash\n                - export PATH=\"$HOME/.bun/bin:$PATH\"\n                - bun install --frozen-lockfile && bun run build\n                - bunx cap sync ios\n                - bunx @capgo/cli@latest build request com.example.app --platform ios --build-mode release\n          - step:\n              name: Android release\n              script:\n                - curl -fsSL https://bun.sh/install | bash\n                - export PATH=\"$HOME/.bun/bin:$PATH\"\n                - bun install --frozen-lockfile && bun run build\n                - bunx cap sync android\n                - bunx @capgo/cli@latest build request com.example.app --platform android --build-mode release --android-track internal"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 241,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 1
+          },
+          "text": "The Android step needs "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 241,
+            "column": 24
+          },
+          "text": "ANDROID_KEYSTORE_FILE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 47
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 241,
+            "column": 49
+          },
+          "text": "KEYSTORE_KEY_ALIAS"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 69
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 241,
+            "column": 71
+          },
+          "text": "KEYSTORE_KEY_PASSWORD"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 94
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 241,
+            "column": 96
+          },
+          "text": "KEYSTORE_STORE_PASSWORD"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 121
+          },
+          "text": ", and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 241,
+            "column": 127
+          },
+          "text": "PLAY_CONFIG_JSON"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 145
+          },
+          "text": " as secured variables. Export them the same way with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 241,
+            "column": 198
+          },
+          "text": "--platform android"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 218
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 5
+          },
+          "text": "Ship web-only changes without a native build"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 1
+          },
+          "text": "Most commits to a Capacitor app only touch HTML, CSS, and JavaScript. Those do not need a new binary. With "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 245,
+            "column": 108
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 245,
+                "column": 109
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 143
+          },
+          "text": ", a Bitbucket step can decide between a store build and an over-the-air bundle:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 247,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "  branches:\n    main:\n      - step:\n          name: Release (live update or native)\n          script:\n            - curl -fsSL https://bun.sh/install | bash\n            - export PATH=\"$HOME/.bun/bin:$PATH\"\n            - bun install --frozen-lockfile\n            - bun run build\n            - |\n              if bunx @capgo/cli@latest build needed com.example.app --channel production; then\n                echo \"No native change, shipping a live update\"\n                bunx @capgo/cli@latest bundle upload com.example.app --channel production\n              else\n                echo \"Native change detected, building iOS\"\n                bunx cap sync ios\n                bunx @capgo/cli@latest build request com.example.app --platform ios --build-mode release\n              fi"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 268,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 268,
+            "column": 1
+          },
+          "text": "build needed"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 268,
+            "column": 15
+          },
+          "text": " exits with code 0 when no native build is required and 1 when it is. It compares native plugin versions with what is live on the channel. It does not see manual edits under "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 268,
+            "column": 189
+          },
+          "text": "ios/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 268,
+            "column": 195
+          },
+          "text": ", so also force the native path when those files change. The full pattern is in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 268,
+            "column": 275
+          },
+          "url": "/docs/builder/ci-ota-or-native/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 268,
+                "column": 276
+              },
+              "text": "Auto choose live update or native build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 268,
+            "column": 349
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 270,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 270,
+            "column": 4
+          },
+          "text": "Option 2: A self-hosted macOS runner"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 272,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 272,
+            "column": 1
+          },
+          "text": "If you already own Macs, you can register one as a Bitbucket runner and run Xcode yourself."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 274,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 274,
+            "column": 5
+          },
+          "text": "Register the runner"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 276,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 276,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 276,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 276,
+                    "column": 4
+                  },
+                  "text": "In Bitbucket, open "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 276,
+                    "column": 23
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 276,
+                        "column": 25
+                      },
+                      "text": "Repository settings > Runners"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 276,
+                    "column": 56
+                  },
+                  "text": " (or "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 276,
+                    "column": 61
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 276,
+                        "column": 63
+                      },
+                      "text": "Workspace settings > Workspace runners"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 276,
+                    "column": 103
+                  },
+                  "text": " to share it) and click "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 276,
+                    "column": 127
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 276,
+                        "column": 129
+                      },
+                      "text": "Add runner"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 276,
+                    "column": 141
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 277,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 277,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 277,
+                    "column": 4
+                  },
+                  "text": "Choose "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 277,
+                    "column": 11
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 277,
+                        "column": 13
+                      },
+                      "text": "MacOS"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 277,
+                    "column": 20
+                  },
+                  "text": " as the system. Bitbucket shows a start command with a runner UUID and OAuth credentials."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 278,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 278,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 278,
+                    "column": 4
+                  },
+                  "text": "On the Mac, install a supported JDK (the runner is a Java program), Xcode 26, and fastlane. Then paste the start command."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 279,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 279,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 279,
+                    "column": 4
+                  },
+                  "text": "Keep the runner running as a launch agent so it survives reboots."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 281,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 281,
+            "column": 1
+          },
+          "text": "A step targets the runner with labels:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 283,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "pipelines:\n  tags:\n    'v*':\n      - step:\n          name: iOS build on our Mac\n          runs-on:\n            - self.hosted\n            - macos\n          script:\n            - bun install --frozen-lockfile\n            - bun run build\n            - bunx cap sync ios\n            - echo \"$BUILD_CERTIFICATE_BASE64\" | base64 --decode > dist.p12\n            - echo \"$PROFILE_BASE64\" | base64 --decode > profile.mobileprovision\n            - bundle exec fastlane ios beta"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 301,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 301,
+            "column": 1
+          },
+          "text": "macOS runners execute directly on the host with your user's environment, not in a container. Install Bun and Ruby on the Mac itself."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 303,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 303,
+            "column": 5
+          },
+          "text": "A minimal Fastfile"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 305,
+        "column": 1
+      },
+      "lang": "ruby",
+      "meta": null,
+      "text": "default_platform(:ios)\n\nplatform :ios do\n  lane :beta do\n    setup_ci(force: true)\n\n    api_key = app_store_connect_api_key(\n      key_id: ENV[\"APPLE_KEY_ID\"],\n      issuer_id: ENV[\"APPLE_ISSUER_ID\"],\n      key_content: ENV[\"APPLE_KEY_CONTENT\"],\n      is_key_content_base64: true\n    )\n\n    import_certificate(\n      certificate_path: \"dist.p12\",\n      certificate_password: ENV[\"P12_PASSWORD\"],\n      keychain_name: \"fastlane_tmp_keychain\",\n      keychain_password: \"\"\n    )\n    install_provisioning_profile(path: \"profile.mobileprovision\")\n\n    update_code_signing_settings(\n      path: \"ios/App/App.xcodeproj\",\n      use_automatic_signing: false,\n      team_id: ENV[\"APP_STORE_CONNECT_TEAM_ID\"],\n      code_sign_identity: \"Apple Distribution\",\n      profile_name: ENV[\"PROFILE_NAME\"]\n    )\n\n    increment_build_number(\n      xcodeproj: \"ios/App/App.xcodeproj\",\n      build_number: latest_testflight_build_number(api_key: api_key) + 1\n    )\n\n    build_app(\n      project: \"ios/App/App.xcodeproj\", # use workspace: \"ios/App/App.xcworkspace\" for CocoaPods projects\n      scheme: \"App\",\n      export_method: \"app-store\"\n    )\n\n    upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)\n  end\nend"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 351,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 351,
+            "column": 1
+          },
+          "text": "New Capacitor 8 projects use Swift Package Manager, so you build "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 351,
+            "column": 66
+          },
+          "text": "App.xcodeproj"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 351,
+            "column": 81
+          },
+          "text": ". Older projects that still use CocoaPods build "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 351,
+            "column": 129
+          },
+          "text": "App.xcworkspace"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 351,
+            "column": 146
+          },
+          "text": " and need "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 351,
+            "column": 156
+          },
+          "text": "pod install"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 351,
+            "column": 169
+          },
+          "text": " on the runner. Our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 351,
+            "column": 189
+          },
+          "url": "/blog/automatic-capacitor-ios-build-github-action/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 351,
+                "column": 190
+              },
+              "text": "GitHub Actions iOS guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 351,
+            "column": 267
+          },
+          "text": " explains each fastlane action in more depth; the lane is the same on Bitbucket."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 353,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 353,
+            "column": 5
+          },
+          "text": "What you sign up for"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 355,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 355,
+            "column": 1
+          },
+          "text": "The archive is the easy part. A self-hosted Mac also means:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 357,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 357,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 357,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 357,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 357,
+                        "column": 5
+                      },
+                      "text": "Xcode upgrades"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 357,
+                    "column": 21
+                  },
+                  "text": " whenever Apple raises the minimum SDK, tested before the deadline."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 358,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 358,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 358,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 358,
+                        "column": 5
+                      },
+                      "text": "Keychain state."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 358,
+                    "column": 22
+                  },
+                  "text": " A crashed job can leave a temporary keychain behind, and the next job picks up the wrong identity."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 359,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 359,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 359,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 359,
+                        "column": 5
+                      },
+                      "text": "No isolation."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 359,
+                    "column": 20
+                  },
+                  "text": " Jobs run on the same disk. DerivedData, old archives, and simulators fill it up."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 360,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 360,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 360,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 360,
+                        "column": 5
+                      },
+                      "text": "One build at a time"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 360,
+                    "column": 26
+                  },
+                  "text": " per runner, unless you buy more Macs."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 361,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 361,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 361,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 361,
+                        "column": 5
+                      },
+                      "text": "Certificates and profiles"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 361,
+                    "column": 32
+                  },
+                  "text": " that expire every year and have to be renewed on the machine."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 363,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 363,
+            "column": 1
+          },
+          "text": "That is a reasonable trade if your team already manages Macs. If nobody wants to own that box, Option 1 removes it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 365,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 365,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 367,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 367,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 367,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 367,
+                    "column": 3
+                  },
+                  "text": "Symptom"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 367,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 367,
+                    "column": 13
+                  },
+                  "text": "Likely cause and fix"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 369,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 369,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 369,
+                    "column": 3
+                  },
+                  "text": "CAPGO_TOKEN is not set"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 369,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 369,
+                    "column": 30
+                  },
+                  "text": "The variable is missing, or it is a deployment variable and the step has no "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 369,
+                    "column": 106
+                  },
+                  "text": "deployment:"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 369,
+                    "column": 119
+                  },
+                  "text": " key."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 370,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 370,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 370,
+                    "column": 3
+                  },
+                  "text": "Step works on "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 370,
+                    "column": 17
+                  },
+                  "text": "main"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 370,
+                    "column": 23
+                  },
+                  "text": " but not on tags"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 370,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 370,
+                    "column": 42
+                  },
+                  "text": "Deployment variables only apply to steps that declare that deployment environment."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 371,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 371,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 371,
+                    "column": 3
+                  },
+                  "text": "Provisioning profile doesn't match bundle ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 371,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 371,
+                    "column": 52
+                  },
+                  "text": "The profile was created for another app ID. Re-run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 371,
+                    "column": 103
+                  },
+                  "text": "build init"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 371,
+                    "column": 115
+                  },
+                  "text": " and re-export."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 372,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 372,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 372,
+                    "column": 3
+                  },
+                  "text": "App Store Connect authentication failed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 372,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 372,
+                    "column": 45
+                  },
+                  "text": "Wrong issuer ID or key ID, or a revoked key. Check the key in App Store Connect > Users and Access > Integrations."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 373,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 373,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 373,
+                    "column": 3
+                  },
+                  "text": "Upload rejected for SDK version"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 373,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 373,
+                    "column": 37
+                  },
+                  "text": "The build used an Xcode older than 26. Upgrade the self-hosted Mac."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 374,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 374,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 374,
+                    "column": 3
+                  },
+                  "text": "Self-hosted step stuck in \"Pending\""
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 374,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 374,
+                    "column": 41
+                  },
+                  "text": "Runner offline or labels do not match "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 374,
+                    "column": 79
+                  },
+                  "text": "self.hosted"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 374,
+                    "column": 92
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 374,
+                    "column": 97
+                  },
+                  "text": "macos"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 374,
+                    "column": 104
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 375,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 375,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 375,
+                    "column": 3
+                  },
+                  "text": "errSecInternalComponent"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 375,
+                    "column": 28
+                  },
+                  "text": " during codesign"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 375,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 375,
+                    "column": 47
+                  },
+                  "text": "The keychain is locked in a non-interactive session. Use "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 375,
+                    "column": 104
+                  },
+                  "text": "setup_ci"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 375,
+                    "column": 114
+                  },
+                  "text": " and import the certificate into the temporary keychain."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 376,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 376,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 376,
+                    "column": 3
+                  },
+                  "text": "Build passes but nothing in TestFlight"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 376,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 376,
+                    "column": 44
+                  },
+                  "text": "Processing takes several minutes, and export compliance may be pending. Add "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 376,
+                    "column": 120
+                  },
+                  "text": "ITSAppUsesNonExemptEncryption"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 376,
+                    "column": 151
+                  },
+                  "text": " to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 376,
+                    "column": 155
+                  },
+                  "text": "Info.plist"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 376,
+                    "column": 167
+                  },
+                  "text": " if your app uses only standard encryption."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 378,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 378,
+            "column": 1
+          },
+          "text": "More fixes for failing pipelines are in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 378,
+            "column": 41
+          },
+          "url": "/blog/fixing-build-failures-in-capacitor-ci-cd-pipelines/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 378,
+                "column": 42
+              },
+              "text": "Fixing build failures in Capacitor CI/CD pipelines"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 378,
+            "column": 152
+          },
+          "text": " and the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 378,
+            "column": 161
+          },
+          "url": "/docs/builder/troubleshooting/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 378,
+                "column": 162
+              },
+              "text": "Capgo Build troubleshooting guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 378,
+            "column": 228
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 380,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 380,
+            "column": 4
+          },
+          "text": "Which option should you pick?"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 382,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 382,
+            "column": 1
+          },
+          "text": "Pick a self-hosted Mac when you already own the hardware, need full control of the Xcode environment, or build native Swift targets that are not Capacitor apps. Pick a cloud build from a Linux step when your app is a Capacitor app and you want Bitbucket to stay the single place your team configures CI. Either way, keep the build logic in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 382,
+            "column": 341
+          },
+          "text": "bitbucket-pipelines.yml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 382,
+            "column": 366
+          },
+          "text": " next to your code, put signing material in secured variables, and only run native builds when native code actually changed."
+        }
+      ]
+    }
+  ]
+}

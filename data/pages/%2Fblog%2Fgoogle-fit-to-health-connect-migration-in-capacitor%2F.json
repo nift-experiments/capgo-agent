@@ -1,0 +1,4548 @@
+{
+  "version": 1,
+  "route": "/blog/google-fit-to-health-connect-migration-in-capacitor/",
+  "source": "corpus/source/apps/web/src/content/blog/en/google-fit-to-health-connect-migration-in-capacitor.md",
+  "sourceSha256": "6ae2266073869f16fd96e30fdc49dc7a5e26e20b34005f46a17678c0d7fcd973",
+  "metadata": {
+    "slug": "google-fit-to-health-connect-migration-in-capacitor",
+    "title": "Google Fit to Health Connect Migration in Capacitor",
+    "description": "Migrate a Capacitor app from Google Fit to Health Connect before the Fit APIs end in 2026: data type mapping, permissions, queries, and Play review.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_plugins.webp",
+    "head_image_alt": "Migrating a Capacitor fitness app from Google Fit to Health Connect",
+    "keywords": "google fit to health connect, google fit deprecation, health connect capacitor, capacitor health plugin, google fit api shutdown 2026, ionic health connect, healthkit capacitor, capacitor google fit migration",
+    "tag": "Migration, Android, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "When do the Google Fit APIs stop working?",
+        "answer": "Google closed new developer sign-ups on May 1, 2024, and states that the Google Fit APIs, including the REST API, are deprecated in 2026 and supported until the end of 2026. Google has not published an exact turn-off day, so finish the migration well before December 2026."
+      },
+      {
+        "question": "What replaces Google Fit in a Capacitor app?",
+        "answer": "Health Connect for on-device data on Android, and HealthKit on iOS. The @capgo/capacitor-health plugin wraps both behind one API, so the same readSamples, queryAggregated, queryWorkouts and saveSample calls work on both platforms."
+      },
+      {
+        "question": "Can I read old Google Fit data through Health Connect?",
+        "answer": "Not directly. Health Connect only holds data that apps wrote to it. The Google Fit app syncs much of its data to Health Connect when the user enables it, but cloud history from the Fit REST API is not imported automatically. Export what you need from Fit before the shutdown and store it on your backend."
+      },
+      {
+        "question": "Do I still need a Google Cloud project and OAuth for Health Connect?",
+        "answer": "No. Health Connect is an on-device store with Android runtime permissions. You remove the Fit OAuth client, the fitness scopes and the play-services-fitness dependency. You do need a Health Connect declaration in Play Console instead."
+      },
+      {
+        "question": "Does Health Connect work on iOS or the web?",
+        "answer": "No. Health Connect is Android only. On iOS, use HealthKit, which @capgo/capacitor-health supports with the same API. There is no web equivalent; for web or server access Google points to the cloud-based Google Health API."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "The Google Fit to Health Connect migration means replacing every Fit API call in your Capacitor app with Health Connect on Android, and with HealthKit on iOS if you ship there too. Google stopped new Fit sign-ups on May 1, 2024, and supports the Fit APIs only until the end of 2026. This guide maps Fit data types and calls to Health Connect, shows the replacement code with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 376
+          },
+          "text": "@capgo/capacitor-health"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 401
+          },
+          "text": ", and covers the Play Console review that comes with health permissions."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "Google Fit deprecation timeline"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 6,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 6,
+                    "column": 3
+                  },
+                  "text": "Date"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 6,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 6,
+                    "column": 10
+                  },
+                  "text": "What happened"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "May 1, 2024"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 17
+                  },
+                  "text": "No new developer sign-ups for Google Fit APIs"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 9,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 9,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "text": "2024 to 2026"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 9,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 18
+                  },
+                  "text": "Existing Fit integrations keep working, Google directs developers to Health Connect"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "2026"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 10
+                  },
+                  "text": "Fit APIs, including the REST API, are deprecated"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "End of 2026"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 17
+                  },
+                  "text": "End of support. Google has not published an exact shutdown day"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 13,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "text": "Google's migration FAQ says there is no alternative to the Fit REST API with the same shape: on-device apps move to Health Connect, and cloud integrations move to the account-based Google Health API. If you see a precise shutdown date quoted somewhere, check it against Google's own FAQ before planning around it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 15,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 15,
+            "column": 4
+          },
+          "text": "What changes when you move to Health Connect"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 17,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 1
+              },
+              "blocks": []
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 5
+                  },
+                  "text": "Google Fit"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 18
+                  },
+                  "text": "Health Connect"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 3
+                  },
+                  "text": "Where data lives"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 22
+                  },
+                  "text": "Google account, in the cloud"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 51
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 53
+                  },
+                  "text": "On the device"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "text": "Auth"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 10
+                  },
+                  "text": "OAuth 2.0 with fitness scopes, Google Sign-In"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 56
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 58
+                  },
+                  "text": "Android runtime permissions per data type"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 3
+                  },
+                  "text": "Setup"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 11
+                  },
+                  "text": "Cloud project, OAuth client, SHA-1 fingerprints"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 61
+                  },
+                  "text": "Manifest permissions, privacy policy screen"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 3
+                  },
+                  "text": "Availability"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 18
+                  },
+                  "text": "Any Android device with Play services"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 56
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 58
+                  },
+                  "text": "Built into Android 14+, an app from Google Play on older versions"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "text": "History"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 13
+                  },
+                  "text": "Full account history"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 36
+                  },
+                  "text": "Last 30 days by default, older data with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 23,
+                    "column": 77
+                  },
+                  "text": "READ_HEALTH_DATA_HISTORY"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "text": "Web/server access"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 23
+                  },
+                  "text": "REST API"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 34
+                  },
+                  "text": "None (use Google Health API for cloud)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 9
+                  },
+                  "text": "Not supported"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 25
+                  },
+                  "text": "Not supported, use HealthKit"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 3
+                  },
+                  "text": "Store review"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 18
+                  },
+                  "text": "OAuth verification for sensitive scopes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 58
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 60
+                  },
+                  "text": "Play Console Health Connect declaration"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "text": "The biggest product change is the device-centric model. Health Connect data on one phone is not visible on another. If your app shows history across devices, sync readings to your own backend."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 4
+          },
+          "text": "Map Fit data types to Health Connect"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 3
+                  },
+                  "text": "Google Fit data type"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 26
+                  },
+                  "text": "Health Connect record"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 32,
+                    "column": 50
+                  },
+                  "text": "@capgo/capacitor-health"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 75
+                  },
+                  "text": " type"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 34,
+                    "column": 3
+                  },
+                  "text": "com.google.step_count.delta"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 34,
+                    "column": 35
+                  },
+                  "text": "StepsRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 49
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 34,
+                    "column": 51
+                  },
+                  "text": "steps"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 3
+                  },
+                  "text": "com.google.distance.delta"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 33
+                  },
+                  "text": "DistanceRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 52
+                  },
+                  "text": "distance"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 3
+                  },
+                  "text": "com.google.calories.expended"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 36
+                  },
+                  "text": "TotalCaloriesBurnedRecord"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 63
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 66
+                  },
+                  "text": "ActiveCaloriesBurnedRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 95
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 97
+                  },
+                  "text": "totalCalories"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 112
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 115
+                  },
+                  "text": "calories"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 37,
+                    "column": 3
+                  },
+                  "text": "com.google.calories.bmr"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 37,
+                    "column": 31
+                  },
+                  "text": "BasalMetabolicRateRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 58
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 37,
+                    "column": 60
+                  },
+                  "text": "basalCalories"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 38,
+                    "column": 3
+                  },
+                  "text": "com.google.heart_rate.bpm"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 38,
+                    "column": 33
+                  },
+                  "text": "HeartRateRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 51
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 38,
+                    "column": 53
+                  },
+                  "text": "heartRate"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 39,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 39,
+                    "column": 3
+                  },
+                  "text": "com.google.weight"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 39,
+                    "column": 25
+                  },
+                  "text": "WeightRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 39,
+                    "column": 42
+                  },
+                  "text": "weight"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 40,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 40,
+                    "column": 3
+                  },
+                  "text": "com.google.height"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 40,
+                    "column": 25
+                  },
+                  "text": "HeightRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 40,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 40,
+                    "column": 42
+                  },
+                  "text": "height"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 41,
+                    "column": 3
+                  },
+                  "text": "com.google.body.fat.percentage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 41,
+                    "column": 38
+                  },
+                  "text": "BodyFatRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 54
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 41,
+                    "column": 56
+                  },
+                  "text": "bodyFat"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 42,
+                    "column": 3
+                  },
+                  "text": "com.google.sleep.segment"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 42,
+                    "column": 32
+                  },
+                  "text": "SleepSessionRecord"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 52
+                  },
+                  "text": " with stages"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 42,
+                "column": 65
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 42,
+                    "column": 67
+                  },
+                  "text": "sleep"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 43,
+                    "column": 3
+                  },
+                  "text": "com.google.oxygen_saturation"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 43,
+                    "column": 36
+                  },
+                  "text": "OxygenSaturationRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 43,
+                    "column": 63
+                  },
+                  "text": "oxygenSaturation"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 3
+                  },
+                  "text": "com.google.blood_pressure"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 33
+                  },
+                  "text": "BloodPressureRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 57
+                  },
+                  "text": "bloodPressure"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 45,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 45,
+                    "column": 3
+                  },
+                  "text": "com.google.blood_glucose"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 45,
+                    "column": 32
+                  },
+                  "text": "BloodGlucoseRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 53
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 45,
+                    "column": 55
+                  },
+                  "text": "bloodGlucose"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 46,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 46,
+                    "column": 3
+                  },
+                  "text": "com.google.body.temperature"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 46,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 46,
+                    "column": 35
+                  },
+                  "text": "BodyTemperatureRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 46,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 46,
+                    "column": 61
+                  },
+                  "text": "bodyTemperature"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 47,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 47,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 3
+                  },
+                  "text": "com.google.hydration"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 47,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 28
+                  },
+                  "text": "HydrationRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 47,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 48
+                  },
+                  "text": "dietaryWater"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 48,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 48,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 48,
+                    "column": 3
+                  },
+                  "text": "com.google.nutrition"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 48,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 48,
+                    "column": 28
+                  },
+                  "text": "NutritionRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 48,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 48,
+                    "column": 48
+                  },
+                  "text": "dietaryEnergyConsumed"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 48,
+                    "column": 71
+                  },
+                  "text": " (energy only)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 49,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 49,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 49,
+                    "column": 3
+                  },
+                  "text": "com.google.activity.segment"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 49,
+                    "column": 32
+                  },
+                  "text": " and Sessions API"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 49,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 49,
+                    "column": 52
+                  },
+                  "text": "ExerciseSessionRecord"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 49,
+                "column": 76
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 49,
+                    "column": 78
+                  },
+                  "text": "workouts"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 49,
+                    "column": 88
+                  },
+                  "text": " (read via "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 49,
+                    "column": 99
+                  },
+                  "text": "queryWorkouts"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 49,
+                    "column": 114
+                  },
+                  "text": ")"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 51,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 51,
+            "column": 5
+          },
+          "text": "Fit types without a direct equivalent"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 53,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 53,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 53,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 53,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 53,
+                        "column": 5
+                      },
+                      "text": "Heart Points"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 53,
+                    "column": 19
+                  },
+                  "text": " ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 53,
+                    "column": 21
+                  },
+                  "text": "com.google.heart_minutes"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 53,
+                    "column": 47
+                  },
+                  "text": ") and "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 53,
+                    "column": 53
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 53,
+                        "column": 55
+                      },
+                      "text": "Move Minutes"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 53,
+                    "column": 69
+                  },
+                  "text": " ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 53,
+                    "column": 71
+                  },
+                  "text": "com.google.active_minutes"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 53,
+                    "column": 98
+                  },
+                  "text": ") were Google Fit scores. Health Connect stores raw data, not these scores. Recompute your own metric from heart rate and exercise sessions."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 54,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 54,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 54,
+                        "column": 5
+                      },
+                      "text": "Activity samples"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 54,
+                    "column": 23
+                  },
+                  "text": " with per-second activity types are replaced by exercise sessions with segments."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 55,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 55,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 55,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 55,
+                        "column": 5
+                      },
+                      "text": "Location samples"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 23
+                  },
+                  "text": " inside workouts become "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 55,
+                    "column": 47
+                  },
+                  "text": "ExerciseRoute"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 62
+                  },
+                  "text": " data in Health Connect, which needs a separate permission and is not exposed by the plugin."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 56,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 56,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 56,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 56,
+                        "column": 5
+                      },
+                      "text": "Cadence, speed and power"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 56,
+                    "column": 31
+                  },
+                  "text": " exist in Health Connect ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 56,
+                    "column": 57
+                  },
+                  "text": "StepsCadenceRecord"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 56,
+                    "column": 77
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 56,
+                    "column": 79
+                  },
+                  "text": "SpeedRecord"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 56,
+                    "column": 92
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 56,
+                    "column": 94
+                  },
+                  "text": "PowerRecord"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 56,
+                    "column": 107
+                  },
+                  "text": ") but are not covered by the plugin's types. If you depend on them, a small custom native method is the fastest path."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 1
+          },
+          "text": "Audit before you write code: list every "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 58,
+            "column": 41
+          },
+          "text": "DataType"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 51
+          },
+          "text": " and every API you call (History, Recording, Sessions, Sensors, Config, REST), and mark each one as mapped, recomputed, or dropped."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 4
+          },
+          "text": "Step 1: Remove Google Fit"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 1
+          },
+          "text": "Delete the Fit integration from your Android project and JavaScript:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 64,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 64,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 64,
+                    "column": 3
+                  },
+                  "text": "Remove "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 64,
+                    "column": 10
+                  },
+                  "text": "com.google.android.gms:play-services-fitness"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 64,
+                    "column": 56
+                  },
+                  "text": " and, if only used for Fit, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 64,
+                    "column": 84
+                  },
+                  "text": "play-services-auth"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 64,
+                    "column": 104
+                  },
+                  "text": " from "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 64,
+                    "column": 110
+                  },
+                  "text": "build.gradle"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 64,
+                    "column": 124
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 65,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 65,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 65,
+                    "column": 3
+                  },
+                  "text": "Remove the Fit OAuth client from Google Cloud and the fitness scopes from your consent screen."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 66,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 66,
+                    "column": 3
+                  },
+                  "text": "Uninstall the old community Google Fit Capacitor plugin you used, then run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 66,
+                    "column": 78
+                  },
+                  "text": "bunx cap sync"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 66,
+                    "column": 93
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 68,
+            "column": 1
+          },
+          "text": "Keep the Fit code in a branch until the new version is live, so you can export historical data if users ask."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 70,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 4
+          },
+          "text": "Step 2: Install the health plugin"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 72,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-health\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 77,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "link",
+          "location": {
+            "line": 77,
+            "column": 1
+          },
+          "url": "/plugins/capacitor-health/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 77,
+                "column": 2
+              },
+              "text": "@capgo/capacitor-health"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 56
+          },
+          "text": " supports Capacitor 8, uses Health Connect on Android and HealthKit on iOS, and requires Android "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 77,
+            "column": 153
+          },
+          "text": "minSdk"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 161
+          },
+          "text": " 26."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 79,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 5
+          },
+          "text": "Android setup"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 1
+          },
+          "text": "The plugin merges the Health Connect read and write permissions for its supported types into your manifest, plus the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 81,
+            "column": 118
+          },
+          "text": "<queries>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 129
+          },
+          "text": " entry for the Health Connect package and the permission rationale activity. You need to:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 83,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 83,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 83,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 83,
+                        "column": 6
+                      },
+                      "text": "Provide a privacy policy."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 83,
+                    "column": 33
+                  },
+                  "text": " Health Connect opens it from the permission sheet. Either add "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 83,
+                    "column": 96
+                  },
+                  "text": "android/app/src/main/assets/public/privacypolicy.html"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 83,
+                    "column": 151
+                  },
+                  "text": ", or set a URL in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 83,
+                    "column": 169
+                  },
+                  "text": "android/app/src/main/res/values/strings.xml"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 83,
+                    "column": 214
+                  },
+                  "text": ":"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<string name=\"health_connect_privacy_policy_url\">https://example.com/privacy</string>"
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 89,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 2,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 89,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 89,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 89,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 89,
+                        "column": 6
+                      },
+                      "text": "Trim permissions."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 89,
+                    "column": 25
+                  },
+                  "text": " Google Play reviews every Health Connect permission you declare. If you only read steps and heart rate, remove the rest with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 89,
+                    "column": 151
+                  },
+                  "text": "tools:node=\"remove\""
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 89,
+                    "column": 172
+                  },
+                  "text": ":"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 91,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<uses-permission\n    android:name=\"android.permission.health.WRITE_BLOOD_GLUCOSE\"\n    tools:node=\"remove\" />"
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 3,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 97,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 97,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 97,
+                        "column": 6
+                      },
+                      "text": "Add history access if you need it."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 97,
+                    "column": 42
+                  },
+                  "text": " Health Connect limits reads to roughly the last 30 days unless the user grants "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 97,
+                    "column": 122
+                  },
+                  "text": "READ_HEALTH_DATA_HISTORY"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 97,
+                    "column": 148
+                  },
+                  "text": ":"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<uses-permission android:name=\"android.permission.health.READ_HEALTH_DATA_HISTORY\" />"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 5
+          },
+          "text": "iOS setup"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 1
+          },
+          "text": "Enable the HealthKit capability in Xcode and add usage strings to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 105,
+            "column": 67
+          },
+          "text": "Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 79
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<key>NSHealthShareUsageDescription</key>\n<string>Show your steps and workouts in the app.</string>\n<key>NSHealthUpdateUsageDescription</key>\n<string>Save the workouts you record in the app.</string>"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 114,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 4
+          },
+          "text": "Step 3: Check availability"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 116,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 116,
+            "column": 1
+          },
+          "text": "Google Fit worked anywhere Play services existed. Health Connect may be missing on Android 13 and older, or need an update."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 118,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Health } from '@capgo/capacitor-health';\n\nexport async function ensureHealthAvailable() {\n  const result = await Health.isAvailable();\n  if (result.available) return true;\n\n  // On Android, send the user to install or update Health Connect\n  if (result.platform === 'android') {\n    await Health.openHealthConnectSettings();\n  }\n  console.warn('Health store unavailable:', result.reason);\n  return false;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 134,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 134,
+            "column": 1
+          },
+          "text": "Show a short explanation screen before redirecting. Users who never heard of Health Connect are confused when the Play Store opens unprompted."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 136,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 136,
+            "column": 4
+          },
+          "text": "Step 4: Replace OAuth with permissions"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 138,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 1
+          },
+          "text": "The Fit flow was: Google Sign-In, request fitness scopes, then call APIs. The new flow is a single permission sheet:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 140,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const status = await Health.requestAuthorization({\n  read: ['steps', 'distance', 'calories', 'heartRate', 'sleep', 'workouts'],\n  write: ['weight'],\n  requestHistoryAccess: true, // Android only\n});\n\nif (status.readDenied.length > 0) {\n  // explain what will not work and offer openHealthConnectSettings()\n}\nif (status.historyAccessAvailable === false) {\n  // provider too old: only the last 30 days are readable\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 155,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 1
+          },
+          "text": "Permissions are per data type and the user can grant any subset. Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 155,
+            "column": 70
+          },
+          "text": "checkAuthorization"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 90
+          },
+          "text": " with the same options on every app start, because users can revoke access in Health Connect settings at any time. On iOS, HealthKit hides read denials for privacy, so an empty result can mean \"no data\" or \"no access\"."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 157,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 157,
+            "column": 4
+          },
+          "text": "Step 5: Replace History API reads"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 159,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 159,
+            "column": 1
+          },
+          "text": "A Fit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 159,
+            "column": 7
+          },
+          "text": "readData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 159,
+            "column": 17
+          },
+          "text": " call for raw samples becomes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 159,
+            "column": 47
+          },
+          "text": "readSamples"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 159,
+            "column": 60
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 161,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const end = new Date();\nconst start = new Date(end.getTime() - 24 * 60 * 60 * 1000);\n\nconst { samples } = await Health.readSamples({\n  dataType: 'heartRate',\n  startDate: start.toISOString(),\n  endDate: end.toISOString(),\n  limit: 500,\n  ascending: true,\n});\n\nfor (const s of samples) {\n  console.log(s.startDate, s.value, s.unit, s.sourceName, s.deviceType);\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 178,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 178,
+            "column": 1
+          },
+          "text": "sourceName"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 13
+          },
+          "text": " and, on Android, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 178,
+            "column": 31
+          },
+          "text": "deviceType"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 43
+          },
+          "text": " ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 178,
+            "column": 45
+          },
+          "text": "watch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 52
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 178,
+            "column": 54
+          },
+          "text": "phone"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 61
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 178,
+            "column": 63
+          },
+          "text": "chestStrap"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 75
+          },
+          "text": ", and so on) replace Fit's data source objects. Use them to prefer watch data over phone data when both exist."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 180,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 180,
+            "column": 4
+          },
+          "text": "Step 6: Replace bucketed and aggregate reads"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "text": "Fit's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 182,
+            "column": 7
+          },
+          "text": "bucketByTime"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 21
+          },
+          "text": " plus "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 182,
+            "column": 27
+          },
+          "text": "aggregate"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 38
+          },
+          "text": " becomes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 182,
+            "column": 47
+          },
+          "text": "queryAggregated"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 64
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const { samples: daily } = await Health.queryAggregated({\n  dataType: 'steps',\n  startDate: new Date(Date.now() - 7 * 86_400_000).toISOString(),\n  endDate: new Date().toISOString(),\n  bucket: 'day',          // 'hour' | 'day' | 'week' | 'month'\n  aggregation: 'sum',\n});\n\nconst { samples: hr } = await Health.queryAggregated({\n  dataType: 'heartRate',\n  bucket: 'hour',\n  aggregation: ['min', 'average', 'max'],\n  startDate: new Date(Date.now() - 86_400_000).toISOString(),\n  endDate: new Date().toISOString(),\n});\n// hr[i].values.min, hr[i].values.average, hr[i].values.max"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 203,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 1
+          },
+          "text": "Always aggregate steps instead of summing raw samples. Health Connect deduplicates overlapping data from several apps during aggregation, and raw sums often double count when a watch and a phone both record steps."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 205,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 205,
+            "column": 4
+          },
+          "text": "Step 7: Replace the Sessions API"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 207,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 1
+          },
+          "text": "Fit sessions map to exercise sessions:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 209,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const { workouts, anchor } = await Health.queryWorkouts({\n  workoutType: 'running',\n  startDate: new Date(Date.now() - 30 * 86_400_000).toISOString(),\n  endDate: new Date().toISOString(),\n  limit: 50,\n});\n\nfor (const w of workouts) {\n  console.log(w.workoutType, w.duration, w.totalDistance, w.totalEnergyBurned);\n}\n// pass `anchor` back to fetch the next page"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 223,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 1
+          },
+          "text": "Request "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 9
+          },
+          "text": "workouts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 19
+          },
+          "text": " in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 23
+          },
+          "text": "read"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 29
+          },
+          "text": " permissions first. The plugin reads workouts but does not write exercise sessions, so if your app records workouts, write the underlying samples (distance, calories, heart rate) and keep the session itself in your backend, or add a native method for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 280
+          },
+          "text": "ExerciseSessionRecord"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 303
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 225,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 4
+          },
+          "text": "Step 8: Replace inserts"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 227,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 1
+          },
+          "text": "Fit's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 227,
+            "column": 7
+          },
+          "text": "insertData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 19
+          },
+          "text": " becomes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 227,
+            "column": 28
+          },
+          "text": "saveSample"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 40
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 229,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await Health.saveSample({\n  dataType: 'weight',\n  value: 72.4, // kilograms\n  startDate: new Date().toISOString(),\n});\n\nawait Health.saveSample({\n  dataType: 'bloodPressure',\n  value: 120,\n  systolic: 120,\n  diastolic: 80,\n  startDate: new Date().toISOString(),\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 1
+          },
+          "text": "Values must use the default unit of each type (kilograms, meters, kilocalories, bpm). The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 245,
+            "column": 91
+          },
+          "text": "metadata"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 101
+          },
+          "text": " option is ignored by Health Connect."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 247,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 247,
+            "column": 4
+          },
+          "text": "Step 9: Pass Google Play review"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 249,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 249,
+            "column": 1
+          },
+          "text": "Health permissions trigger extra review:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 251,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 251,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 251,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 251,
+                    "column": 4
+                  },
+                  "text": "In Play Console, open "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 251,
+                    "column": 26
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 251,
+                        "column": 28
+                      },
+                      "text": "App content"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 251,
+                    "column": 41
+                  },
+                  "text": " and complete the "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 251,
+                    "column": 59
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 251,
+                        "column": 61
+                      },
+                      "text": "Health apps"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 251,
+                    "column": 74
+                  },
+                  "text": " declaration and the Health Connect permissions form. Justify every permission you request."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 252,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 252,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 252,
+                    "column": 4
+                  },
+                  "text": "Make sure the privacy policy linked in Play Console and the one shown in the Health Connect sheet describe health data use."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 253,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 253,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 253,
+                    "column": 4
+                  },
+                  "text": "Update the "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 253,
+                    "column": 15
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 253,
+                        "column": 17
+                      },
+                      "text": "Data safety"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 253,
+                    "column": 30
+                  },
+                  "text": " form: health and fitness data, collected or not, shared or not."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 254,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 254,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 254,
+                    "column": 4
+                  },
+                  "text": "Submit a build that only declares the permissions you justified. Extra declared permissions are the most common rejection."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 256,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 256,
+            "column": 1
+          },
+          "text": "Plan for review to take longer than a normal update. Ship the migration as its own release, not mixed with unrelated features."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 258,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 258,
+            "column": 4
+          },
+          "text": "Step 10: Migrate user expectations"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 260,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 260,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 260,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 260,
+                    "column": 3
+                  },
+                  "text": "Tell users their history now comes from Health Connect, and that older data may be limited to 30 days until they grant history access."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 261,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 261,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 261,
+                    "column": 3
+                  },
+                  "text": "If your app used Fit as its cloud sync, move that responsibility to your backend now."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 262,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 262,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 262,
+                    "column": 3
+                  },
+                  "text": "Remove \"Connect Google Fit\" buttons and rename them \"Connect Health Connect\" on Android and \"Connect Apple Health\" on iOS."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 264,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 264,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 266,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 266,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 266,
+                "column": 3
+              },
+              "text": "isAvailable()"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 266,
+                "column": 18
+              },
+              "text": " returns false on Android 13"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 266,
+            "column": 48
+          },
+          "text": ": Health Connect is not installed or outdated. Call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 266,
+            "column": 100
+          },
+          "text": "openHealthConnectSettings()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 266,
+            "column": 129
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 268,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 268,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 268,
+                "column": 3
+              },
+              "text": "The permission sheet never appears"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 268,
+            "column": 39
+          },
+          "text": ": the permission is not declared in the merged manifest, or you removed it with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 268,
+            "column": 119
+          },
+          "text": "tools:node=\"remove\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 268,
+            "column": 140
+          },
+          "text": ". Check "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 268,
+            "column": 148
+          },
+          "text": "android/app/build/intermediates/merged_manifests"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 268,
+            "column": 198
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 270,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 270,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 270,
+                "column": 3
+              },
+              "text": "Reads return only 30 days"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 270,
+            "column": 30
+          },
+          "text": ": request "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 270,
+            "column": 40
+          },
+          "text": "requestHistoryAccess: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 270,
+            "column": 68
+          },
+          "text": " and declare "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 270,
+            "column": 81
+          },
+          "text": "READ_HEALTH_DATA_HISTORY"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 270,
+            "column": 107
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 272,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 272,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 272,
+                "column": 3
+              },
+              "text": "Step totals are higher than Google Fit"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 272,
+            "column": 43
+          },
+          "text": ": you summed raw samples. Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 272,
+            "column": 73
+          },
+          "text": "queryAggregated"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 272,
+            "column": 90
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 274,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 274,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 274,
+                "column": 3
+              },
+              "text": "Empty results on iOS"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 274,
+            "column": 25
+          },
+          "text": ": either no data or read permission denied. HealthKit does not tell you which."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 276,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 276,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 276,
+                "column": 3
+              },
+              "text": "Play Console rejects the update"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 276,
+            "column": 36
+          },
+          "text": ": remove undeclared or unjustified Health Connect permissions and resubmit with a clear justification."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 278,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 278,
+            "column": 4
+          },
+          "text": "Ship the migration in stages"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 280,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 1
+          },
+          "text": "The native part (plugin, manifest, HealthKit capability) needs a store release. After that, queries, UI and data mapping are JavaScript, which you can iterate on with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 280,
+            "column": 168
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 280,
+                "column": 169
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 203
+          },
+          "text": " while users test the new flow. If you also read live sensor data, see our guide to "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 280,
+            "column": 287
+          },
+          "url": "/blog/how-to-build-a-heart-rate-monitor-with-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 280,
+                "column": 288
+              },
+              "text": "building a heart rate monitor with Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 390
+          },
+          "text": ", and the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 280,
+            "column": 400
+          },
+          "url": "/docs/plugins/health/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 280,
+                "column": 401
+              },
+              "text": "health plugin docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 443
+          },
+          "text": " for every data type."
+        }
+      ]
+    }
+  ]
+}

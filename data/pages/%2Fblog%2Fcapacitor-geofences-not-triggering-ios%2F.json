@@ -1,0 +1,2371 @@
+{
+  "version": 1,
+  "route": "/blog/capacitor-geofences-not-triggering-ios/",
+  "source": "corpus/source/apps/web/src/content/blog/en/capacitor-geofences-not-triggering-ios.md",
+  "sourceSha256": "3bd9def0b2eda7e85fdb24ace7380bc3cfc7dffeed54823095566e11a156abad",
+  "metadata": {
+    "slug": "capacitor-geofences-not-triggering-ios",
+    "title": "Why Geofences Are Not Triggering on iOS",
+    "description": "Geofences not triggering on iOS in your Capacitor app? Learn how region monitoring works, the permission, radius and limit rules, and how to debug each case.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/blog-images/how-to-add-geolocation-targeting-to-ota-updates.webp",
+    "head_image_alt": "Map with location boundaries illustrating geofencing in a Capacitor iOS app",
+    "keywords": "geofences not triggering ios, ios geofencing capacitor, region monitoring ios, capacitor geofence, geofence enter exit event, CLCircularRegion",
+    "tag": "iOS, Capacitor, Tutorial",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Why are my geofences not triggering on iOS?",
+        "answer": "The most common causes are missing Always authorization, the device already being inside the region when it was added, a radius that is too small, the 20 region limit per app, and testing for too short a time. iOS also waits until the device has clearly crossed the boundary before reporting it."
+      },
+      {
+        "question": "How many geofences can an iOS app monitor?",
+        "answer": "Core Location lets one app monitor up to 20 regions at the same time. If you need more, register only the closest regions and refresh the set as the user moves."
+      },
+      {
+        "question": "What radius should I use for iOS geofences?",
+        "answer": "Use at least 100 to 200 meters for reliable results. Region monitoring relies heavily on Wi-Fi and cell data, so very small regions often fire late or not at all, especially indoors."
+      },
+      {
+        "question": "Do iOS geofences fire if the app is not running?",
+        "answer": "With Always authorization, iOS can relaunch the app in the background to deliver a region event. In a Capacitor app the WebView may not be ready at that moment, so send transitions to your server from native code with the url option of setupGeofencing."
+      },
+      {
+        "question": "Can I test geofences in the iOS Simulator?",
+        "answer": "You can simulate locations with a GPX file in Xcode to check your logic, but timing and reliability only show up on a real device moving through real places."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "When geofences are not triggering on iOS, the cause is almost always one of a short list: the app lacks Always authorization, the device was already inside the region when you added it, the radius is too small for iOS to detect a crossing, the app hit the 20 region limit, or the test did not wait long enough. iOS geofencing works well, but it reports crossings on its own schedule. This guide explains how region monitoring decides when to fire, and how to debug a Capacitor app using "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 2,
+            "column": 488
+          },
+          "url": "/plugins/capacitor-background-geolocation/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 2,
+                "column": 489
+              },
+              "text": "@capgo/background-geolocation"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 565
+          },
+          "text": ", which includes native geofencing on iOS and Android."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "How iOS region monitoring works"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "On iOS, geofences are "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 6,
+            "column": 23
+          },
+          "text": "CLCircularRegion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 41
+          },
+          "text": " objects registered with Core Location. Once registered, the operating system monitors them, not your app. Your app can be suspended or not running and iOS still tracks the regions, using a mix of cell towers, Wi-Fi and GPS to keep battery use low."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "When iOS decides the device crossed a boundary, it delivers an enter or exit event to the app, launching it in the background if needed and permitted. A few rules control that decision:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "iOS does not report a crossing the moment the device touches the boundary. Apple's guidance is that the device must cross, move a minimum distance past the boundary, and stay there for at least about 20 seconds before the event is delivered. This avoids firing on GPS jitter."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "Location accuracy for region monitoring depends on what radios are around. In a city with dense Wi-Fi, it can be quick. On a rural road, it can take minutes."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 12,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Events are only for transitions. Being inside a region when monitoring starts does not count as an entry."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 4
+          },
+          "text": "Set up geofencing in a Capacitor app"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "text": "Install the plugin and configure the iOS keys:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/background-geolocation\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<key>NSLocationWhenInUseUsageDescription</key>\n<string>We use your location to detect when you arrive at a store.</string>\n<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>\n<string>We need Always access to notify you when you arrive, even when the app is closed.</string>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "text": "Then register regions:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "import { BackgroundGeolocation } from '@capgo/background-geolocation';\n\nawait BackgroundGeolocation.setupGeofencing({\n  url: 'https://api.example.com/v1/geofence-events',\n  headers: { Authorization: 'Bearer <token>' },\n  notifyOnEntry: true,\n  notifyOnExit: true,\n  payload: { userId: 'u-42' },\n});\n\nawait BackgroundGeolocation.addGeofence({\n  identifier: 'store-paris-11',\n  latitude: 48.8606,\n  longitude: 2.3795,\n  radius: 150,\n  payload: { storeId: 'paris-11' },\n});\n\nawait BackgroundGeolocation.addListener('geofenceTransition', (event) => {\n  console.log(`${event.transition} ${event.identifier}`, event.payload);\n});\n\nawait BackgroundGeolocation.addListener('geofenceError', (event) => {\n  console.error('Geofence error', event.identifier, event.code, event.message);\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 1
+          },
+          "text": "setupGeofencing"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 18
+          },
+          "text": " asks for the permission geofencing needs by default ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 72
+          },
+          "text": "requestPermissions"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 92
+          },
+          "text": " defaults to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 105
+          },
+          "text": "true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 111
+          },
+          "text": "). On iOS that means Always."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 1
+          },
+          "text": "Now, the failure modes."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 4
+          },
+          "text": "1. You do not have Always authorization"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "text": "Region monitoring on iOS needs Always authorization. With While Using App only, your regions will not deliver events when the app is in the background or not running, which is the whole point of a geofence."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 68,
+            "column": 1
+          },
+          "text": "Check before you register regions, and explain the request in your own UI first:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 70,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "const status = await BackgroundGeolocation.checkPermissions();\n\nif (status.backgroundLocation !== 'always' && status.backgroundLocation !== 'granted') {\n  // Show your own screen explaining the feature, then:\n  const next = await BackgroundGeolocation.requestPermissions({\n    permissions: ['backgroundLocation'],\n  });\n  if (next.backgroundLocation === 'when_in_use' || next.backgroundLocation === 'denied') {\n    await BackgroundGeolocation.openSettings();\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 84,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 84,
+            "column": 1
+          },
+          "text": "Note that iOS may not show the Always upgrade prompt immediately. Users who picked \"Allow While Using App\" may only see the second prompt later. Users who picked \"Allow Once\" get a temporary grant that resets. If geofencing is a core feature, check the status at every app start and show a clear banner when it is not Always."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 86,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 86,
+            "column": 4
+          },
+          "text": "2. The device was already inside the region"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 88,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 1
+          },
+          "text": "If you add a geofence while the phone is inside it, iOS does not send an enter event. Nothing crossed. Teams hit this constantly when testing at their desk with a region around the office."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 90,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 90,
+            "column": 1
+          },
+          "text": "Fix it in your app: when you register a region, compare the current position with the region and handle \"already inside\" yourself."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "import { Geolocation } from '@capacitor/geolocation';\n\nfunction distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {\n  const R = 6371000;\n  const toRad = (d: number) => (d * Math.PI) / 180;\n  const dLat = toRad(lat2 - lat1);\n  const dLon = toRad(lon2 - lon1);\n  const a =\n    Math.sin(dLat / 2) ** 2 +\n    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;\n  return 2 * R * Math.asin(Math.sqrt(a));\n}\n\nconst region = { identifier: 'store-paris-11', latitude: 48.8606, longitude: 2.3795, radius: 150 };\nawait BackgroundGeolocation.addGeofence(region);\n\nconst pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });\nif (distanceMeters(pos.coords.latitude, pos.coords.longitude, region.latitude, region.longitude) < region.radius) {\n  handleAlreadyInside(region.identifier);\n}\n\ndeclare function handleAlreadyInside(id: string): void;"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 1
+          },
+          "text": "To test an enter event, walk or drive out well past the radius, wait, then come back."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 119,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 4
+          },
+          "text": "3. The radius is too small"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 121,
+            "column": 1
+          },
+          "text": "iOS accepts small radii, but reliability drops quickly below about 100 meters, because region monitoring leans on Wi-Fi and cell positioning. A 30 meter region around a shop door may fire late, fire after the customer has left, or not fire at all."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 123,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 123,
+            "column": 1
+          },
+          "text": "Practical values:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 125,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 125,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 125,
+                    "column": 3
+                  },
+                  "text": "Use case"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 125,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 125,
+                    "column": 14
+                  },
+                  "text": "Suggested radius"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 127,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 127,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 127,
+                    "column": 3
+                  },
+                  "text": "Store or restaurant arrival"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 127,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 127,
+                    "column": 33
+                  },
+                  "text": "100 to 200 m"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 128,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 128,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 128,
+                    "column": 3
+                  },
+                  "text": "Office, campus, warehouse"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 128,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 128,
+                    "column": 31
+                  },
+                  "text": "150 to 300 m"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 129,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 129,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 129,
+                    "column": 3
+                  },
+                  "text": "Neighborhood or city zone"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 129,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 129,
+                    "column": 31
+                  },
+                  "text": "500 m and up"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 131,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 1
+          },
+          "text": "If you need door level precision, combine a larger geofence with foreground location or a beacon once the user is inside. Capgo also has an "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 131,
+            "column": 141
+          },
+          "url": "/docs/plugins/ibeacon/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 131,
+                "column": 142
+              },
+              "text": "iBeacon plugin"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 181
+          },
+          "text": " for indoor proximity."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 133,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 133,
+            "column": 4
+          },
+          "text": "4. You hit the 20 region limit"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 135,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 135,
+            "column": 1
+          },
+          "text": "An iOS app can monitor at most 20 regions at once. When you add more, registration fails for the extra ones and you get a monitoring error."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 137,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 137,
+            "column": 1
+          },
+          "text": "Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 137,
+            "column": 5
+          },
+          "text": "getMonitoredGeofences()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 137,
+            "column": 30
+          },
+          "text": " to see what is really registered, and keep a rolling set of the nearest regions:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "const { regions } = await BackgroundGeolocation.getMonitoredGeofences();\nconsole.log(`Monitoring ${regions.length} regions`, regions);"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 144,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "text": "A common pattern:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 146,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 146,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 146,
+                    "column": 4
+                  },
+                  "text": "Keep your full list of places on the server."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 147,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 147,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 147,
+                    "column": 4
+                  },
+                  "text": "When the app starts, and when the user moves far (for example on exit of a large \"refresh\" region around the user), fetch the 19 nearest places."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 148,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 148,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 148,
+                    "column": 4
+                  },
+                  "text": "Call "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 148,
+                    "column": 9
+                  },
+                  "text": "removeAllGeofences()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 148,
+                    "column": 31
+                  },
+                  "text": ", then add the 19 nearest plus one large region centered on the user. Exiting that large region is your signal to refresh."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 150,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 150,
+            "column": 1
+          },
+          "text": "Android allows up to 100 geofences per app, so code that works on Android can fail on iOS for this reason alone."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 152,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 4
+          },
+          "text": "5. The test was too short or too static"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 1
+          },
+          "text": "iOS reports transitions only after the device has clearly crossed and stayed on the other side. If you drive through a 150 meter region at 50 km/h, you spend about 20 seconds inside it. That may not be enough."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 156,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "text": "When testing:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 158,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 158,
+                    "column": 3
+                  },
+                  "text": "Stay outside for a minute, then go inside and stay at least a couple of minutes."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 159,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 159,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 159,
+                    "column": 3
+                  },
+                  "text": "Test with Wi-Fi turned on. Turning Wi-Fi off makes region monitoring much less accurate, even if you are not connected to any network."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 160,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 160,
+                    "column": 3
+                  },
+                  "text": "Do not rely on the Simulator for timing. Use it with a GPX route in Xcode to check your handlers, then test on a device."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 162,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 162,
+            "column": 4
+          },
+          "text": "6. The event fired, but your JavaScript did not run"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 164,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 1
+          },
+          "text": "When iOS relaunches your app in the background for a region event, the native plugin receives it, but the Capacitor WebView may not be loaded or may be suspended again quickly. The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 164,
+            "column": 182
+          },
+          "text": "geofenceTransition"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 202
+          },
+          "text": " listener only fires while the WebView is alive."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 166,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 1
+          },
+          "text": "That is why "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 166,
+            "column": 13
+          },
+          "text": "setupGeofencing"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 30
+          },
+          "text": " accepts a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 166,
+            "column": 41
+          },
+          "text": "url"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 46
+          },
+          "text": ". The plugin POSTs the transition from native code, including your merged "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 166,
+            "column": 120
+          },
+          "text": "payload"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 129
+          },
+          "text": ", so your backend gets it even when JavaScript never runs. Headers are persisted with the setup so they still work after a relaunch, and you can rotate them with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 166,
+            "column": 291
+          },
+          "text": "updateHeaders()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 308
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 168,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 1
+          },
+          "text": "Delivery is best effort, with no retry queue. Make the endpoint fast and idempotent, and log every request during testing."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 4
+          },
+          "text": "7. Location Services or Background App Refresh are off"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 1
+          },
+          "text": "Check these on the test device:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 174,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 174,
+                    "column": 3
+                  },
+                  "text": "Settings, Privacy & Security, Location Services is on."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 175,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 175,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 175,
+                    "column": 3
+                  },
+                  "text": "Your app is set to Always."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 176,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 176,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 3
+                  },
+                  "text": "Precise Location is on for your app. Without it, small regions are unreliable."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 177,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 177,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 177,
+                    "column": 3
+                  },
+                  "text": "Low Power Mode is off during your first tests. It reduces background activity."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 179,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 179,
+            "column": 4
+          },
+          "text": "8. Reboots and app updates"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 181,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 1
+          },
+          "text": "iOS keeps monitored regions across app launches. After a device restart, monitoring resumes once the system is back up, but your app should still re-sync its regions on launch: compare "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 181,
+            "column": 186
+          },
+          "text": "getMonitoredGeofences()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 211
+          },
+          "text": " with what you expect and re-add missing ones. Do the same after an app update, and whenever the server changes the list of places."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 183,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 183,
+            "column": 1
+          },
+          "text": "On Android, geofences are removed after a reboot and in a few other situations (location turned off, app data cleared), so re-registering on launch is required there anyway. Doing it on both platforms keeps the logic simple."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 185,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 185,
+            "column": 4
+          },
+          "text": "9. Force quit"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 187,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 187,
+            "column": 1
+          },
+          "text": "If a user force quits the app from the app switcher, iOS treats it as a strong signal that the user does not want the app running. Region relaunch behavior after a force quit has changed across iOS versions. Do not build a feature that only works if the app is relaunched after a force quit, and test it on the iOS versions your users run."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 189,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 189,
+            "column": 4
+          },
+          "text": "Debugging checklist"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 191,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 191,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 191,
+                    "column": 3
+                  },
+                  "text": "Check"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 191,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 191,
+                    "column": 11
+                  },
+                  "text": "How"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 193,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 193,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 193,
+                    "column": 3
+                  },
+                  "text": "Permission is Always"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 193,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 193,
+                    "column": 26
+                  },
+                  "text": "checkPermissions()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 193,
+                    "column": 46
+                  },
+                  "text": " returns "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 193,
+                    "column": 55
+                  },
+                  "text": "always"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 193,
+                    "column": 63
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 193,
+                    "column": 67
+                  },
+                  "text": "granted"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 193,
+                    "column": 76
+                  },
+                  "text": " for "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 193,
+                    "column": 81
+                  },
+                  "text": "backgroundLocation"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 194,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 194,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 194,
+                    "column": 3
+                  },
+                  "text": "Region is registered"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 194,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 194,
+                    "column": 26
+                  },
+                  "text": "getMonitoredGeofences()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 194,
+                    "column": 51
+                  },
+                  "text": " lists the identifier"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 195,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 195,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 195,
+                    "column": 3
+                  },
+                  "text": "Under 20 regions"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 195,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 195,
+                    "column": 22
+                  },
+                  "text": "Count from "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 195,
+                    "column": 33
+                  },
+                  "text": "getMonitoredGeofences()"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 196,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 196,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 196,
+                    "column": 3
+                  },
+                  "text": "Radius ≥ 100 m"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 196,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 196,
+                    "column": 20
+                  },
+                  "text": "Review your "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 196,
+                    "column": 32
+                  },
+                  "text": "addGeofence"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 196,
+                    "column": 45
+                  },
+                  "text": " calls"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 197,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 197,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 197,
+                    "column": 3
+                  },
+                  "text": "Not already inside"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 197,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 197,
+                    "column": 24
+                  },
+                  "text": "Compare current position on registration"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 198,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 198,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 198,
+                    "column": 3
+                  },
+                  "text": "Errors are logged"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 198,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 198,
+                    "column": 23
+                  },
+                  "text": "Listen to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 198,
+                    "column": 33
+                  },
+                  "text": "geofenceError"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 199,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 199,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 199,
+                    "column": 3
+                  },
+                  "text": "Backend receives events"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 199,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 199,
+                    "column": 29
+                  },
+                  "text": "Set "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 199,
+                    "column": 33
+                  },
+                  "text": "url"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 199,
+                    "column": 38
+                  },
+                  "text": " in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 199,
+                    "column": 42
+                  },
+                  "text": "setupGeofencing"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 199,
+                    "column": 59
+                  },
+                  "text": " and log requests"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 200,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 200,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 200,
+                    "column": 3
+                  },
+                  "text": "Real movement test"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 200,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 200,
+                    "column": 24
+                  },
+                  "text": "Leave the region fully, wait, come back and stay"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 202,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 202,
+            "column": 4
+          },
+          "text": "Android differences to keep in mind"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 204,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 1
+          },
+          "text": "If the same code works on Android but not iOS, the 20 region limit and the Always requirement are the usual reasons. If it works on iOS but not Android, check that you added "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 204,
+            "column": 175
+          },
+          "text": "ACCESS_BACKGROUND_LOCATION"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 203
+          },
+          "text": " to your manifest and set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 204,
+            "column": 229
+          },
+          "text": "backgroundLocation: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 255
+          },
+          "text": " in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 204,
+            "column": 259
+          },
+          "text": "setupGeofencing"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 276
+          },
+          "text": ". The plugin does not add that permission for you, because Google Play requires a declaration for background location."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 206,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 4
+          },
+          "text": "Shipping changes"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 208,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 208,
+            "column": 1
+          },
+          "text": "Permission strings and native configuration require a new build. Region lists, radius values and UI text can be changed server side or shipped through "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 208,
+            "column": 152
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 208,
+                "column": 153
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 208,
+            "column": 187
+          },
+          "text": ". For continuous tracking rather than enter and exit events, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 208,
+            "column": 252
+          },
+          "url": "/blog/why-ios-stops-background-location-updates-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 208,
+                "column": 253
+              },
+              "text": "why iOS stops background location updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 208,
+            "column": 355
+          },
+          "text": ", and the plugin "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 208,
+            "column": 372
+          },
+          "url": "/docs/plugins/background-geolocation/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 208,
+                "column": 373
+              },
+              "text": "documentation"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 208,
+            "column": 426
+          },
+          "text": " for the full API."
+        }
+      ]
+    }
+  ]
+}

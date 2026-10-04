@@ -1,0 +1,3460 @@
+{
+  "version": 1,
+  "route": "/blog/capacitor-wear-os-app/",
+  "source": "corpus/source/apps/web/src/content/blog/en/capacitor-wear-os-app.md",
+  "sourceSha256": "51d2be5e83641e477e855206a8a5e8313c0f8f8352386bf3e923b6c1ec715f46",
+  "metadata": {
+    "slug": "capacitor-wear-os-app",
+    "title": "How to Build a Wear OS App for Your Capacitor App",
+    "description": "Build a Wear OS app for your Capacitor app: add a wear module, write the Kotlin watch side, and sync data over the Data Layer with @capgo/capacitor-watch.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_banner.webp",
+    "head_image_alt": "Capgo banner for a tutorial on building a Wear OS companion app for a Capacitor Android app",
+    "keywords": "Capacitor Wear OS, Wear OS app Capacitor, Ionic Wear OS, Wear OS Data Layer Capacitor, capacitor-watch Android, smartwatch Capacitor app, Kotlin Wear OS companion",
+    "tag": "Tutorial, Android, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Does Capacitor support Wear OS?",
+        "answer": "Capacitor does not run on the watch, but your Capacitor Android app can talk to a native Wear OS app. @capgo/capacitor-watch uses the Wear OS Data Layer on Android, so the phone side stays in TypeScript and the watch side is a small Kotlin app."
+      },
+      {
+        "question": "Why can't my phone app see the Wear OS app?",
+        "answer": "The Data Layer only connects apps that share the same applicationId and are signed with the same certificate. Also check that the watch app declares the capgo_watch capability in res/values/wear.xml."
+      },
+      {
+        "question": "Can a Wear OS watch talk to my iPhone app?",
+        "answer": "No. Wear OS watches paired with iPhones cannot use the Data Layer with an iOS app. On iOS the same plugin targets Apple Watch through WatchConnectivity."
+      },
+      {
+        "question": "Do I have to write Kotlin for the watch?",
+        "answer": "Yes. Wear OS apps are native Android apps, usually built with Compose for Wear OS. The protocol is simple JSON over fixed Data Layer paths, so the Kotlin side stays small."
+      },
+      {
+        "question": "Does the phone receive watch messages when the Capacitor app is closed?",
+        "answer": "Not in JavaScript. The plugin registers its Data Layer listeners while the app process runs. Use DataItems for state the phone must read later, since the Data Layer keeps them synced until the app reads them."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To build a Wear OS app for your Capacitor app, add a native Wear OS module to the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 83
+          },
+          "text": "android/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 93
+          },
+          "text": " project, give it the same application ID and signing key as the phone app, and connect the two with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 194
+          },
+          "text": "@capgo/capacitor-watch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 218
+          },
+          "text": ", which uses Google's Wear OS Data Layer on Android. The phone keeps its TypeScript code, and the watch runs a small Kotlin app that exchanges JSON with it."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide walks through the module setup, the exact Data Layer paths the plugin uses, the Kotlin code on the watch, the TypeScript code on the phone, testing with emulators, and publishing on Google Play."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "How the Capacitor to Wear OS bridge works"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "Wear OS has no Capacitor runtime, so the watch app is native. The plugin speaks the Data Layer API ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 101
+          },
+          "text": "play-services-wearable"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 125
+          },
+          "text": ") on the phone, and your watch app speaks the same protocol."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Plugin method / event"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 27
+                  },
+                  "text": "Data Layer mechanism"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 50
+                  },
+                  "text": "Path"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "sendMessage"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 16
+                  },
+                  "text": " (phone to watch)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 36
+                  },
+                  "text": "MessageClient"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 54
+                  },
+                  "text": "/capgo/message"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "messageReceived"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 20
+                  },
+                  "text": " (watch to phone)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 40
+                  },
+                  "text": "MessageClient"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 56
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 58
+                  },
+                  "text": "/capgo/message"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "messageReceivedWithReply"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 14,
+                    "column": 32
+                  },
+                  "text": "MessageClient"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 14,
+                    "column": 50
+                  },
+                  "text": "/capgo/message/withreply"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "text": "replyToMessage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 22
+                  },
+                  "text": "MessageClient"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 40
+                  },
+                  "text": "/capgo/reply/{callbackId}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "text": "updateApplicationContext"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 29
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 16,
+                    "column": 32
+                  },
+                  "text": "applicationContextReceived"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 16,
+                    "column": 63
+                  },
+                  "text": "DataClient"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 75
+                  },
+                  "text": " DataItem"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 85
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 16,
+                    "column": 87
+                  },
+                  "text": "/capgo/context"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 17,
+                    "column": 3
+                  },
+                  "text": "transferUserInfo"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 21
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 17,
+                    "column": 24
+                  },
+                  "text": "userInfoReceived"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 17,
+                    "column": 45
+                  },
+                  "text": "DataClient"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 57
+                  },
+                  "text": " DataItem"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 67
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 17,
+                    "column": 69
+                  },
+                  "text": "/capgo/userinfo/{uuid}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 19,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "text": "Messages carry UTF-8 JSON as raw bytes. DataItems carry the same JSON as a string under the DataMap key "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 19,
+            "column": 105
+          },
+          "text": "payload"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 19,
+            "column": 114
+          },
+          "text": ". The phone checks for a watch app by looking up the capability "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 19,
+            "column": 178
+          },
+          "text": "capgo_watch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 19,
+            "column": 191
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 21,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "text": "Knowing these paths is the whole trick. Once the watch reads and writes them, every plugin method works."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 4
+          },
+          "text": "What you need"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 25,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "text": "A Capacitor 8 app with the Android platform added ("
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 25,
+                    "column": 54
+                  },
+                  "url": "/blog/upgrade-capacitor-app-to-capacitor-8/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 25,
+                        "column": 55
+                      },
+                      "text": "upgrade guide"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 114
+                  },
+                  "text": " if you are behind)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 26,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 3
+                  },
+                  "text": "A recent Android Studio with the Wear OS system images installed."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 27,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 3
+                  },
+                  "text": "A phone with Google Play services. The Data Layer depends on it, so phones without Play services report "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 27,
+                    "column": 107
+                  },
+                  "text": "isSupported: false"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 127
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 28,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 3
+                  },
+                  "text": "A Wear OS watch or emulator paired to an Android phone. Wear OS watches paired to an iPhone cannot reach your app."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 4
+          },
+          "text": "Step 1: Install the plugin"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-watch\nbunx cap sync android"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 37,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "text": "The same package handles Apple Watch on iOS, so a cross-platform app needs one import. See the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 37,
+            "column": 96
+          },
+          "url": "/docs/plugins/watch/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 37,
+                "column": 97
+              },
+              "text": "plugin docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 131
+          },
+          "text": " for the full reference, and our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 37,
+            "column": 164
+          },
+          "url": "/blog/capacitor-apple-watch-app/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 37,
+                "column": 165
+              },
+              "text": "Apple Watch guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 217
+          },
+          "text": " for the iOS side."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 4
+          },
+          "text": "Step 2: Add a Wear OS module to the Android project"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "text": "Open "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 41,
+            "column": 6
+          },
+          "text": "android/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 16
+          },
+          "text": " in Android Studio ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 41,
+            "column": 36
+          },
+          "text": "bunx cap open android"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 59
+          },
+          "text": ") and use "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 41,
+            "column": 69
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 41,
+                "column": 71
+              },
+              "text": "File > New > New Module > Wear OS"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 106
+          },
+          "text": ". Letting Android Studio generate the module gives you Gradle files that match your Android Gradle Plugin and Kotlin versions, which is safer than pasting a build file from a blog post. Name the module "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 41,
+            "column": 308
+          },
+          "text": "wear"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 314
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "text": "The wizard adds "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 43,
+            "column": 17
+          },
+          "text": "include ':wear'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 34
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 43,
+            "column": 38
+          },
+          "text": "android/settings.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 63
+          },
+          "text": ". Keep it, and leave the Capacitor-managed lines alone."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 5
+          },
+          "text": "Two rules the Data Layer enforces"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 47,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 47,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 47,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 47,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 47,
+                        "column": 6
+                      },
+                      "text": "Same "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 47,
+                        "column": 11
+                      },
+                      "text": "applicationId"
+                    },
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 47,
+                        "column": 26
+                      },
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 29
+                  },
+                  "text": " In "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 33
+                  },
+                  "text": "wear/build.gradle"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 52
+                  },
+                  "text": ", set "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 58
+                  },
+                  "text": "applicationId"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 73
+                  },
+                  "text": " to exactly the value in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 98
+                  },
+                  "text": "android/app/build.gradle"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 124
+                  },
+                  "text": ". The "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 130
+                  },
+                  "text": "namespace"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 141
+                  },
+                  "text": " can differ, the application ID cannot."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 48,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 48,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 48,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 48,
+                        "column": 6
+                      },
+                      "text": "Same signing certificate."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 48,
+                    "column": 33
+                  },
+                  "text": " Debug builds on one machine share the debug keystore, so this usually works locally and then breaks in release. Sign the wear release build with the same upload key as the phone app."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 1
+          },
+          "text": "If either rule is broken, the two apps never see each other and nothing in your code will fix it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 5
+          },
+          "text": "Dependencies and minimum SDK"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "text": "Wear OS 3 and later are based on API 30, so "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 45
+          },
+          "text": "minSdk 30"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 56
+          },
+          "text": " is a practical floor for a new watch app. Add the Data Layer and the coroutine helpers:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "dependencies {\n    implementation \"com.google.android.gms:play-services-wearable:20.0.1\"\n    implementation \"org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0\"\n    // Compose for Wear OS dependencies generated by the wizard stay as they are\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 5
+          },
+          "text": "Declare the capability"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "text": "Create "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 66,
+            "column": 8
+          },
+          "text": "wear/src/main/res/values/wear.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 43
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<resources xmlns:tools=\"http://schemas.android.com/tools\"\n    tools:keep=\"@array/android_wear_capabilities\">\n    <string-array name=\"android_wear_capabilities\" translatable=\"false\">\n        <item>capgo_watch</item>\n    </string-array>\n</resources>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 78,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 1
+          },
+          "text": "The string must be "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 78,
+            "column": 20
+          },
+          "text": "capgo_watch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 33
+          },
+          "text": ", because that is what the plugin queries to compute "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 78,
+            "column": 86
+          },
+          "text": "isWatchAppInstalled"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 107
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 5
+          },
+          "text": "Mark the app as a watch app"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 1
+          },
+          "text": "In "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 82,
+            "column": 4
+          },
+          "text": "wear/src/main/AndroidManifest.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 39
+          },
+          "text": ", the wizard adds "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 82,
+            "column": 57
+          },
+          "text": "<uses-feature android:name=\"android.hardware.type.watch\" />"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 118
+          },
+          "text": ". Decide whether the app works without the phone. A companion that only shows phone data should declare:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 84,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<meta-data\n    android:name=\"com.google.android.wearable.standalone\"\n    android:value=\"false\" />"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 90,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 90,
+            "column": 4
+          },
+          "text": "Step 3: Receive data on the watch"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "text": "A "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 92,
+            "column": 3
+          },
+          "text": "WearableListenerService"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 28
+          },
+          "text": " lets the system deliver Data Layer events even when the watch UI is closed. Register it with filters for the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 92,
+            "column": 138
+          },
+          "text": "/capgo"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 146
+          },
+          "text": " paths:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 94,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<service\n    android:name=\".PhoneListenerService\"\n    android:exported=\"true\">\n    <intent-filter>\n        <action android:name=\"com.google.android.gms.wearable.MESSAGE_RECEIVED\" />\n        <data android:scheme=\"wear\" android:host=\"*\" android:pathPrefix=\"/capgo\" />\n    </intent-filter>\n    <intent-filter>\n        <action android:name=\"com.google.android.gms.wearable.DATA_CHANGED\" />\n        <data android:scheme=\"wear\" android:host=\"*\" android:pathPrefix=\"/capgo\" />\n    </intent-filter>\n</service>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 109,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 109,
+            "column": 1
+          },
+          "text": "A small shared store that the UI can observe:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 111,
+        "column": 1
+      },
+      "lang": "kotlin",
+      "meta": null,
+      "text": "package com.example.shop.wear\n\nimport kotlinx.coroutines.flow.MutableStateFlow\nimport org.json.JSONObject\n\nobject WatchStore {\n    val context = MutableStateFlow(JSONObject())\n    val lastMessage = MutableStateFlow(JSONObject())\n    val lastReply = MutableStateFlow(JSONObject())\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 124,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 124,
+            "column": 1
+          },
+          "text": "The service parses each path:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 126,
+        "column": 1
+      },
+      "lang": "kotlin",
+      "meta": null,
+      "text": "package com.example.shop.wear\n\nimport com.google.android.gms.wearable.DataEvent\nimport com.google.android.gms.wearable.DataEventBuffer\nimport com.google.android.gms.wearable.DataMapItem\nimport com.google.android.gms.wearable.MessageEvent\nimport com.google.android.gms.wearable.WearableListenerService\nimport org.json.JSONObject\n\nclass PhoneListenerService : WearableListenerService() {\n\n    override fun onMessageReceived(event: MessageEvent) {\n        val json = JSONObject(String(event.data, Charsets.UTF_8))\n        when {\n            event.path == \"/capgo/message\" -> WatchStore.lastMessage.value = json\n            event.path.startsWith(\"/capgo/reply/\") -> WatchStore.lastReply.value = json\n        }\n    }\n\n    override fun onDataChanged(events: DataEventBuffer) {\n        for (event in events) {\n            if (event.type != DataEvent.TYPE_CHANGED) continue\n            val path = event.dataItem.uri.path ?: continue\n            val payload = DataMapItem.fromDataItem(event.dataItem)\n                .dataMap.getString(\"payload\") ?: \"{}\"\n            val json = JSONObject(payload)\n\n            when {\n                path == \"/capgo/context\" -> WatchStore.context.value = json\n                path.startsWith(\"/capgo/userinfo/\") -> handleUserInfo(json)\n            }\n        }\n    }\n\n    private fun handleUserInfo(json: JSONObject) {\n        // Persist or act on queued events from the phone\n    }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 167,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "text": "When the watch UI opens, also read the current context directly so it shows data that arrived while the app was closed:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "lang": "kotlin",
+      "meta": null,
+      "text": "suspend fun loadCurrentContext(context: android.content.Context) {\n    val items = Wearable.getDataClient(context).dataItems.await()\n    try {\n        for (item in items) {\n            if (item.uri.path == \"/capgo/context\") {\n                val payload = DataMapItem.fromDataItem(item).dataMap.getString(\"payload\") ?: \"{}\"\n                WatchStore.context.value = JSONObject(payload)\n            }\n        }\n    } finally {\n        items.release()\n    }\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 185,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 185,
+            "column": 4
+          },
+          "text": "Step 4: Send data from the watch"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 187,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 187,
+            "column": 1
+          },
+          "text": "The watch sends to every connected phone node. Messages are for live interactions, DataItems for state."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 189,
+        "column": 1
+      },
+      "lang": "kotlin",
+      "meta": null,
+      "text": "package com.example.shop.wear\n\nimport android.content.Context\nimport com.google.android.gms.wearable.PutDataMapRequest\nimport com.google.android.gms.wearable.Wearable\nimport kotlinx.coroutines.tasks.await\nimport org.json.JSONObject\nimport java.util.UUID\n\nobject PhoneLink {\n\n    suspend fun send(context: Context, data: JSONObject, expectReply: Boolean = false) {\n        val path = if (expectReply) \"/capgo/message/withreply\" else \"/capgo/message\"\n        val bytes = data.toString().toByteArray(Charsets.UTF_8)\n        val nodes = Wearable.getNodeClient(context).connectedNodes.await()\n        for (node in nodes) {\n            Wearable.getMessageClient(context).sendMessage(node.id, path, bytes).await()\n        }\n    }\n\n    suspend fun updateContext(context: Context, data: JSONObject) {\n        // Include a timestamp: identical DataItems are not redelivered\n        data.put(\"updatedAt\", System.currentTimeMillis())\n        val request = PutDataMapRequest.create(\"/capgo/context\").apply {\n            dataMap.putString(\"payload\", data.toString())\n            setUrgent()\n        }.asPutDataRequest()\n        Wearable.getDataClient(context).putDataItem(request).await()\n    }\n\n    suspend fun queueEvent(context: Context, data: JSONObject) {\n        val request = PutDataMapRequest.create(\"/capgo/userinfo/${UUID.randomUUID()}\").apply {\n            dataMap.putString(\"payload\", data.toString())\n            setUrgent()\n        }.asPutDataRequest()\n        Wearable.getDataClient(context).putDataItem(request).await()\n    }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 230,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 230,
+            "column": 1
+          },
+          "text": "When the phone receives a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 230,
+            "column": 27
+          },
+          "text": "/capgo/userinfo/..."
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 230,
+            "column": 48
+          },
+          "text": " item it emits "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 230,
+            "column": 63
+          },
+          "text": "userInfoReceived"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 230,
+            "column": 81
+          },
+          "text": " and deletes the item, so the queue does not grow forever."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 232,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 232,
+            "column": 1
+          },
+          "text": "A minimal Compose screen ties it together:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 234,
+        "column": 1
+      },
+      "lang": "kotlin",
+      "meta": null,
+      "text": "@Composable\nfun OrdersScreen() {\n    val context = LocalContext.current\n    val scope = rememberCoroutineScope()\n    val state by WatchStore.context.collectAsState()\n    val reply by WatchStore.lastReply.collectAsState()\n\n    LaunchedEffect(Unit) { loadCurrentContext(context) }\n\n    Column(horizontalAlignment = Alignment.CenterHorizontally) {\n        Text(\"${state.optInt(\"openOrders\", 0)} open orders\")\n        Button(onClick = {\n            scope.launch {\n                PhoneLink.send(context, JSONObject().put(\"action\", \"refresh\"), expectReply = true)\n            }\n        }) { Text(\"Refresh\") }\n        if (reply.has(\"count\")) Text(\"Phone: ${reply.getInt(\"count\")}\")\n    }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 256,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 256,
+            "column": 1
+          },
+          "text": "The phone generates the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 256,
+            "column": 25
+          },
+          "text": "callbackId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 256,
+            "column": 37
+          },
+          "text": ", so the watch cannot match a reply to a specific request. If you fire several requests at once, include your own request ID in the payload and echo it back in the reply."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 258,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 258,
+            "column": 4
+          },
+          "text": "Step 5: Talk to the watch from your Capacitor code"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 260,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 260,
+            "column": 1
+          },
+          "text": "The TypeScript side is the same code you would write for Apple Watch:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 262,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Capacitor } from '@capacitor/core';\nimport { CapgoWatch } from '@capgo/capacitor-watch';\n\nexport async function initWearBridge(loadOpenOrders: () => Promise<number>) {\n  if (Capacitor.getPlatform() === 'web') return;\n\n  await CapgoWatch.addListener('messageReceivedWithReply', async ({ message, callbackId }) => {\n    if (message.action === 'refresh') {\n      const count = await loadOpenOrders();\n      await CapgoWatch.replyToMessage({ callbackId, data: { count } });\n    }\n  });\n\n  await CapgoWatch.addListener('applicationContextReceived', ({ context }) => {\n    console.log('watch state', context);\n  });\n\n  await CapgoWatch.addListener('userInfoReceived', ({ userInfo }) => {\n    console.log('queued event from watch', userInfo);\n  });\n}\n\nexport async function syncToWatch(openOrders: number) {\n  const info = await CapgoWatch.getInfo();\n  if (!info.isSupported || !info.isWatchAppInstalled) return;\n\n  await CapgoWatch.updateApplicationContext({ context: { openOrders } });\n\n  if (info.isReachable) {\n    await CapgoWatch.sendMessage({ data: { toast: 'Orders updated' } });\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 297,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 297,
+            "column": 1
+          },
+          "text": "Android specifics worth knowing:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 299,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 299,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 299,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 299,
+                    "column": 3
+                  },
+                  "text": "sendMessage"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 299,
+                    "column": 16
+                  },
+                  "text": " rejects with \"No connected Wear OS devices found\" when no watch node is connected."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 300,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 300,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 300,
+                    "column": 3
+                  },
+                  "text": "isPaired"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 13
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 300,
+                    "column": 18
+                  },
+                  "text": "isReachable"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 31
+                  },
+                  "text": " both mean \"at least one Wear OS node is connected\". "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 300,
+                    "column": 84
+                  },
+                  "text": "isWatchAppInstalled"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 105
+                  },
+                  "text": " means a node advertises "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 300,
+                    "column": 130
+                  },
+                  "text": "capgo_watch"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 143
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 301,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 301,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 301,
+                    "column": 3
+                  },
+                  "text": "Reachability is not pushed as an event on Android today. Call "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 301,
+                    "column": 65
+                  },
+                  "text": "getInfo()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 301,
+                    "column": 76
+                  },
+                  "text": " when you need a fresh value, for example when the screen gains focus."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 302,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 302,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 302,
+                    "column": 3
+                  },
+                  "text": "Pending replies expire after five minutes on the phone side."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 304,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 304,
+            "column": 4
+          },
+          "text": "Which channel to use"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 306,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 306,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 306,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 306,
+                    "column": 3
+                  },
+                  "text": "Need"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 306,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 306,
+                    "column": 10
+                  },
+                  "text": "Use"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 306,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 306,
+                    "column": 16
+                  },
+                  "text": "Why"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 308,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 308,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 308,
+                    "column": 3
+                  },
+                  "text": "Live button press, watch app open"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 308,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 308,
+                    "column": 39
+                  },
+                  "text": "sendMessage"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 308,
+                    "column": 52
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 308,
+                    "column": 55
+                  },
+                  "text": "/capgo/message"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 308,
+                "column": 72
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 308,
+                    "column": 74
+                  },
+                  "text": "Fast, but dropped if no node is connected"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 309,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 309,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 309,
+                    "column": 3
+                  },
+                  "text": "What the watch should display"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 309,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 309,
+                    "column": 35
+                  },
+                  "text": "updateApplicationContext"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 309,
+                    "column": 61
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 309,
+                    "column": 64
+                  },
+                  "text": "/capgo/context"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 309,
+                "column": 81
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 309,
+                    "column": 83
+                  },
+                  "text": "Latest value is kept and synced later"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 310,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 310,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 310,
+                    "column": 3
+                  },
+                  "text": "Events that must not be lost"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 310,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 310,
+                    "column": 34
+                  },
+                  "text": "transferUserInfo"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 310,
+                    "column": 52
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 310,
+                    "column": 55
+                  },
+                  "text": "/capgo/userinfo/{uuid}"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 310,
+                "column": 80
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 310,
+                    "column": 82
+                  },
+                  "text": "Each event is its own DataItem"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 312,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 312,
+            "column": 4
+          },
+          "text": "Limits of the Data Layer"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 314,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 314,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 314,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 314,
+                    "column": 3
+                  },
+                  "text": "DataItems are limited to about 100 KB. Messages should stay small too. Send IDs and fetch content from your backend."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 315,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 315,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 315,
+                    "column": 3
+                  },
+                  "text": "Writing a DataItem with identical content does not trigger a change event. Add a timestamp when you need a fresh event."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 316,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 316,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 316,
+                    "column": 3
+                  },
+                  "text": "A message to the watch starts your "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 316,
+                    "column": 38
+                  },
+                  "text": "WearableListenerService"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 316,
+                    "column": 63
+                  },
+                  "text": ", not your UI."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 317,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 317,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 317,
+                    "column": 3
+                  },
+                  "text": "On the phone, the plugin's listeners exist while the Capacitor app process runs. Messages sent while it is dead are not replayed to JavaScript. DataItems stay in the Data Layer, so use context for anything the phone must see later."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 318,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 318,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 318,
+                    "column": 3
+                  },
+                  "text": "Payloads are JSON objects. Top-level arrays and non-JSON values will not parse."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 320,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 320,
+            "column": 4
+          },
+          "text": "Testing with emulators and devices"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 322,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 322,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 322,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 322,
+                    "column": 4
+                  },
+                  "text": "Create a phone emulator with a Google Play system image and a Wear OS emulator in Device Manager."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 323,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 323,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 323,
+                    "column": 4
+                  },
+                  "text": "Use Android Studio's Wear OS pairing assistant to pair them. It installs the companion app on the phone emulator."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 324,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 324,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 324,
+                    "column": 4
+                  },
+                  "text": "Run the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 324,
+                    "column": 12
+                  },
+                  "text": "wear"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 324,
+                    "column": 18
+                  },
+                  "text": " configuration on the watch emulator, then run your Capacitor app on the phone with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 324,
+                    "column": 102
+                  },
+                  "text": "bunx cap run android"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 324,
+                    "column": 124
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 325,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 325,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 325,
+                    "column": 4
+                  },
+                  "text": "Call "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 325,
+                    "column": 9
+                  },
+                  "text": "CapgoWatch.getInfo()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 325,
+                    "column": 31
+                  },
+                  "text": " from the phone. "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 325,
+                    "column": 48
+                  },
+                  "text": "isWatchAppInstalled: true"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 325,
+                    "column": 75
+                  },
+                  "text": " confirms the capability and package match."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 327,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 327,
+            "column": 1
+          },
+          "text": "For a physical watch, enable developer options and ADB debugging over Wi-Fi on the watch, then connect with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 327,
+            "column": 109
+          },
+          "text": "adb connect <watch-ip>:<port>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 327,
+            "column": 140
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 329,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 329,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 331,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 331,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 331,
+                "column": 3
+              },
+              "text": "isSupported: false"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 331,
+                "column": 23
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 331,
+            "column": 26
+          },
+          "text": " Google Play services or the Wear OS API is missing on the phone. Common on emulators without Play images."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 333,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 333,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 333,
+                "column": 3
+              },
+              "text": "isWatchAppInstalled: false"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 333,
+                "column": 31
+              },
+              "text": " while a watch is connected."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 333,
+            "column": 61
+          },
+          "text": " The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 333,
+            "column": 66
+          },
+          "text": "capgo_watch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 333,
+            "column": 79
+          },
+          "text": " capability is missing or misspelled, or the wear app is not installed on that watch."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 335,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 335,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 335,
+                "column": 3
+              },
+              "text": "Messages never arrive on the watch."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 335,
+            "column": 40
+          },
+          "text": " Different "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 335,
+            "column": 51
+          },
+          "text": "applicationId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 335,
+            "column": 66
+          },
+          "text": " or different signing keys. Compare "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 335,
+            "column": 102
+          },
+          "text": "./gradlew :app:signingReport"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 335,
+            "column": 132
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 335,
+            "column": 137
+          },
+          "text": "./gradlew :wear:signingReport"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 335,
+            "column": 168
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 337,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 337,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 337,
+                "column": 3
+              },
+              "text": "Context updates stop arriving."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 337,
+            "column": 35
+          },
+          "text": " You are writing the same payload repeatedly. Add a changing field."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 339,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 339,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 339,
+                "column": 3
+              },
+              "text": "Release build works on debug but not on Play."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 339,
+            "column": 50
+          },
+          "text": " If you use Play App Signing, both the phone and watch artifacts must be signed by the same app signing key in the same Play Console app."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 341,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 341,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 341,
+                "column": 3
+              },
+              "text": "R8 strips your service."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 341,
+            "column": 28
+          },
+          "text": " Keep classes referenced only from the manifest if you use custom shrinking rules."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 343,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 343,
+            "column": 4
+          },
+          "text": "Publishing on Google Play"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 345,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 345,
+            "column": 1
+          },
+          "text": "The Wear OS app ships under the same Play Console app as the phone app, since they share the package name. Add the Wear OS form factor in Play Console, upload the wear bundle to a Wear OS release track, and add watch screenshots. Google reviews Wear OS apps against its Wear OS quality guidelines, so check round-screen layouts and touch target sizes."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 347,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 347,
+            "column": 1
+          },
+          "text": "For updates, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 347,
+            "column": 14
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 347,
+                "column": 15
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 347,
+            "column": 49
+          },
+          "text": " can push fixes to the phone app's web layer without a store release, which covers bugs in your TypeScript bridge code. Kotlin changes on the watch go through Google Play. Version your JSON payloads so a newer phone bundle stays compatible with an older watch build. If you build the phone app in the cloud, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 347,
+            "column": 357
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 347,
+                "column": 358
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 347,
+            "column": 386
+          },
+          "text": " handles the Capacitor Android build and signing, and you can generate a matching keystore with the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 347,
+            "column": 486
+          },
+          "url": "/tools/android-keystore-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 347,
+                "column": 487
+              },
+              "text": "Android keystore generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 347,
+            "column": 550
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 349,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 349,
+            "column": 4
+          },
+          "text": "Wrap-up"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 351,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 351,
+            "column": 1
+          },
+          "text": "A Wear OS companion for a Capacitor app comes down to three pieces: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 351,
+            "column": 69
+          },
+          "text": "@capgo/capacitor-watch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 351,
+            "column": 93
+          },
+          "text": " on the phone, a Kotlin module that shares the phone's application ID and signing key, and the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 351,
+            "column": 188
+          },
+          "text": "/capgo/*"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 351,
+            "column": 198
+          },
+          "text": " Data Layer paths in between. Get the capability and signing right first, then the code is short."
+        }
+      ]
+    }
+  ]
+}

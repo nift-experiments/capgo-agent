@@ -1,0 +1,5239 @@
+{
+  "version": 1,
+  "route": "/blog/ios-certificates-and-provisioning-profiles-explained/",
+  "source": "corpus/source/apps/web/src/content/blog/en/ios-certificates-and-provisioning-profiles-explained.md",
+  "sourceSha256": "c8ae012f096041778ad0813f6c377b6a997d09b0d09c7323eb26fd7df6a95f40",
+  "metadata": {
+    "slug": "ios-certificates-and-provisioning-profiles-explained",
+    "title": "iOS Certificates and Provisioning Profiles Explained",
+    "description": "iOS certificates and provisioning profiles explained: certificate and profile types, how they fit together, .p12 files, UDIDs, expiry and signing errors.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/certificates.webp",
+    "head_image_alt": "Apple signing certificates and provisioning profiles in the Apple Developer portal",
+    "keywords": "ios certificates, provisioning profiles, ios code signing, apple distribution certificate, apple development certificate, ad hoc provisioning profile, p12 certificate, create ios certificate without mac, udid",
+    "tag": "iOS, Security, Tutorial",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "What is the difference between a certificate and a provisioning profile?",
+        "answer": "A certificate proves who signed the app; it pairs a public key Apple issued with a private key you keep. A provisioning profile says what the signed app is allowed to do: which App ID it is, which certificates may sign it, which devices can run it, and which entitlements it has. Every iOS build needs both."
+      },
+      {
+        "question": "Can I create an iOS certificate without a Mac?",
+        "answer": "Yes. Generate a certificate signing request (CSR) and private key with OpenSSL or a browser tool such as the Capgo iOS certificate generator, upload the CSR in the Apple Developer portal, download the .cer, and combine it with the private key into a .p12 using OpenSSL."
+      },
+      {
+        "question": "Why does TestFlight need an App Store profile and not Ad Hoc?",
+        "answer": "TestFlight builds go through App Store Connect, which only accepts builds signed with an Apple Distribution certificate and an App Store Connect provisioning profile. Ad Hoc profiles are for installing directly on registered devices outside of Apple's distribution."
+      },
+      {
+        "question": "What happens when my distribution certificate expires?",
+        "answer": "Apps already live on the App Store keep working. You just cannot sign new builds with it, so create a new certificate and regenerate profiles. Ad Hoc and development builds stop launching when their provisioning profile expires."
+      },
+      {
+        "question": "I moved to a new Mac and Xcode says the signing identity is missing. Why?",
+        "answer": "The private key for your certificate stayed in the old Mac's keychain. Export the identity as a .p12 from Keychain Access on the old Mac and import it on the new one, or revoke the certificate and create a new one."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "iOS code signing uses two pieces. A "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 2,
+            "column": 37
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 2,
+                "column": 39
+              },
+              "text": "certificate"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 52
+          },
+          "text": " proves who built the app, and a "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 2,
+            "column": 85
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 2,
+                "column": 87
+              },
+              "text": "provisioning profile"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 109
+          },
+          "text": " says which app it is, which devices may run it and which capabilities it can use. Xcode refuses to build for a device, and App Store Connect refuses uploads, unless the certificate, its private key and a matching profile all line up."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide explains every piece, which combination you need for development, ad hoc, TestFlight, App Store and enterprise builds, how to create them with or without a Mac, and how to fix the errors you will hit."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "Why Apple requires code signing"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "Apple only lets iPhones run code that Apple can trace back to a known developer. Signing gives Apple three guarantees:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 10,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 10,
+                        "column": 6
+                      },
+                      "text": "Identity"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 16
+                  },
+                  "text": ": the binary was signed by a member of a specific Apple Developer team."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 11,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 11,
+                        "column": 6
+                      },
+                      "text": "Integrity"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 17
+                  },
+                  "text": ": nobody modified the binary after signing. Changing one byte breaks the signature."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 12,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 12,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 12,
+                        "column": 6
+                      },
+                      "text": "Authorization"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 21
+                  },
+                  "text": ": the app is allowed on this device, with these entitlements (push, iCloud, Sign in with Apple, App Groups and so on)."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "text": "Certificates provide the first two. Provisioning profiles provide the third."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 4
+          },
+          "text": "The building blocks"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "text": "Piece"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 11
+                  },
+                  "text": "What it is"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 24
+                  },
+                  "text": "File"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 31
+                  },
+                  "text": "Who owns it"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "text": "Private key"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 17
+                  },
+                  "text": "Secret half of a key pair, generated on your machine"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 70
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 72
+                  },
+                  "text": "inside Keychain or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 20,
+                    "column": 91
+                  },
+                  "text": ".key"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 97
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 20,
+                    "column": 100
+                  },
+                  "text": ".pem"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 107
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 109
+                  },
+                  "text": "You. Apple never sees it"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 3
+                  },
+                  "text": "CSR"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 9
+                  },
+                  "text": "Certificate Signing Request containing your public key"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 64
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 21,
+                    "column": 66
+                  },
+                  "text": ".certSigningRequest"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 87
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 21,
+                    "column": 90
+                  },
+                  "text": ".csr"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 97
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 99
+                  },
+                  "text": "Temporary"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 3
+                  },
+                  "text": "Certificate"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 17
+                  },
+                  "text": "Apple-signed public key tied to your team"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 22,
+                    "column": 61
+                  },
+                  "text": ".cer"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 68
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 70
+                  },
+                  "text": "Apple issues, you download"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "text": "Signing identity"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 22
+                  },
+                  "text": "Certificate + private key together"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 57
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 23,
+                    "column": 59
+                  },
+                  "text": ".p12"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 65
+                  },
+                  "text": " when exported"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 80
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 82
+                  },
+                  "text": "You"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "text": "App ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 12
+                  },
+                  "text": "Your bundle identifier plus enabled capabilities"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 63
+                  },
+                  "text": "Developer portal record"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 87
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 89
+                  },
+                  "text": "Team"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "text": "Device"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 12
+                  },
+                  "text": "A registered iPhone or iPad UDID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 47
+                  },
+                  "text": "Developer portal record"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 71
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 73
+                  },
+                  "text": "Team"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 3
+                  },
+                  "text": "Provisioning profile"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 26
+                  },
+                  "text": "Bundle of App ID, allowed certificates, devices, entitlements"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 88
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 26,
+                    "column": 90
+                  },
+                  "text": ".mobileprovision"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 109
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 111
+                  },
+                  "text": "Team"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "text": "The most common confusion: a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 28,
+            "column": 30
+          },
+          "text": ".cer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 36
+          },
+          "text": " file is useless on its own. Signing needs the private key that created the CSR. If you lose that key, you create a new certificate."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 4
+          },
+          "text": "Certificate types"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 5
+          },
+          "text": "Apple Development"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "text": "Used to run builds on your own devices from Xcode during development. Development certificates belong to an individual developer, and Apple labels them with the computer name. Each developer on the team can have their own."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 5
+          },
+          "text": "Apple Distribution"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "text": "Used to sign builds for Ad Hoc distribution, TestFlight and the App Store. Distribution certificates belong to the team, and only the Account Holder or Admin roles can create them. Apple limits how many a team can hold, so share one through a secure store rather than letting every developer create their own."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 1
+          },
+          "text": "You may still see "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 40,
+            "column": 19
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 40,
+                "column": 21
+              },
+              "text": "iOS Development"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 38
+          },
+          "text": " and "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 40,
+            "column": 43
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 40,
+                "column": 45
+              },
+              "text": "iOS Distribution"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 63
+          },
+          "text": " in older accounts. Those are the pre-Xcode 11 types. Apple Development and Apple Distribution replace them and work across iOS, iPadOS, macOS, tvOS, watchOS and visionOS."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 5
+          },
+          "text": "Other certificate types you may meet"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 44,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 44,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 44,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 44,
+                        "column": 5
+                      },
+                      "text": "Developer ID Application / Installer"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 43
+                  },
+                  "text": ": for Mac apps distributed outside the Mac App Store. Not used for iOS."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 45,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 45,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 45,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 45,
+                        "column": 5
+                      },
+                      "text": "Apple Push Notification service SSL"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 42
+                  },
+                  "text": ": legacy push certificates. Prefer an "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 45,
+                    "column": 80
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 45,
+                        "column": 82
+                      },
+                      "text": "APNs Auth Key"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 97
+                  },
+                  "text": " ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 45,
+                    "column": 99
+                  },
+                  "text": ".p8"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 104
+                  },
+                  "text": "), which does not expire yearly and works for every app in the team. See our "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 45,
+                    "column": 181
+                  },
+                  "url": "/blog/apple-push-notification-service-certificates/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 45,
+                        "column": 182
+                      },
+                      "text": "APNs certificates guide"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 259
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 46,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 46,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 46,
+                        "column": 5
+                      },
+                      "text": "Apple Pay Merchant Identity"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 34
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 46,
+                    "column": 36
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 46,
+                        "column": 38
+                      },
+                      "text": "Pass Type ID"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 52
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 46,
+                    "column": 54
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 46,
+                        "column": 56
+                      },
+                      "text": "Website Push ID"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 73
+                  },
+                  "text": ": specific services."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 48,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 4
+          },
+          "text": "Provisioning profile types"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 50,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 50,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 50,
+                    "column": 3
+                  },
+                  "text": "Profile type"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 50,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 50,
+                    "column": 18
+                  },
+                  "text": "Certificate"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 50,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 50,
+                    "column": 32
+                  },
+                  "text": "Devices"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 50,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 50,
+                    "column": 42
+                  },
+                  "text": "Used for"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 52,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 52,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 52,
+                    "column": 3
+                  },
+                  "text": "iOS App Development"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 52,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 52,
+                    "column": 25
+                  },
+                  "text": "Apple Development"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 52,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 52,
+                    "column": 45
+                  },
+                  "text": "Registered devices only"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 52,
+                "column": 69
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 52,
+                    "column": 71
+                  },
+                  "text": "Running from Xcode, debugging"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 53,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 53,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 53,
+                    "column": 3
+                  },
+                  "text": "Ad Hoc"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 53,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 53,
+                    "column": 12
+                  },
+                  "text": "Apple Distribution"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 53,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 53,
+                    "column": 33
+                  },
+                  "text": "Registered devices only (up to 100 per device family per membership year)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 53,
+                "column": 107
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 53,
+                    "column": 109
+                  },
+                  "text": "Installing release builds on testers' devices via a link or file"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 54,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 54,
+                    "column": 3
+                  },
+                  "text": "App Store Connect"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 54,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 54,
+                    "column": 23
+                  },
+                  "text": "Apple Distribution"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 54,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 54,
+                    "column": 44
+                  },
+                  "text": "Any device, through Apple"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 54,
+                "column": 70
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 54,
+                    "column": 72
+                  },
+                  "text": "TestFlight and App Store"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 55,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 55,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 3
+                  },
+                  "text": "In-House"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 55,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 14
+                  },
+                  "text": "Enterprise distribution certificate"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 55,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 52
+                  },
+                  "text": "Any device in the organization"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 55,
+                "column": 83
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 85
+                  },
+                  "text": "Apple Developer Enterprise Program only"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 57,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 57,
+            "column": 1
+          },
+          "text": "A profile is tied to "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 57,
+            "column": 22
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 57,
+                "column": 24
+              },
+              "text": "one App ID"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 57,
+            "column": 36
+          },
+          "text": ". If your app has extensions (a widget, a notification service extension, a share extension), each target has its own bundle ID and needs its own profile."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 59,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 4
+          },
+          "text": "How the pieces fit together"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 61,
+            "column": 1
+          },
+          "text": "When Xcode or a build service signs your Capacitor app it checks:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 63,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 63,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 63,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 63,
+                    "column": 4
+                  },
+                  "text": "The bundle ID in your target (for example "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 63,
+                    "column": 46
+                  },
+                  "text": "com.example.app"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 63,
+                    "column": 63
+                  },
+                  "text": ") matches the App ID in the profile."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 64,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 64,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 64,
+                    "column": 4
+                  },
+                  "text": "The certificate used to sign is one of the certificates listed in the profile."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 65,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 65,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 65,
+                    "column": 4
+                  },
+                  "text": "The private key for that certificate is available in the keychain."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 66,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 66,
+                    "column": 4
+                  },
+                  "text": "For development and ad hoc builds, the device's UDID is in the profile."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 67,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 67,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 67,
+                    "column": 4
+                  },
+                  "text": "The entitlements file (push, associated domains, App Groups) is a subset of what the App ID and profile allow."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 69,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 69,
+            "column": 1
+          },
+          "text": "If any check fails you get a signing error, not a runtime crash, which is good: you find out before shipping."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 4
+          },
+          "text": "Which combination do I need?"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 73,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 73,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 73,
+                    "column": 3
+                  },
+                  "text": "Goal"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 73,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 73,
+                    "column": 10
+                  },
+                  "text": "Certificate"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 73,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 73,
+                    "column": 24
+                  },
+                  "text": "Profile"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 73,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 73,
+                    "column": 34
+                  },
+                  "text": "Device registration"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 75,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 75,
+                    "column": 3
+                  },
+                  "text": "Run on my own iPhone from Xcode"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 75,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 75,
+                    "column": 37
+                  },
+                  "text": "Apple Development"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 75,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 75,
+                    "column": 57
+                  },
+                  "text": "iOS App Development"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 75,
+                "column": 77
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 75,
+                    "column": 79
+                  },
+                  "text": "Yes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 76,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 76,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 3
+                  },
+                  "text": "Send a build to a few testers without TestFlight"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 76,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 54
+                  },
+                  "text": "Apple Distribution"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 76,
+                "column": 73
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 75
+                  },
+                  "text": "Ad Hoc"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 76,
+                "column": 82
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 84
+                  },
+                  "text": "Yes, every tester's UDID"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 77,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 77,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 3
+                  },
+                  "text": "Beta test with TestFlight"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 77,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 31
+                  },
+                  "text": "Apple Distribution"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 77,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 52
+                  },
+                  "text": "App Store Connect"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 77,
+                "column": 70
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 72
+                  },
+                  "text": "No"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 78,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 78,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 3
+                  },
+                  "text": "Release on the App Store"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 78,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 30
+                  },
+                  "text": "Apple Distribution"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 78,
+                "column": 49
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 51
+                  },
+                  "text": "App Store Connect"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 78,
+                "column": 69
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 71
+                  },
+                  "text": "No"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 79,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 79,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 79,
+                    "column": 3
+                  },
+                  "text": "Internal employee app, no App Store"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 79,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 79,
+                    "column": 41
+                  },
+                  "text": "Enterprise"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 79,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 79,
+                    "column": 54
+                  },
+                  "text": "In-House"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 79,
+                "column": 63
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 79,
+                    "column": 65
+                  },
+                  "text": "No"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 1
+          },
+          "text": "TestFlight uses the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 81,
+            "column": 21
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 81,
+                "column": 23
+              },
+              "text": "same"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 29
+          },
+          "text": " signing as the App Store. There is no separate TestFlight profile. You upload one build and decide in App Store Connect whether it goes to testers, to review, or both."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 4
+          },
+          "text": "Creating certificates and profiles"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 85,
+            "column": 5
+          },
+          "text": "Option 1: let Xcode manage signing"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 87,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 1
+          },
+          "text": "For local development this is the easiest. Open "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 87,
+            "column": 49
+          },
+          "text": "ios/App/App.xcworkspace"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 74
+          },
+          "text": " (or the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 87,
+            "column": 83
+          },
+          "text": ".xcodeproj"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 95
+          },
+          "text": " when your Capacitor 8 project uses Swift Package Manager), select the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 87,
+            "column": 166
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 87,
+                "column": 168
+              },
+              "text": "App"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 173
+          },
+          "text": " target, open "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 87,
+            "column": 187
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 87,
+                "column": 189
+              },
+              "text": "Signing & Capabilities"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 213
+          },
+          "text": ", tick "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 87,
+            "column": 220
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 87,
+                "column": 222
+              },
+              "text": "Automatically manage signing"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 252
+          },
+          "text": " and pick your team. Xcode creates the development certificate, registers the connected device and generates profiles for you."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 89,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 89,
+            "column": 1
+          },
+          "text": "Automatic signing becomes painful in CI, because the build machine needs access to the team account and creates certificates on its own. Most teams switch to manual signing, or to a build service with API-key-based signing, for release builds."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 91,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 91,
+            "column": 5
+          },
+          "text": "Option 2: create them manually on a Mac"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 93,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 93,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 93,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 93,
+                    "column": 4
+                  },
+                  "text": "Open "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 93,
+                    "column": 9
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 93,
+                        "column": 11
+                      },
+                      "text": "Keychain Access > Certificate Assistant > Request a Certificate From a Certificate Authority"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 93,
+                    "column": 105
+                  },
+                  "text": ". Enter your email, choose "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 93,
+                    "column": 132
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 93,
+                        "column": 134
+                      },
+                      "text": "Saved to disk"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 93,
+                    "column": 149
+                  },
+                  "text": ". This creates the private key in your keychain and a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 93,
+                    "column": 203
+                  },
+                  "text": ".certSigningRequest"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 93,
+                    "column": 224
+                  },
+                  "text": " file."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 94,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 94,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 94,
+                    "column": 4
+                  },
+                  "text": "In the Apple Developer portal go to "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 94,
+                    "column": 40
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 94,
+                        "column": 42
+                      },
+                      "text": "Certificates, Identifiers & Profiles > Certificates > +"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 94,
+                    "column": 99
+                  },
+                  "text": ", choose "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 94,
+                    "column": 108
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 94,
+                        "column": 110
+                      },
+                      "text": "Apple Distribution"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 94,
+                    "column": 130
+                  },
+                  "text": " (or Apple Development) and upload the CSR."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 95,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 95,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 95,
+                    "column": 4
+                  },
+                  "text": "Download the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 95,
+                    "column": 17
+                  },
+                  "text": ".cer"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 95,
+                    "column": 23
+                  },
+                  "text": " and double-click it. Keychain Access pairs it with the private key."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 96,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 96,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 96,
+                    "column": 4
+                  },
+                  "text": "To export for CI: in Keychain Access, under "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 96,
+                    "column": 48
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 96,
+                        "column": 50
+                      },
+                      "text": "My Certificates"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 96,
+                    "column": 67
+                  },
+                  "text": ", right-click the certificate, choose "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 96,
+                    "column": 105
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 96,
+                        "column": 107
+                      },
+                      "text": "Export"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 96,
+                    "column": 115
+                  },
+                  "text": ", save as "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 96,
+                    "column": 125
+                  },
+                  "text": ".p12"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 96,
+                    "column": 131
+                  },
+                  "text": " with a strong password."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 98,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 98,
+            "column": 5
+          },
+          "text": "Option 3: create them without a Mac"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 100,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 1
+          },
+          "text": "You can do the whole flow with OpenSSL on Linux or Windows:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 102,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "# 1. Private key and CSR\nopenssl genrsa -out ios_distribution.key 2048\nopenssl req -new -key ios_distribution.key -out ios_distribution.csr \\\n  -subj \"/emailAddress=you@example.com/CN=Example Inc/C=US\"\n\n# 2. Upload ios_distribution.csr in the Apple Developer portal,\n#    download the certificate as distribution.cer\n\n# 3. Convert the .cer (DER) to PEM\nopenssl x509 -in distribution.cer -inform DER -out distribution.pem -outform PEM\n\n# 4. Build the .p12 (signing identity)\nopenssl pkcs12 -export -inkey ios_distribution.key -in distribution.pem \\\n  -out ios_distribution.p12 -legacy"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 119,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 119,
+            "column": 5
+          },
+          "text": "-legacy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 14
+          },
+          "text": " flag matters with OpenSSL 3: without it, the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 119,
+            "column": 60
+          },
+          "text": ".p12"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 66
+          },
+          "text": " uses encryption algorithms that macOS keychain tools reject with an \"invalid password\" error even when the password is correct."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 121,
+            "column": 1
+          },
+          "text": "If you prefer not to install OpenSSL, the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 121,
+            "column": 43
+          },
+          "url": "/tools/ios-certificate-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 121,
+                "column": 44
+              },
+              "text": "iOS certificate generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 121,
+            "column": 105
+          },
+          "text": " creates the CSR and private key for you. They come from a stateless Capgo endpoint that does not store them, and only its "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 121,
+            "column": 228
+          },
+          "text": ".cer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 121,
+            "column": 234
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 121,
+            "column": 238
+          },
+          "text": ".p12"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 121,
+            "column": 244
+          },
+          "text": " converter runs fully in your browser. If your policy requires the key to be generated on your machine, use the OpenSSL commands above."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 123,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 123,
+            "column": 5
+          },
+          "text": "Creating the profile"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 125,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 125,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 125,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 125,
+                        "column": 6
+                      },
+                      "text": "Identifiers > +"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 125,
+                    "column": 23
+                  },
+                  "text": ": register an App ID with your exact bundle ID and enable the capabilities you use (Push Notifications, Sign in with Apple, Associated Domains...)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 126,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 126,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 126,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 126,
+                        "column": 6
+                      },
+                      "text": "Devices > +"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 126,
+                    "column": 19
+                  },
+                  "text": ": for development and ad hoc profiles, register each tester's UDID. Testers can get it on the phone itself with the "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 126,
+                    "column": 135
+                  },
+                  "url": "/tools/ios-udid-finder/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 126,
+                        "column": 136
+                      },
+                      "text": "iOS UDID finder"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 126,
+                    "column": 177
+                  },
+                  "text": ", no Mac or cable needed."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 127,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 127,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 127,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 127,
+                        "column": 6
+                      },
+                      "text": "Profiles > +"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 127,
+                    "column": 20
+                  },
+                  "text": ": choose the profile type, the App ID, the certificate(s) and the devices. Name it clearly, for example "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 127,
+                    "column": 124
+                  },
+                  "text": "com.example.app AppStore 2026"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 127,
+                    "column": 155
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 128,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 128,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 128,
+                    "column": 4
+                  },
+                  "text": "Download the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 128,
+                    "column": 17
+                  },
+                  "text": ".mobileprovision"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 128,
+                    "column": 35
+                  },
+                  "text": " file."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 130,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 130,
+            "column": 1
+          },
+          "text": "If you add a device or a capability later, you must regenerate and redownload the profile. Existing profiles do not update themselves."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 132,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 132,
+            "column": 4
+          },
+          "text": "Inspecting a profile"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 134,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 134,
+            "column": 1
+          },
+          "text": "A "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 134,
+            "column": 3
+          },
+          "text": ".mobileprovision"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 134,
+            "column": 21
+          },
+          "text": " file is a signed plist. On macOS you can read it:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 136,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "security cms -D -i App_Store.mobileprovision > profile.plist\n/usr/libexec/PlistBuddy -c \"Print :Name\" profile.plist\n/usr/libexec/PlistBuddy -c \"Print :ExpirationDate\" profile.plist\n/usr/libexec/PlistBuddy -c \"Print :Entitlements\" profile.plist\n/usr/libexec/PlistBuddy -c \"Print :ProvisionedDevices\" profile.plist"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 144,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "text": "On Linux, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 144,
+            "column": 11
+          },
+          "text": "openssl smime -inform der -verify -noverify -in App_Store.mobileprovision"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 86
+          },
+          "text": " prints the plist."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 1
+          },
+          "text": "To check what a built "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 23
+          },
+          "text": ".ipa"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 29
+          },
+          "text": " was signed with:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "unzip -q App.ipa -d ipa\ncodesign -dvv ipa/Payload/App.app\ncodesign -d --entitlements :- ipa/Payload/App.app"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 4
+          },
+          "text": "Expiry and renewal"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 156,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 156,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 156,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 156,
+                        "column": 5
+                      },
+                      "text": "Certificates"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 156,
+                    "column": 19
+                  },
+                  "text": " are valid for one year from creation."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 157,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 157,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 157,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 157,
+                        "column": 5
+                      },
+                      "text": "Provisioning profiles"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 157,
+                    "column": 28
+                  },
+                  "text": " expire after one year, or earlier if the certificate they include expires or is revoked."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 158,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 158,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 158,
+                        "column": 5
+                      },
+                      "text": "App Store apps keep working"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 158,
+                    "column": 34
+                  },
+                  "text": " after the distribution certificate expires. Apple re-signs App Store downloads. You only need a new certificate to upload new builds."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 159,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 159,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 159,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 159,
+                        "column": 5
+                      },
+                      "text": "Ad Hoc and development builds stop launching"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 159,
+                    "column": 51
+                  },
+                  "text": " once their profile expires. Testers see the app crash on launch."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 160,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 160,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 160,
+                        "column": 5
+                      },
+                      "text": "TestFlight builds"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 160,
+                    "column": 24
+                  },
+                  "text": " expire 90 days after upload, independent of the certificate."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 161,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 161,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 161,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 161,
+                        "column": 5
+                      },
+                      "text": "Enterprise apps stop working"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 161,
+                    "column": 35
+                  },
+                  "text": " on every device when the enterprise certificate expires or is revoked. Renew before expiry."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 162,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 162,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 162,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 162,
+                        "column": 5
+                      },
+                      "text": "Device slots"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 162,
+                    "column": 19
+                  },
+                  "text": " reset once per membership year. Removing a device does not free its slot until the next membership year starts."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 164,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 1
+          },
+          "text": "Put the certificate expiry date in a shared calendar. Our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 164,
+            "column": 59
+          },
+          "url": "/blog/certificate-management/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 164,
+                "column": 60
+              },
+              "text": "certificate management guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 120
+          },
+          "text": " covers monitoring and rotation in more depth."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 166,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 4
+          },
+          "text": "Common errors and fixes"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 168,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 168,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 168,
+                "column": 3
+              },
+              "text": "\"No signing certificate 'iOS Distribution' found\""
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 54
+          },
+          "text": " or "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 168,
+            "column": 58
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 168,
+                "column": 60
+              },
+              "text": "\"Signing certificate is invalid\""
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 94
+          },
+          "text": ": the private key is not in this keychain. Import the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 168,
+            "column": 148
+          },
+          "text": ".p12"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 154
+          },
+          "text": ", or create a new certificate if nobody has the key."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 170,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 170,
+                "column": 3
+              },
+              "text": "\"Provisioning profile doesn't include signing certificate\""
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 63
+          },
+          "text": ": the profile was created with a different certificate. Edit the profile in the portal, tick the current certificate, regenerate and download."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 172,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 172,
+                "column": 3
+              },
+              "text": "\"Provisioning profile doesn't include the currently selected device\""
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 73
+          },
+          "text": ": register the UDID, then regenerate the profile. Not needed for TestFlight or App Store."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 174,
+                "column": 3
+              },
+              "text": "\"Provisioning profile doesn't support the Push Notifications capability\""
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 77
+          },
+          "text": ": enable the capability on the App ID, then regenerate the profile. Profiles are snapshots."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 176,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 176,
+                "column": 3
+              },
+              "text": "\"A valid provisioning profile for this executable was not found\""
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 69
+          },
+          "text": " on install: the device is not in the ad hoc profile, or the profile expired."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 178,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 178,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 178,
+                "column": 3
+              },
+              "text": "App installs then closes immediately"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 41
+          },
+          "text": ": on iOS 16 and later, development and ad hoc builds require Developer Mode on the device. See "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 178,
+            "column": 136
+          },
+          "url": "/blog/enable-ios-developer-mode-ios16/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 178,
+                "column": 137
+              },
+              "text": "how to enable Developer Mode on iOS"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 213
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 180,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 180,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 180,
+                "column": 3
+              },
+              "text": "Extensions fail to sign"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 180,
+            "column": 28
+          },
+          "text": ": each extension target needs its own App ID and profile. Check every target in Signing & Capabilities, not just App."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 182,
+                "column": 3
+              },
+              "text": "\"Invalid password\" when importing a .p12 made on Linux"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 59
+          },
+          "text": ": rebuild it with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 182,
+            "column": 77
+          },
+          "text": "openssl pkcs12 -export ... -legacy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 113
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 184,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 184,
+                "column": 3
+              },
+              "text": "Upload rejected for SDK version"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 36
+          },
+          "text": ": since April 2026 App Store Connect requires builds made with Xcode 26 and the iOS 26 SDK. Update Xcode or your CI image. Capacitor 8 already requires Xcode 26."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 4
+          },
+          "text": "Good practices for teams"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 188,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 188,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 188,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 188,
+                    "column": 3
+                  },
+                  "text": "One Apple Distribution certificate per team, stored as a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 188,
+                    "column": 60
+                  },
+                  "text": ".p12"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 188,
+                    "column": 66
+                  },
+                  "text": " in a password manager or secrets store, with the password stored separately."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 189,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 189,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 189,
+                    "column": 3
+                  },
+                  "text": "Never email "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 189,
+                    "column": 15
+                  },
+                  "text": ".p12"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 189,
+                    "column": 21
+                  },
+                  "text": " files or commit them to git."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 190,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 190,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 190,
+                    "column": 3
+                  },
+                  "text": "Use App Store Connect API keys ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 190,
+                    "column": 35
+                  },
+                  "text": ".p8"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 190,
+                    "column": 40
+                  },
+                  "text": ") for uploads instead of Apple ID passwords."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 191,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 191,
+                    "column": 3
+                  },
+                  "text": "Name profiles with bundle ID, type and year."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 192,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 192,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 192,
+                    "column": 3
+                  },
+                  "text": "Revoke certificates of people who leave the team."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 193,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 193,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 193,
+                    "column": 3
+                  },
+                  "text": "Keep a written list of every bundle ID, extension and capability the app uses."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 195,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 4
+          },
+          "text": "Cloud signing for Capacitor apps"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 197,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 197,
+            "column": 1
+          },
+          "text": "You do not need a Mac on every developer's desk to ship iOS builds. "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 197,
+            "column": 69
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 197,
+                "column": 70
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 197,
+            "column": 98
+          },
+          "text": " builds Capacitor apps on Capgo's macOS machines using a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 197,
+            "column": 155
+          },
+          "text": ".p12"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 197,
+            "column": 161
+          },
+          "text": " and profile you provide. Credentials are used only for the build and not stored on Capgo servers. Save them once from the CLI:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 199,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx @capgo/cli@latest build credentials save --appId com.example.app --platform ios\nbunx @capgo/cli@latest build request com.example.app --platform ios --path ."
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 204,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 204,
+            "column": 5
+          },
+          "url": "/docs/builder/ios/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 204,
+                "column": 6
+              },
+              "text": "Capgo Build iOS docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 47
+          },
+          "text": " list the exact credential options, including App Store Connect API keys for TestFlight upload and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 204,
+            "column": 146
+          },
+          "text": "ad_hoc"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 154
+          },
+          "text": " mode for tester builds."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 206,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 1
+          },
+          "text": "Once your first build is in TestFlight, you can ship JavaScript and asset changes to users with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 206,
+            "column": 97
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 206,
+                "column": 98
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 132
+          },
+          "text": " without re-signing a new binary for every fix. Native code changes and new capabilities still require a signed build through the store."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 208,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 208,
+            "column": 4
+          },
+          "text": "Next steps"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 210,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 210,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 210,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 210,
+                    "column": 3
+                  },
+                  "text": "Need accounts first? "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 210,
+                    "column": 24
+                  },
+                  "url": "/blog/how-to-create-apple-developer-and-google-play-developer-accounts/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 210,
+                        "column": 25
+                      },
+                      "text": "How to create Apple and Google Play developer accounts"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 210,
+                    "column": 153
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 211,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 211,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 211,
+                    "column": 3
+                  },
+                  "text": "Ready to hand builds to testers? "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 211,
+                    "column": 36
+                  },
+                  "url": "/blog/distribute-ios-and-android-apps-to-testers/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 211,
+                        "column": 37
+                      },
+                      "text": "How to distribute iOS and Android apps to testers"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 211,
+                    "column": 138
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 212,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 212,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 212,
+                    "column": 3
+                  },
+                  "text": "Submitting? Read our "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 212,
+                    "column": 24
+                  },
+                  "url": "/blog/ios-app-submission/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 212,
+                        "column": 25
+                      },
+                      "text": "iOS app submission guide"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 212,
+                    "column": 77
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

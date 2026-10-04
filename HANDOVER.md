@@ -1,19 +1,11 @@
-# capgo-agent — active implementation handover
+# capgo-agent — golden-reference migration handover
 
-Implementation authorized by the 4 October user outline. Execute GAMEPLAN checkpoints with evidence and a commit at each boundary. Earlier planning restrictions are superseded; the full prior handover is retained in docs/planning-handover.md as historical architecture context.
+Current phase: Phase 0, preserve prototype and rebuild the pinned production reference.
 
-CP01 complete: verified common upstream SHA and lock digest, shared inclusion/capability policy and AGPL attribution. CP02 is next. Both websites aim for close Capgo visual and behavioral fidelity, including blue and light/dark themes. Vanilla JS handles pagination and ordinary interaction. Runtime/API mode is configurable; frozen previews remain independently usable. The repositories remain independent.
+The previous reconstruction failed visual fidelity: class stripping and broad substitute CSS broke layout, cards, decorative positioning, typography, logo grids, testimonial height, navigation and footer. Route completion did not certify fidelity. User screenshots demonstrate these regressions. Do not polish or accept this prototype as the target.
 
-capgo preserves authored MD/MDX; capgo-agent maintains normalized semantic records with source provenance. A distinct generic compiler-semantic MDX preparation path is now authorized and needed before corpus integration. Existing preservation APIs remain compatible. Nift core source now exposes is_dir/is_file; verify package integration and Windows CI. Never modify core from this work.
+The authoritative upstream remains 7d5b69d6ba8a6630384dffc7d012431ee3ed22ec. Its successful full production output is the immutable golden oracle. Phase 1 inventories every output file; Phase 2 validates that output locally at mobile/tablet/desktop sizes; parity gates precede structural refactoring.
 
-Pinned upstream: 7d5b69d6ba8a6630384dffc7d012431ee3ed22ec. Ordinary builds must not refresh it. See evidence/checkpoints/CP01.json and docs/CORPUS-CONTRACT.md. Remaining checkpoint acceptance is pending, not implied by authorization.
+capgo first reproduces the complete compiled output through Nift, retains frontend assets as needed, then extracts templates and reconnects authored MDX. capgo-agent uses the same oracle but reconstructs a lean native presentation and vanilla behavior. Neither final project may be merely a copied build. No Nift core changes. Preserve Git history. Push authorized checkpoint commits.
 
-CP02 baseline inspection complete: frozen install and docs build succeed. Original web build fails on public pricing network fetch; valid anonymous plans/credits responses captured for deterministic snapshot reproduction. Retry continues before final baseline certification/benchmarks. This checkpoint accepts documented baseline blockers, not a claim the full upstream build passed.
-
-CP03 complete: definitive source/output manifest from successful pinned docs and snapshot-backed web builds, including metadata/headings/code/text/link/image expectations, unpublished exclusions and redirect records. Same manifest SHA in both siblings. See evidence/checkpoints/CP03.json.
-
-CP04 complete: audited capabilities and configured/snapshot/setup/error contracts in config/capabilities.json and docs/RUNTIME-CONTRACT.md. Implementation checks remain CP15; private console/translation/device signing are explicit boundaries.
-
-CP05 complete: all 1,193 authored MD/MDX documents retained with source hashes, colocated assets and AGPL notice. Case-normalized Starlight logical routes now map to original-cased source paths; both manifests still match. Authored versus normalized maintenance ownership is explicit.
-
-CP06 complete: reusable compiler-semantic preparation and project-owned adapters render the actual 526 MDX roots; the agent importer normalizes all 1,192 published authored files without executing arbitrary expressions. Common adapters are conservatively tracked. Remaining integration/browser/dependency gates are not inferred from rendering success.
+Useful preserved work includes source provenance, normalized importer, generic MDX integration, component inventories, runtime contract, public snapshots, build logs, and incomplete adapters. Browser/runtime/production certification is pending. Old progress is archived in docs/prototype.

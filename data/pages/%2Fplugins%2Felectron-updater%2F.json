@@ -1,0 +1,579 @@
+{
+  "version": 1,
+  "route": "/plugins/electron-updater/",
+  "source": "corpus/source/apps/web/src/content/plugins-tutorials/en/electron-updater.md",
+  "sourceSha256": "f4c3fb4d6cd2de96e3b869fd312bda00f223dd469c214ef1458b281b8e4da5f3",
+  "metadata": {
+    "locale": "en"
+  },
+  "blocks": [
+    {
+      "type": "heading",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "depth": 1,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 3
+          },
+          "text": "Using @capgo/electron-updater"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "@capgo/electron-updater"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 26
+          },
+          "text": " gives Electron apps the same Capgo live-update model as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 4,
+            "column": 83
+          },
+          "text": "@capgo/capacitor-updater"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 109
+          },
+          "text": ". You initialize it in the main process, expose the renderer bridge through preload, and call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 4,
+            "column": 203
+          },
+          "text": "notifyAppReady()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 221
+          },
+          "text": " on every launch so rollback protection knows the bundle is healthy."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "Installation"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/electron-updater"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 12,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 4
+          },
+          "text": "Main process setup"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { app, BrowserWindow } from 'electron';\nimport path from 'node:path';\nimport { ElectronUpdater, setupEventForwarding, setupIPCHandlers } from '@capgo/electron-updater';\n\nconst updater = new ElectronUpdater({\n  appId: 'com.example.desktop',\n  autoUpdate: true,\n});\n\napp.whenReady().then(async () => {\n  const window = new BrowserWindow({\n    webPreferences: {\n      preload: path.join(__dirname, 'preload.js'),\n      contextIsolation: true,\n    },\n  });\n\n  const builtinPath = path.join(__dirname, 'www/index.html');\n  await updater.initialize(window, builtinPath);\n  setupIPCHandlers(updater);\n  setupEventForwarding(updater, window);\n\n  await window.loadFile(updater.getCurrentBundlePath());\n});"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 4
+          },
+          "text": "Preload bridge"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { exposeUpdaterAPI } from '@capgo/electron-updater/preload';\n\nexposeUpdaterAPI();"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 49,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 4
+          },
+          "text": "Renderer usage"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 51,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { requireUpdater } from '@capgo/electron-updater/renderer';\n\nconst updater = requireUpdater();\n\nawait updater.notifyAppReady();\n\nconst latest = await updater.getLatest();\n\nif (latest.url && !latest.error) {\n  const bundle = await updater.download({\n    url: latest.url,\n    version: latest.version,\n    checksum: latest.checksum,\n  });\n\n  await updater.next({ id: bundle.id });\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 4
+          },
+          "text": "Listen for update events"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "updater.addListener('download', ({ percent }) => {\n  console.log('Download progress', percent);\n});\n\nupdater.addListener('updateFailed', ({ bundle }) => {\n  console.error('Update failed', bundle.version);\n});"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 4
+          },
+          "text": "Deploy a new bundle"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun run build\nbunx @capgo/cli@latest bundle upload --channel=production"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 90,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 90,
+            "column": 4
+          },
+          "text": "Practical advice"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 92,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 92,
+                    "column": 3
+                  },
+                  "text": "Always call "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 92,
+                    "column": 15
+                  },
+                  "text": "notifyAppReady()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 92,
+                    "column": 33
+                  },
+                  "text": " early in the renderer so rollback protection works as intended."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 93,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 93,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 93,
+                    "column": 3
+                  },
+                  "text": "Keep the built-in path stable and let the updater decide whether to load the shipped bundle or a downloaded one."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 94,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 94,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 94,
+                    "column": 3
+                  },
+                  "text": "Reuse the same Capgo channel and rollout model you already use on mobile when your Electron app shares a backend release pipeline."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 96,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 4
+          },
+          "text": "Keep going from Using @capgo/electron-updater"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 98,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 98,
+            "column": 1
+          },
+          "text": "If you are using "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 98,
+            "column": 18
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 98,
+                "column": 20
+              },
+              "text": "Using @capgo/electron-updater"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 98,
+            "column": 51
+          },
+          "text": " to plan native plugin work, connect it with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 98,
+            "column": 96
+          },
+          "url": "/docs/plugins/electron-updater/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 98,
+                "column": 97
+              },
+              "text": "@capgo/electron-updater"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 98,
+            "column": 154
+          },
+          "text": " for the implementation detail in @capgo/electron-updater, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 98,
+            "column": 213
+          },
+          "url": "/docs/plugins/electron-updater/getting-started/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 98,
+                "column": 214
+              },
+              "text": "Getting Started with Electron Updater"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 98,
+            "column": 301
+          },
+          "text": " for the implementation detail in Getting Started with Electron Updater, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 98,
+            "column": 374
+          },
+          "url": "/plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 98,
+                "column": 375
+              },
+              "text": "Capgo Plugin Directory"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 98,
+            "column": 409
+          },
+          "text": " for the product workflow in Capgo Plugin Directory, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 98,
+            "column": 462
+          },
+          "url": "/docs/plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 98,
+                "column": 463
+              },
+              "text": "Capacitor Plugins by Capgo"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 98,
+            "column": 506
+          },
+          "text": " for the implementation detail in Capacitor Plugins by Capgo, and "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 98,
+            "column": 572
+          },
+          "url": "/docs/contributing/adding-plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 98,
+                "column": 573
+              },
+              "text": "Adding or Updating Plugins"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 98,
+            "column": 636
+          },
+          "text": " for the implementation detail in Adding or Updating Plugins."
+        }
+      ]
+    }
+  ]
+}

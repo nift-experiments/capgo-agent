@@ -1,0 +1,3798 @@
+{
+  "version": 1,
+  "route": "/blog/capacitor-key-value-storage/",
+  "source": "corpus/source/apps/web/src/content/blog/en/capacitor-key-value-storage.md",
+  "sourceSha256": "a836c4f367231a7239cdd882c5982912492112eba97c93d82a9b1deb6fdf0c8e",
+  "metadata": {
+    "slug": "capacitor-key-value-storage",
+    "title": "Key-Value Storage in Capacitor: Preferences vs SQLite",
+    "description": "Compare key-value storage in Capacitor: Preferences, SQLite key-value stores and Keychain storage. Learn which fits settings, cache and secrets.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_plugins.webp",
+    "head_image_alt": "Capgo logo for a comparison of key-value storage options in Capacitor",
+    "keywords": "capacitor key value storage, capacitor preferences, sqlite key value store capacitor, capacitor storage, ionic storage alternative, capacitor secure storage",
+    "tag": "Tutorial, Capacitor, Best Practices",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "What is the best key-value storage for Capacitor?",
+        "answer": "It depends on the data. Use @capacitor/preferences for a few small settings, a SQLite-backed store such as Fast SQL's KeyValueStore for larger or many values and cached API responses, and Keychain or Keystore storage such as @capgo/capacitor-native-biometric setData for tokens and keys."
+      },
+      {
+        "question": "Is Capacitor Preferences encrypted?",
+        "answer": "No. Preferences uses UserDefaults on iOS and SharedPreferences on Android, both stored in plaintext inside the app sandbox, and localStorage on the web. Do not store tokens, passwords or encryption keys in it."
+      },
+      {
+        "question": "Can I use localStorage in a Capacitor app?",
+        "answer": "For throwaway cache only. localStorage and IndexedDB live inside the WebView's storage, which the operating system can clear under storage pressure, and they are tied to the WebView origin. Use a native-backed store for data you need to keep."
+      },
+      {
+        "question": "How do I store JSON objects in a Capacitor key-value store?",
+        "answer": "Preferences and @capgo/capacitor-data-storage-sqlite accept strings, so call JSON.stringify before saving and JSON.parse after reading. Fast SQL's KeyValueStore accepts objects, arrays, numbers, booleans and Uint8Array directly and returns the same type."
+      },
+      {
+        "question": "What replaces Ionic Storage in Capacitor 8?",
+        "answer": "For simple settings, @capacitor/preferences. For a larger key-value store on native SQLite, Fast SQL's KeyValueStore or @capgo/capacitor-data-storage-sqlite. Both keep data in a real database file instead of WebView storage."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "For key-value storage in Capacitor, use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 41
+          },
+          "text": "@capacitor/preferences"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 65
+          },
+          "text": " for a handful of small settings, a SQLite-backed key-value store for anything larger or more numerous, and the Keychain or Keystore for secrets. This guide compares the options available on Capacitor 8, shows working code for each, and explains how to move from one to another without losing user data."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "Most apps end up using two of these at once: Preferences or SQLite for app state, and secure storage for the auth token."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "The options at a glance"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 1
+              },
+              "blocks": []
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 8,
+                    "column": 5
+                  },
+                  "text": "localStorage"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 19
+                  },
+                  "text": " / IndexedDB"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 8,
+                    "column": 34
+                  },
+                  "text": "@capacitor/preferences"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 61
+                  },
+                  "text": "Fast SQL "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 8,
+                    "column": 70
+                  },
+                  "text": "KeyValueStore"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 86
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 8,
+                    "column": 88
+                  },
+                  "text": "@capgo/capacitor-data-storage-sqlite"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 127
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 8,
+                    "column": 129
+                  },
+                  "text": "@capgo/capacitor-native-biometric"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 164
+                  },
+                  "text": " "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 8,
+                    "column": 165
+                  },
+                  "text": "setData"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Backed by"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 15
+                  },
+                  "text": "WebView storage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 33
+                  },
+                  "text": "UserDefaults / SharedPreferences"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 68
+                  },
+                  "text": "SQLite file"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 80
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 82
+                  },
+                  "text": "SQLite file"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 94
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 96
+                  },
+                  "text": "Keychain / Keystore"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "Survives OS storage cleanup"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 33
+                  },
+                  "text": "Not guaranteed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 50
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 54
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 56
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 60
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 62
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 68
+                  },
+                  "text": "Yes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Value types"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 17
+                  },
+                  "text": "Strings (localStorage)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 42
+                  },
+                  "text": "Strings"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 52
+                  },
+                  "text": "JSON values, numbers, booleans, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 84
+                  },
+                  "text": "Uint8Array"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 97
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 99
+                  },
+                  "text": "Strings"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 107
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 109
+                  },
+                  "text": "Strings"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "Good size range"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 21
+                  },
+                  "text": "Small"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 29
+                  },
+                  "text": "Small, a few KB per value"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 57
+                  },
+                  "text": "Large values, many keys"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 81
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 83
+                  },
+                  "text": "Many keys"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 93
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 95
+                  },
+                  "text": "Very small (under ~8 KB on Android)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "Encryption"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 16
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 21
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 26
+                  },
+                  "text": "Optional SQLCipher, key from secure storage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 70
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 72
+                  },
+                  "text": "Optional SQLCipher, passphrase in config"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 113
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 115
+                  },
+                  "text": "Yes, hardware-backed"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "text": "Namespaces"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 16
+                  },
+                  "text": "Per origin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 29
+                  },
+                  "text": "group"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 36
+                  },
+                  "text": " option"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 46
+                  },
+                  "text": "store"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 53
+                  },
+                  "text": " option"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 63
+                  },
+                  "text": "Tables"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 70
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 72
+                  },
+                  "text": "Key names"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "text": "Query by prefix"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 21
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 26
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 31
+                  },
+                  "text": "List keys"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 16,
+                    "column": 43
+                  },
+                  "text": "filtervalues"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 58
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 60
+                  },
+                  "text": "No"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 3
+                  },
+                  "text": "Web"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 9
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 17,
+                    "column": 15
+                  },
+                  "text": "localStorage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 32
+                  },
+                  "text": "SQLite Wasm (OPFS)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 51
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 53
+                  },
+                  "text": "IndexedDB"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 63
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 65
+                  },
+                  "text": "Not for secrets"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 19,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 19,
+            "column": 4
+          },
+          "text": "Why not localStorage"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 21,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "text": "localStorage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 15
+          },
+          "text": " and IndexedDB work inside a Capacitor WebView, but the data belongs to the WebView, not to your app's native storage. The OS can reclaim WebView storage when the device runs low on space, and Capacitor's own documentation recommends against relying on it for data you cannot lose. Changing the app's hostname or scheme in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 21,
+            "column": 338
+          },
+          "text": "capacitor.config"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 356
+          },
+          "text": " also changes the origin, which points the WebView at a different, empty storage."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "text": "Use them as a cache that can disappear. Use one of the native-backed options for everything else."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 25,
+            "column": 4
+          },
+          "text": "Option 1: Capacitor Preferences for small settings"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "text": "@capacitor/preferences"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 25
+          },
+          "text": " is the official plugin for lightweight key-value data. On iOS it writes to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 27,
+            "column": 101
+          },
+          "text": "UserDefaults"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 115
+          },
+          "text": ", on Android to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 27,
+            "column": 131
+          },
+          "text": "SharedPreferences"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 150
+          },
+          "text": ", on the web to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 27,
+            "column": 166
+          },
+          "text": "localStorage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 180
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capacitor/preferences\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Preferences } from '@capacitor/preferences';\n\ninterface Settings {\n  theme: 'light' | 'dark' | 'system';\n  fontScale: number;\n}\n\nconst DEFAULTS: Settings = { theme: 'system', fontScale: 1 };\n\nexport async function loadSettings(): Promise<Settings> {\n  const { value } = await Preferences.get({ key: 'settings' });\n  return value ? { ...DEFAULTS, ...JSON.parse(value) } : DEFAULTS;\n}\n\nexport async function saveSettings(settings: Settings): Promise<void> {\n  await Preferences.set({ key: 'settings', value: JSON.stringify(settings) });\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "text": "Use it for: theme, language, onboarding flags, the last selected tab, feature toggles."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 1
+          },
+          "text": "Do not use it for:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 58,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 58,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 58,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 58,
+                        "column": 5
+                      },
+                      "text": "Secrets."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 58,
+                    "column": 15
+                  },
+                  "text": " Values are stored in plaintext inside the app sandbox, and are included in device backups."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 59,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 59,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 59,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 59,
+                        "column": 5
+                      },
+                      "text": "Large values."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 59,
+                    "column": 20
+                  },
+                  "text": " "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 59,
+                    "column": 21
+                  },
+                  "text": "UserDefaults"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 59,
+                    "column": 35
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 59,
+                    "column": 40
+                  },
+                  "text": "SharedPreferences"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 59,
+                    "column": 59
+                  },
+                  "text": " load their whole file into memory. Large JSON blobs slow down every read and write."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 60,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 60,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 60,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 60,
+                        "column": 5
+                      },
+                      "text": "Many keys you need to list or clear by prefix."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 60,
+                    "column": 53
+                  },
+                  "text": " "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 60,
+                    "column": 54
+                  },
+                  "text": "keys()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 60,
+                    "column": 62
+                  },
+                  "text": " returns everything, so you filter in JavaScript."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 62,
+            "column": 1
+          },
+          "text": "Preferences.configure({ group: 'MyApp' })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 44
+          },
+          "text": " changes the namespace the keys are stored under. The default group is "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 62,
+            "column": 115
+          },
+          "text": "CapacitorStorage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 133
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 4
+          },
+          "text": "Option 2: a SQLite key-value store"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "text": "Once you store cached API responses, drafts, offline queues or hundreds of entries, a SQLite file is a better home. It handles large values, writes are atomic, and you can encrypt it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 68,
+            "column": 5
+          },
+          "text": "Fast SQL KeyValueStore"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 70,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 70,
+            "column": 1
+          },
+          "text": "@capgo/capacitor-fast-sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 28
+          },
+          "text": " includes a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 70,
+            "column": 40
+          },
+          "text": "KeyValueStore"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 55
+          },
+          "text": " class on top of its SQLite connection. It creates a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 70,
+            "column": 108
+          },
+          "text": "__kv_store"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 120
+          },
+          "text": " table, keeps the value type, and supports multiple named stores in one database."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 72,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-fast-sql\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 77,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 1
+          },
+          "text": "Fast SQL needs two native settings (iOS local networking in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 77,
+            "column": 61
+          },
+          "text": "Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 73
+          },
+          "text": ", a localhost cleartext rule on Android). They are covered in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 77,
+            "column": 135
+          },
+          "url": "/blog/how-to-use-sqlite-in-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 77,
+                "column": 136
+              },
+              "text": "How to use SQLite in a Capacitor app"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 217
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 79,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { KeyValueStore } from '@capgo/capacitor-fast-sql';\n\nconst cache = await KeyValueStore.open({ database: 'app', store: 'api-cache' });\n\n// Objects, arrays, numbers, booleans, null and Uint8Array are stored as-is\nawait cache.set('user:42', { id: 42, name: 'Ada', roles: ['admin'] });\nawait cache.set('lastSync', Date.now());\n\nconst user = (await cache.get('user:42')) as { id: number; name: string } | null;\nconst exists = await cache.has('lastSync');\nconst allKeys = await cache.keys();\n\nawait cache.remove('user:42');\nawait cache.clear(); // only clears the 'api-cache' store\nawait cache.close();"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "text": "API summary: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 14
+          },
+          "text": "open(options)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 29
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 31
+          },
+          "text": "fromConnection(connection, store)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 66
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 68
+          },
+          "text": "set"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 73
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 75
+          },
+          "text": "get"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 80
+          },
+          "text": " (returns "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 90
+          },
+          "text": "null"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 96
+          },
+          "text": " when missing), "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 112
+          },
+          "text": "has"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 117
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 119
+          },
+          "text": "remove"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 127
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 129
+          },
+          "text": "clear"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 136
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 138
+          },
+          "text": "keys"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 144
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 146
+          },
+          "text": "close"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 153
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 99,
+            "column": 1
+          },
+          "text": "Two patterns worth knowing:"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 101,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 101,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 101,
+                "column": 3
+              },
+              "text": "Several stores, one database."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 34
+          },
+          "text": " The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 101,
+            "column": 39
+          },
+          "text": "store"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 46
+          },
+          "text": " option namespaces keys, so "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 101,
+            "column": 74
+          },
+          "text": "settings"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 84
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 101,
+            "column": 86
+          },
+          "text": "drafts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 94
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 101,
+            "column": 99
+          },
+          "text": "api-cache"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 110
+          },
+          "text": " can live side by side and be cleared independently."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 103,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 103,
+                "column": 3
+              },
+              "text": "Key-value next to real tables."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 35
+          },
+          "text": " If your app already uses Fast SQL for relational data, reuse the connection instead of opening a second one:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { FastSQL, KeyValueStore } from '@capgo/capacitor-fast-sql';\n\nconst db = await FastSQL.connect({ database: 'app' });\nconst drafts = await KeyValueStore.fromConnection(db, 'drafts');\n// You own `db`: drafts.close() does not disconnect it"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 113,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 1
+          },
+          "text": "Later, when a key-value blob grows into something you want to query (all drafts older than a week, for example), you can move it into a proper table in the same database."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 115,
+        "column": 1
+      },
+      "depth": 4,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 6
+          },
+          "text": "Encrypted key-value storage"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 1
+          },
+          "text": "KeyValueStore.open"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 21
+          },
+          "text": " accepts the same options as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 50
+          },
+          "text": "FastSQL.connect"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 67
+          },
+          "text": ", including "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 79
+          },
+          "text": "encrypted"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 90
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 95
+          },
+          "text": "encryptionKey"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 110
+          },
+          "text": " on iOS and Android:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 119,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { KeyValueStore } from '@capgo/capacitor-fast-sql';\nimport { NativeBiometric } from '@capgo/capacitor-native-biometric';\n\nasync function getKey(): Promise<string> {\n  const { isSaved } = await NativeBiometric.isDataSaved({ key: 'kv.key' });\n  if (isSaved) return (await NativeBiometric.getData({ key: 'kv.key' })).value;\n  const bytes = crypto.getRandomValues(new Uint8Array(32));\n  const key = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');\n  await NativeBiometric.setData({ key: 'kv.key', value: key });\n  return key;\n}\n\nconst secureStore = await KeyValueStore.open({\n  database: 'secure-kv',\n  encrypted: true,\n  encryptionKey: await getKey(),\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 1
+          },
+          "text": "This requires SQLCipher in the native builds. The setup, plus what to do when the key is lost after a backup restore, is in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 139,
+            "column": 125
+          },
+          "url": "/blog/encrypt-sqlite-database-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 139,
+                "column": 126
+              },
+              "text": "How to encrypt a SQLite database in Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 214
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 141,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 5
+          },
+          "text": "@capgo/capacitor-data-storage-sqlite"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 143,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 143,
+            "column": 1
+          },
+          "text": "@capgo/capacitor-data-storage-sqlite"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 143,
+            "column": 39
+          },
+          "text": " is a dedicated key-value plugin on SQLite (originally by Jean Pierre Quéau, now maintained by Capgo). Values are strings, and it adds a few extras: multiple tables per store, prefix and suffix filtering, and JSON import and export."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 145,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-data-storage-sqlite\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 150,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { CapgoCapacitorDataStorageSqlite as Store } from '@capgo/capacitor-data-storage-sqlite';\n\nawait Store.openStore({ database: 'appStore', table: 'settings' });\n\nawait Store.set({ key: 'locale', value: 'fr' });\nawait Store.set({ key: 'profile', value: JSON.stringify({ name: 'Ada' }) });\n\nconst { value } = await Store.get({ key: 'locale' });\nconst { result: hasProfile } = await Store.iskey({ key: 'profile' });\nconst { keys } = await Store.keys();\n\n// Switch table inside the same store\nawait Store.setTable({ table: 'drafts' });\nconst { values } = await Store.filtervalues({ filter: 'note%' }); // values whose key starts with \"note\"\n\nawait Store.remove({ key: 'note-1' });\nawait Store.clear(); // clears the current table"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 170,
+            "column": 1
+          },
+          "text": "filtervalues"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 15
+          },
+          "text": " applies the filter as a SQL "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 170,
+            "column": 44
+          },
+          "text": "LIKE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 50
+          },
+          "text": " pattern on the key ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 170,
+            "column": 71
+          },
+          "text": "note%"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 78
+          },
+          "text": " for a prefix, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 170,
+            "column": 93
+          },
+          "text": "%note"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 100
+          },
+          "text": " for a suffix, plain text for contains). The pattern is inserted into the SQL string, so only pass filters you control, never raw user input."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 1
+          },
+          "text": "On the web it uses IndexedDB through "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 172,
+            "column": 38
+          },
+          "text": "localforage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 51
+          },
+          "text": ", which you install separately:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add localforage"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 178,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 1
+          },
+          "text": "About its encryption: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 178,
+            "column": 23
+          },
+          "text": "openStore({ encrypted: true, mode: 'secret' })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 71
+          },
+          "text": " uses SQLCipher with a passphrase from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 178,
+            "column": 110
+          },
+          "text": "capacitor.config"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 128
+          },
+          "text": " under "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 178,
+            "column": 135
+          },
+          "text": "plugins.CapgoCapacitorDataStorageSqlite.encryptionSecret"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 193
+          },
+          "text": ". That passphrase ships inside your app bundle, and if you do not set it the plugin falls back to a built-in default. Treat this as protection against casual file inspection, not against someone who unpacks your app. For real secrets use a key from the Keychain or Keystore, as in the Fast SQL example above."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 180,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 180,
+            "column": 5
+          },
+          "text": "Fast SQL KeyValueStore or data-storage-sqlite?"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 182,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 3
+                  },
+                  "text": "Pick "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 182,
+                    "column": 8
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 182,
+                        "column": 10
+                      },
+                      "text": "Fast SQL "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 182,
+                        "column": 19
+                      },
+                      "text": "KeyValueStore"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 36
+                  },
+                  "text": " if you want typed values without manual JSON, binary values, a runtime encryption key, or already use Fast SQL for tables."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 183,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 183,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 183,
+                    "column": 3
+                  },
+                  "text": "Pick "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 183,
+                    "column": 8
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 183,
+                        "column": 10
+                      },
+                      "text": "data-storage-sqlite"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 183,
+                    "column": 31
+                  },
+                  "text": " if you need its table and filter features, JSON export and import, or Electron support."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 185,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 185,
+            "column": 4
+          },
+          "text": "Option 3: Keychain and Keystore for secrets"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 187,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 187,
+            "column": 1
+          },
+          "text": "Auth tokens, refresh tokens, API keys and database encryption keys belong in platform secure storage. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 187,
+            "column": 103
+          },
+          "text": "@capgo/capacitor-native-biometric"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 187,
+            "column": 138
+          },
+          "text": " (8.6.0 and later) exposes a generic key-value API on top of the iOS Keychain and Android Keystore:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 189,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-native-biometric\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 194,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { AccessControl, NativeBiometric } from '@capgo/capacitor-native-biometric';\n\n// Silent read and write\nawait NativeBiometric.setData({ key: 'session.refreshToken', value: token });\nconst { value: refreshToken } = await NativeBiometric.getData({ key: 'session.refreshToken' });\n\n// Require Face ID / Touch ID / fingerprint to read\nawait NativeBiometric.setData({\n  key: 'wallet.pin',\n  value: pin,\n  accessControl: AccessControl.BIOMETRY_ANY,\n});\nconst { value: secretPin } = await NativeBiometric.getSecureData({\n  key: 'wallet.pin',\n  reason: 'Confirm it is you',\n});\n\nawait NativeBiometric.deleteData({ key: 'session.refreshToken' });"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 215,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 215,
+            "column": 1
+          },
+          "text": "Keep values small. The plugin documents that Android Keystore-backed encryption works best under about 8 KB per value. If you need to protect a lot of data, store one random key here and use it to encrypt a SQLite database. Our post on "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 215,
+            "column": 237
+          },
+          "url": "/blog/secure-storage-for-offline-tokens-in-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 215,
+                "column": 238
+              },
+              "text": "secure storage for offline tokens"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 215,
+            "column": 327
+          },
+          "text": " goes deeper into token handling."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 217,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 217,
+            "column": 1
+          },
+          "text": "Remember that Keychain items on iOS can outlive an app uninstall. On first launch after a fresh install, clear stale secrets if your app expects a clean slate (store a \"first run done\" flag in Preferences, which is removed on uninstall, and wipe Keychain entries when it is missing)."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 219,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 219,
+            "column": 4
+          },
+          "text": "Choosing: a decision list"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 221,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 221,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 221,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 221,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 221,
+                        "column": 6
+                      },
+                      "text": "Is it a secret?"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 221,
+                    "column": 23
+                  },
+                  "text": " Token, password, PIN, key. Use Keychain or Keystore storage."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 222,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 222,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 222,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 222,
+                        "column": 6
+                      },
+                      "text": "Is it a few small settings?"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 222,
+                    "column": 35
+                  },
+                  "text": " Use Preferences."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 223,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 223,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 223,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 223,
+                        "column": 6
+                      },
+                      "text": "Is it many entries, large JSON, binary data, or cache you want to expire and clear in groups?"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 223,
+                    "column": 101
+                  },
+                  "text": " Use a SQLite key-value store."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 224,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 224,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 224,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 224,
+                        "column": 6
+                      },
+                      "text": "Do you need to filter, sort or join it?"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 224,
+                    "column": 47
+                  },
+                  "text": " It is not key-value data anymore. Create a table, see the "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 224,
+                    "column": 106
+                  },
+                  "url": "/blog/how-to-use-sqlite-in-capacitor-apps/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 224,
+                        "column": 107
+                      },
+                      "text": "SQLite guide"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 224,
+                    "column": 164
+                  },
+                  "text": ", or use a typed layer like "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 224,
+                    "column": 192
+                  },
+                  "url": "/blog/kysely-capacitor-sqlite/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 224,
+                        "column": 193
+                      },
+                      "text": "Kysely"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 224,
+                    "column": 232
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 226,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 4
+          },
+          "text": "Migrating existing data between stores"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 228,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 228,
+            "column": 1
+          },
+          "text": "Moving from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 228,
+            "column": 13
+          },
+          "text": "localStorage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 228,
+            "column": 27
+          },
+          "text": " or Preferences to a SQLite store is a one-time copy at startup. Do it before the rest of the app reads data, and record that it ran."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 230,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Preferences } from '@capacitor/preferences';\nimport { KeyValueStore, type KeyValueValue } from '@capgo/capacitor-fast-sql';\n\nexport async function migrateToSqliteStore(): Promise<KeyValueStore> {\n  const kv = await KeyValueStore.open({ database: 'app', store: 'settings' });\n  if (await kv.has('__migrated_v1')) return kv;\n\n  const { keys } = await Preferences.keys();\n  for (const key of keys) {\n    const { value } = await Preferences.get({ key });\n    if (value === null) continue;\n    let parsed: KeyValueValue = value;\n    try {\n      parsed = JSON.parse(value) as KeyValueValue;\n    } catch {\n      // keep plain strings as strings\n    }\n    await kv.set(key, parsed);\n  }\n\n  // Also copy from localStorage if older versions used it\n  for (let i = 0; i < localStorage.length; i++) {\n    const key = localStorage.key(i);\n    if (key && !(await kv.has(key))) {\n      await kv.set(key, localStorage.getItem(key));\n    }\n  }\n\n  await kv.set('__migrated_v1', true);\n  // Remove the old copies only after a release or two, once you are confident\n  return kv;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 265,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 265,
+            "column": 1
+          },
+          "text": "Remove secrets from the old store as soon as they are copied into secure storage. Leaving a token in Preferences after moving it to the Keychain keeps the original exposure."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 267,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 267,
+            "column": 1
+          },
+          "text": "Because this code runs in JavaScript, you can ship it with a "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 267,
+            "column": 62
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 267,
+                "column": 63
+              },
+              "text": "Capgo live update"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 267,
+            "column": 96
+          },
+          "text": ". The SQLite plugin itself is native, so the release that adds it needs a store build. Ship the plugin first, then the migration code."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 269,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 269,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 271,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 271,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 271,
+                "column": 3
+              },
+              "text": "Preferences values are "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 271,
+                "column": 26
+              },
+              "text": "null"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 271,
+                "column": 32
+              },
+              "text": " after an update on the web."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 271,
+            "column": 62
+          },
+          "text": " The origin changed (port, hostname, or scheme), so "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 271,
+            "column": 114
+          },
+          "text": "localStorage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 271,
+            "column": 128
+          },
+          "text": " is a different, empty store."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 273,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 273,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 273,
+                "column": 3
+              },
+              "text": "Fast SQL "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 273,
+                "column": 12
+              },
+              "text": "KeyValueStore.open"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 273,
+                "column": 32
+              },
+              "text": " throws on iOS."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 273,
+            "column": 49
+          },
+          "text": " The local HTTP channel is blocked. Add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 273,
+            "column": 89
+          },
+          "text": "NSAllowsLocalNetworking"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 273,
+            "column": 114
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 273,
+            "column": 118
+          },
+          "text": "Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 273,
+            "column": 130
+          },
+          "text": " and rebuild the native app."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 275,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 275,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 275,
+                "column": 3
+              },
+              "text": "get"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 275,
+                "column": 8
+              },
+              "text": " returns a string where you expected an object in data-storage-sqlite."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 275,
+            "column": 80
+          },
+          "text": " That plugin stores strings only. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 275,
+            "column": 114
+          },
+          "text": "JSON.parse"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 275,
+            "column": 126
+          },
+          "text": " the value."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 277,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 277,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 277,
+                "column": 3
+              },
+              "text": "Secrets missing after restoring a backup on a new phone."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 277,
+            "column": 61
+          },
+          "text": " Keystore keys and device-only Keychain items do not transfer to new hardware. Treat secure storage as a cache of credentials you can re-obtain by signing in again."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 279,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 279,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 279,
+                "column": 3
+              },
+              "text": "Settings lost after reinstall but tokens still there on iOS."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 279,
+            "column": 65
+          },
+          "text": " Expected: Preferences is deleted with the app, Keychain items can remain. Use the first-run flag pattern above."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 281,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 281,
+            "column": 4
+          },
+          "text": "Summary"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 283,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 283,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 283,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 283,
+                    "column": 3
+                  },
+                  "text": "Preferences: small, non-sensitive settings."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 284,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 284,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 284,
+                    "column": 3
+                  },
+                  "text": "SQLite key-value store (Fast SQL "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 284,
+                    "column": 36
+                  },
+                  "text": "KeyValueStore"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 284,
+                    "column": 51
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 284,
+                    "column": 55
+                  },
+                  "text": "@capgo/capacitor-data-storage-sqlite"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 284,
+                    "column": 93
+                  },
+                  "text": "): many or large values, cache, drafts, optionally encrypted."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 285,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 285,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 285,
+                    "column": 3
+                  },
+                  "text": "Keychain or Keystore ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 285,
+                    "column": 25
+                  },
+                  "text": "@capgo/capacitor-native-biometric"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 285,
+                    "column": 60
+                  },
+                  "text": " "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 285,
+                    "column": 61
+                  },
+                  "text": "setData"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 285,
+                    "column": 70
+                  },
+                  "text": "): secrets and encryption keys."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 287,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 287,
+            "column": 1
+          },
+          "text": "Plugin references: "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 287,
+            "column": 20
+          },
+          "url": "/docs/plugins/fast-sql/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 287,
+                "column": 21
+              },
+              "text": "Fast SQL docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 287,
+            "column": 60
+          },
+          "text": ", "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 287,
+            "column": 62
+          },
+          "url": "/docs/plugins/data-storage-sqlite/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 287,
+                "column": 63
+              },
+              "text": "data-storage-sqlite docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 287,
+            "column": 124
+          },
+          "text": ", and the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 287,
+            "column": 134
+          },
+          "url": "/plugins/capacitor-native-biometric/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 287,
+                "column": 135
+              },
+              "text": "native biometric plugin page"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 287,
+            "column": 202
+          },
+          "text": "."
+        }
+      ]
+    }
+  ]
+}

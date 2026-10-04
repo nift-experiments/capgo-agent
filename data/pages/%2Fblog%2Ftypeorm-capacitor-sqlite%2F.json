@@ -1,0 +1,3009 @@
+{
+  "version": 1,
+  "route": "/blog/typeorm-capacitor-sqlite/",
+  "source": "corpus/source/apps/web/src/content/blog/en/typeorm-capacitor-sqlite.md",
+  "sourceSha256": "c197290c08e009f33cf82b9ed779f050e21e71d52479f790ef2efe284832982c",
+  "metadata": {
+    "slug": "typeorm-capacitor-sqlite",
+    "title": "How to Use TypeORM with Capacitor and SQLite",
+    "description": "Use TypeORM with Capacitor and SQLite on iOS and Android: DataSource setup, entities that work with Vite, repositories, transactions and generated migrations.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capacitor-guide.webp",
+    "head_image_alt": "Capacitor logo for a guide on using TypeORM with Capacitor and SQLite",
+    "keywords": "typeorm capacitor, typeorm capacitor sqlite, typeorm ionic, capacitor-community sqlite typeorm, typeorm migrations mobile, typeorm vite decorators",
+    "tag": "Tutorial, Capacitor, Development",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Does TypeORM support Capacitor?",
+        "answer": "Yes. TypeORM has a built-in DataSource type named capacitor. It expects a SQLiteConnection from @capacitor-community/sqlite as its driver option, so that plugin is required. No extra adapter package is needed."
+      },
+      {
+        "question": "Why do my TypeORM entities fail with ColumnTypeUndefinedError in a Vite app?",
+        "answer": "Vite and esbuild do not emit decorator metadata, so TypeORM cannot infer column types from TypeScript property types. Give every @Column an explicit type such as @Column('text') or @Column('integer'). Relations are fine because they use arrow functions."
+      },
+      {
+        "question": "Can I use the TypeORM CLI to generate migrations for a Capacitor app?",
+        "answer": "Not against the device database, since the CLI runs in Node or Bun. Point a second DataSource of type sqljs at a local file with the same entities, run migration:run then migration:generate, and import the generated migration classes in the app. Both drivers use TypeORM's SQLite dialect, so the SQL is compatible."
+      },
+      {
+        "question": "Should I use synchronize: true in a Capacitor app?",
+        "answer": "Not in production. synchronize compares entities with the database on every start and can drop and recreate tables or columns, which deletes user data on the device. Use migrations and keep synchronize false."
+      },
+      {
+        "question": "Does TypeORM work with @capgo/capacitor-fast-sql?",
+        "answer": "Not out of the box. TypeORM's capacitor driver calls the community plugin's connection API directly. If you want Fast SQL, a query builder with a small custom driver, such as Kysely, is the simpler route."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "TypeORM works in a Capacitor app through its built-in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 55
+          },
+          "text": "capacitor"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 66
+          },
+          "text": " driver, which runs every query on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 101
+          },
+          "text": "@capacitor-community/sqlite"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 130
+          },
+          "text": ". You configure a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 148
+          },
+          "text": "DataSource"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 160
+          },
+          "text": " with the plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 179
+          },
+          "text": "SQLiteConnection"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 197
+          },
+          "text": ", define entities with decorators, and use repositories and transactions as you would on a server. This guide covers the full setup on TypeORM 1.x and Capacitor 8, including the two things most tutorials skip: explicit column types for Vite, and how to generate migrations even though the CLI cannot talk to a phone."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "When TypeORM is a good fit"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "TypeORM is a data-mapper ORM with entities, relations, repositories and a migration system. On mobile it makes sense when:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "you already use TypeORM on the backend and want the same entity style in the app,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 9,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 9,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "text": "your data model has many relations and you want "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 9,
+                    "column": 51
+                  },
+                  "text": "relations: { posts: true }"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 79
+                  },
+                  "text": " instead of hand-written joins,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "your team prefers classes and decorators over schema objects."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 12,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "text": "It is heavier than a query builder. If bundle size and startup time matter most, or you want to use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 12,
+            "column": 101
+          },
+          "text": "@capgo/capacitor-fast-sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 128
+          },
+          "text": ", look at "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 12,
+            "column": 138
+          },
+          "url": "/blog/kysely-capacitor-sqlite/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 12,
+                "column": 139
+              },
+              "text": "Kysely"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 178
+          },
+          "text": " or "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 12,
+            "column": 182
+          },
+          "url": "/blog/drizzle-orm-capacitor-sqlite/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 12,
+                "column": 183
+              },
+              "text": "Drizzle"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 228
+          },
+          "text": " instead."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 4
+          },
+          "text": "Install"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add typeorm @capacitor-community/sqlite\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 21,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "text": "TypeORM 1.x imports "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 21,
+            "column": 21
+          },
+          "text": "reflect-metadata"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 39
+          },
+          "text": " itself, so you do not need a separate import at the top of "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 21,
+            "column": 99
+          },
+          "text": "main.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 108
+          },
+          "text": " as older guides show. The community plugin bundles SQLCipher on iOS and Android whether or not you encrypt, which matters when you answer App Store export compliance questions."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 5
+          },
+          "text": "TypeScript settings"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "lang": "json",
+      "meta": null,
+      "text": "{\n  \"compilerOptions\": {\n    \"experimentalDecorators\": true,\n    \"useDefineForClassFields\": false\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "text": "experimentalDecorators"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 25
+          },
+          "text": " enables TypeORM's legacy decorators. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 34,
+            "column": 63
+          },
+          "text": "useDefineForClassFields: false"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 95
+          },
+          "text": " stops class field initializers from overwriting values TypeORM sets, which matters when your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 34,
+            "column": 189
+          },
+          "text": "target"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 197
+          },
+          "text": " is ES2022 or later."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 4
+          },
+          "text": "Entities that work with Vite and esbuild"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "text": "Most Capacitor apps are built with Vite, which compiles TypeScript with esbuild. esbuild supports decorators but does not implement "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 38,
+            "column": 133
+          },
+          "text": "emitDecoratorMetadata"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 156
+          },
+          "text": ", so TypeORM cannot read property types at runtime. Without explicit types you get "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 38,
+            "column": 239
+          },
+          "text": "ColumnTypeUndefinedError"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 265
+          },
+          "text": ". Give every column a type:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/entities/author.ts\nimport {\n  Column,\n  CreateDateColumn,\n  Entity,\n  OneToMany,\n  PrimaryGeneratedColumn,\n  type Relation,\n} from 'typeorm';\nimport { Post } from './post';\n\n@Entity('authors')\nexport class Author {\n  @PrimaryGeneratedColumn()\n  id!: number;\n\n  @Column('text')\n  name!: string;\n\n  @Column('text', { unique: true })\n  email!: string;\n\n  @CreateDateColumn()\n  createdAt!: Date;\n\n  @OneToMany(() => Post, (post) => post.author)\n  posts!: Relation<Post[]>;\n}"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/entities/post.ts\nimport {\n  Column,\n  Entity,\n  Index,\n  JoinColumn,\n  ManyToOne,\n  PrimaryGeneratedColumn,\n  type Relation,\n} from 'typeorm';\nimport { Author } from './author';\n\n@Entity('posts')\nexport class Post {\n  @PrimaryGeneratedColumn()\n  id!: number;\n\n  @Column('text')\n  title!: string;\n\n  @Column('boolean', { default: false })\n  published!: boolean;\n\n  @Index()\n  @Column('integer')\n  authorId!: number;\n\n  @ManyToOne(() => Author, (author) => author.posts, { onDelete: 'CASCADE' })\n  @JoinColumn({ name: 'authorId' })\n  author!: Relation<Author>;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 1
+          },
+          "text": "Notes:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 107,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 107,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 107,
+                    "column": 3
+                  },
+                  "text": "Relation<T>"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 107,
+                    "column": 16
+                  },
+                  "text": " is a type-only wrapper. It avoids circular import problems between "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 107,
+                    "column": 84
+                  },
+                  "text": "author.ts"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 107,
+                    "column": 95
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 107,
+                    "column": 100
+                  },
+                  "text": "post.ts"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 107,
+                    "column": 109
+                  },
+                  "text": " if you ever compile with decorator metadata (for example in the CLI or tests)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 108,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 108,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 108,
+                    "column": 3
+                  },
+                  "text": "The explicit "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 108,
+                    "column": 16
+                  },
+                  "text": "authorId"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 108,
+                    "column": 26
+                  },
+                  "text": " column lets you filter and insert by id without loading the author."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 109,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 109,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 109,
+                    "column": 3
+                  },
+                  "text": "SQLite has no boolean type. TypeORM stores "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 109,
+                    "column": 46
+                  },
+                  "text": "boolean"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 109,
+                    "column": 55
+                  },
+                  "text": " columns as "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 109,
+                    "column": 67
+                  },
+                  "text": "0"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 109,
+                    "column": 70
+                  },
+                  "text": "/"
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 109,
+                    "column": 71
+                  },
+                  "text": "1"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 109,
+                    "column": 74
+                  },
+                  "text": " and converts them back."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 111,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 4
+          },
+          "text": "Configure the DataSource"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 113,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/data-source.ts\nimport { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';\nimport { DataSource } from 'typeorm';\nimport { Author } from './entities/author';\nimport { Post } from './entities/post';\nimport { Init1790000000000 } from './migrations/1790000000000-Init';\n\nexport const sqliteConnection = new SQLiteConnection(CapacitorSQLite);\n\nexport const AppDataSource = new DataSource({\n  type: 'capacitor',\n  driver: sqliteConnection,\n  database: 'app',\n  mode: 'no-encryption',\n  entities: [Author, Post],\n  migrations: [Init1790000000000],\n  synchronize: false,\n  migrationsRun: false,\n  journalMode: 'WAL',\n  logging: ['error'],\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 137,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 137,
+            "column": 1
+          },
+          "text": "Option by option:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 139,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 139,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 139,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 139,
+                        "column": 5
+                      },
+                      "text": "driver"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 139,
+                    "column": 15
+                  },
+                  "text": ": the plugin's "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 139,
+                    "column": 30
+                  },
+                  "text": "SQLiteConnection"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 139,
+                    "column": 48
+                  },
+                  "text": ". TypeORM's driver uses it to create and open the connection, then turns on "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 139,
+                    "column": 124
+                  },
+                  "text": "PRAGMA foreign_keys"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 139,
+                    "column": 145
+                  },
+                  "text": " so "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 139,
+                    "column": 149
+                  },
+                  "text": "onDelete: 'CASCADE'"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 139,
+                    "column": 170
+                  },
+                  "text": " works."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 140,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 140,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 140,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 140,
+                        "column": 5
+                      },
+                      "text": "database"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 140,
+                    "column": 17
+                  },
+                  "text": ": the plugin adds a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 140,
+                    "column": 37
+                  },
+                  "text": "SQLite.db"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 140,
+                    "column": 48
+                  },
+                  "text": " suffix, so the file is "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 140,
+                    "column": 72
+                  },
+                  "text": "appSQLite.db"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 140,
+                    "column": 86
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 141,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 141,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 141,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 141,
+                        "column": 5
+                      },
+                      "text": "mode"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 141,
+                    "column": 13
+                  },
+                  "text": ": "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 141,
+                    "column": 15
+                  },
+                  "text": "no-encryption"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 141,
+                    "column": 30
+                  },
+                  "text": ", or one of the plugin's encryption modes ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 141,
+                    "column": 73
+                  },
+                  "text": "secret"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 141,
+                    "column": 81
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 141,
+                    "column": 83
+                  },
+                  "text": "encryption"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 141,
+                    "column": 95
+                  },
+                  "text": "). See "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 141,
+                    "column": 102
+                  },
+                  "url": "/blog/encrypt-sqlite-database-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 141,
+                        "column": 103
+                      },
+                      "text": "encrypting SQLite in Capacitor"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 141,
+                    "column": 176
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 142,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 142,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 142,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 142,
+                        "column": 5
+                      },
+                      "text": "synchronize: false"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 142,
+                    "column": 27
+                  },
+                  "text": ": in production, always. Sync can drop columns to match entities, which deletes user data on the device."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 143,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 143,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 143,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 143,
+                        "column": 5
+                      },
+                      "text": "migrationsRun: false"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 143,
+                    "column": 29
+                  },
+                  "text": ": the plugin's documentation asks for this with the capacitor type. Run migrations yourself right after "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 143,
+                    "column": 133
+                  },
+                  "text": "initialize()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 143,
+                    "column": 147
+                  },
+                  "text": ", as shown below."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 144,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 144,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 144,
+                        "column": 5
+                      },
+                      "text": "journalMode: 'WAL'"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 144,
+                    "column": 27
+                  },
+                  "text": ": optional. Better concurrency between reads and writes."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 145,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 145,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 145,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 145,
+                        "column": 5
+                      },
+                      "text": "migrations"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 145,
+                    "column": 19
+                  },
+                  "text": ": class references, not a glob. There is no file system scan in a WebView."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 147,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 147,
+            "column": 1
+          },
+          "text": "Glob patterns like "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 147,
+            "column": 20
+          },
+          "text": "entities: ['src/**/*.entity.ts']"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 147,
+            "column": 54
+          },
+          "text": " do not work in the app for the same reason. Import the classes."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 149,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 149,
+            "column": 4
+          },
+          "text": "Initialize at startup"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 151,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/index.ts\nimport { Capacitor } from '@capacitor/core';\nimport { AppDataSource, sqliteConnection } from './data-source';\n\nlet ready: Promise<typeof AppDataSource> | null = null;\n\nexport function initDatabase() {\n  if (!ready) {\n    ready = (async () => {\n      if (Capacitor.getPlatform() === 'web') {\n        // Needs the jeep-sqlite element in the DOM, see \"Web support\"\n        await sqliteConnection.initWebStore();\n      }\n\n      // Clean up connections left over from a hot reload\n      await sqliteConnection.checkConnectionsConsistency();\n\n      if (!AppDataSource.isInitialized) {\n        await AppDataSource.initialize();\n      }\n      await AppDataSource.runMigrations({ transaction: 'each' });\n\n      if (Capacitor.getPlatform() === 'web') {\n        await sqliteConnection.saveToStore('app');\n      }\n      return AppDataSource;\n    })();\n  }\n  return ready;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 1
+          },
+          "text": "Call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 184,
+            "column": 6
+          },
+          "text": "await initDatabase()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 28
+          },
+          "text": " before your app renders anything that reads data. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 184,
+            "column": 79
+          },
+          "text": "transaction: 'each'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 100
+          },
+          "text": " wraps every migration in its own transaction, so a failure leaves earlier migrations applied and the failing one rolled back."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 4
+          },
+          "text": "Repositories: insert, select, update, delete"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 188,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { initDatabase } from './db';\nimport { Author } from './db/entities/author';\nimport { Post } from './db/entities/post';\n\nconst ds = await initDatabase();\nconst authors = ds.getRepository(Author);\nconst posts = ds.getRepository(Post);\n\n// Insert\nconst ada = await authors.save(authors.create({ name: 'Ada', email: 'ada@example.com' }));\nawait posts.save([\n  posts.create({ title: 'Draft', authorId: ada.id }),\n  posts.create({ title: 'Live', authorId: ada.id, published: true }),\n]);\n\n// Select\nconst published = await posts.find({\n  where: { authorId: ada.id, published: true },\n  order: { id: 'DESC' },\n});\nconst one = await authors.findOneBy({ email: 'ada@example.com' });\n\n// Load a relation\nconst withPosts = await authors.findOne({\n  where: { id: ada.id },\n  relations: { posts: true },\n});\n\n// Update without loading\nawait posts.update({ authorId: ada.id }, { published: true });\n\n// Delete\nawait posts.delete({ published: false });"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 224,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 224,
+            "column": 1
+          },
+          "text": "save()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 224,
+            "column": 9
+          },
+          "text": " inserts or updates depending on whether the primary key is set, and returns the entity with its generated id. For bulk writes where you do not need entities back, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 224,
+            "column": 173
+          },
+          "text": "insert()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 224,
+            "column": 183
+          },
+          "text": " is faster because it skips the extra lookups."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 226,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 5
+          },
+          "text": "Query builder for anything non-trivial"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 228,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const stats = await ds\n  .getRepository(Author)\n  .createQueryBuilder('a')\n  .leftJoin('a.posts', 'p')\n  .select('a.id', 'id')\n  .addSelect('a.name', 'name')\n  .addSelect('COUNT(p.id)', 'postCount')\n  .groupBy('a.id')\n  .getRawMany<{ id: number; name: string; postCount: number }>();"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 240,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 240,
+            "column": 1
+          },
+          "text": "Joins and aggregates are where an ORM saves you time on mobile. Check the generated SQL with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 240,
+            "column": 94
+          },
+          "text": ".getSql()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 240,
+            "column": 105
+          },
+          "text": " while developing, and add indexes for columns used in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 240,
+            "column": 160
+          },
+          "text": "WHERE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 240,
+            "column": 167
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 240,
+            "column": 172
+          },
+          "text": "JOIN"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 240,
+            "column": 178
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 242,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 242,
+            "column": 4
+          },
+          "text": "Transactions"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 244,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await ds.transaction(async (manager) => {\n  const grace = await manager.save(Author, { name: 'Grace', email: 'grace@example.com' });\n  await manager.save(Post, { title: 'Hello', authorId: grace.id });\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 251,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 251,
+            "column": 1
+          },
+          "text": "Use the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 251,
+            "column": 9
+          },
+          "text": "manager"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 251,
+            "column": 18
+          },
+          "text": " passed to the callback for every query inside the transaction. If the callback throws, TypeORM rolls back."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 253,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 253,
+            "column": 1
+          },
+          "text": "The Capacitor driver uses a single connection, so there is no isolation between the transaction and other work: a query made through "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 253,
+            "column": 134
+          },
+          "text": "ds"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 253,
+            "column": 138
+          },
+          "text": " or another repository while the transaction is open runs on the same connection and is committed or rolled back with it. Don't start unrelated database work until the transaction finishes, keep transactions short, and never wait for a network request inside one."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 255,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 255,
+            "column": 4
+          },
+          "text": "Migrations: generate them with a local sqljs DataSource"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 257,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 1
+          },
+          "text": "The TypeORM CLI runs on your computer, not on the phone, so it cannot inspect the device database. The plugin's own docs say migrations for the capacitor type have to be written by hand. You can still get generated migrations: TypeORM's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 257,
+            "column": 238
+          },
+          "text": "sqljs"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 245
+          },
+          "text": " driver uses the same SQLite dialect, so it produces SQL that the device runs unchanged."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 259,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 259,
+            "column": 5
+          },
+          "text": "1. Add a CLI-only DataSource"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 261,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add -d sql.js"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 265,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// typeorm.cli.ts (project root, not bundled into the app)\nimport { DataSource } from 'typeorm';\nimport { Author } from './src/db/entities/author';\nimport { Post } from './src/db/entities/post';\n\nexport default new DataSource({\n  type: 'sqljs',\n  location: '.typeorm/schema.sqlite',\n  autoSave: true,\n  entities: [Author, Post],\n  migrations: ['src/db/migrations/*.ts'],\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 280,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 1
+          },
+          "text": "Add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 280,
+            "column": 5
+          },
+          "text": ".typeorm/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 16
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 280,
+            "column": 20
+          },
+          "text": ".gitignore"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 32
+          },
+          "text": ". That file is a scratch copy of \"what the schema looks like after all existing migrations\"."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 282,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 282,
+            "column": 5
+          },
+          "text": "2. Bring the scratch database up to date, then diff"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 284,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "mkdir -p .typeorm\nbun ./node_modules/typeorm/cli.js migration:run -d ./typeorm.cli.ts\nbun ./node_modules/typeorm/cli.js migration:generate -d ./typeorm.cli.ts src/db/migrations/AddTags"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 290,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 290,
+            "column": 1
+          },
+          "text": "Bun runs the TypeScript data source and entities directly. The first command applies existing migrations to the scratch database. The second compares it with your entities and writes a new migration class, for example "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 290,
+            "column": 219
+          },
+          "text": "src/db/migrations/1790000123456-AddTags.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 290,
+            "column": 263
+          },
+          "text": ". Then add that class to the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 290,
+            "column": 292
+          },
+          "text": "migrations"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 290,
+            "column": 304
+          },
+          "text": " array in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 290,
+            "column": 314
+          },
+          "text": "data-source.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 290,
+            "column": 330
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 292,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 292,
+            "column": 1
+          },
+          "text": "A generated initial migration looks like this:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 294,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import type { MigrationInterface, QueryRunner } from 'typeorm';\n\nexport class Init1790000000000 implements MigrationInterface {\n  name = 'Init1790000000000';\n\n  public async up(queryRunner: QueryRunner): Promise<void> {\n    await queryRunner.query(\n      `CREATE TABLE \"authors\" (\"id\" integer PRIMARY KEY AUTOINCREMENT NOT NULL, \"name\" text NOT NULL, \"email\" text NOT NULL, \"createdAt\" datetime NOT NULL DEFAULT (datetime('now')), CONSTRAINT \"UQ_authors_email\" UNIQUE (\"email\"))`,\n    );\n    await queryRunner.query(\n      `CREATE TABLE \"posts\" (\"id\" integer PRIMARY KEY AUTOINCREMENT NOT NULL, \"title\" text NOT NULL, \"published\" boolean NOT NULL DEFAULT (0), \"authorId\" integer NOT NULL, CONSTRAINT \"FK_posts_author\" FOREIGN KEY (\"authorId\") REFERENCES \"authors\" (\"id\") ON DELETE CASCADE ON UPDATE NO ACTION)`,\n    );\n    await queryRunner.query(`CREATE INDEX \"IDX_posts_authorId\" ON \"posts\" (\"authorId\")`);\n  }\n\n  public async down(queryRunner: QueryRunner): Promise<void> {\n    await queryRunner.query(`DROP INDEX \"IDX_posts_authorId\"`);\n    await queryRunner.query(`DROP TABLE \"posts\"`);\n    await queryRunner.query(`DROP TABLE \"authors\"`);\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 318,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 318,
+            "column": 1
+          },
+          "text": "Read every generated migration before shipping it. For SQLite, TypeORM often changes a table by creating "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 318,
+            "column": 106
+          },
+          "text": "temporary_<table>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 318,
+            "column": 125
+          },
+          "text": ", copying rows, dropping the original and renaming. That is correct, but on a large table it takes time on a phone, so run it with a loading state."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 320,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 320,
+            "column": 5
+          },
+          "text": "Writing migrations by hand"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 322,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 1
+          },
+          "text": "If you write migrations yourself, start every statement with an uppercase keyword. The capacitor query runner looks at the first word, case-sensitively, to decide how to call the plugin: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 188
+          },
+          "text": "BEGIN"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 195
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 197
+          },
+          "text": "COMMIT"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 205
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 207
+          },
+          "text": "ROLLBACK"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 217
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 219
+          },
+          "text": "CREATE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 227
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 229
+          },
+          "text": "ALTER"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 236
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 241
+          },
+          "text": "DROP"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 247
+          },
+          "text": " go to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 254
+          },
+          "text": "execute"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 263
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 265
+          },
+          "text": "INSERT"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 273
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 275
+          },
+          "text": "UPDATE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 283
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 288
+          },
+          "text": "DELETE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 296
+          },
+          "text": " go to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 303
+          },
+          "text": "run"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 308
+          },
+          "text": ", and everything else goes to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 338
+          },
+          "text": "query"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 345
+          },
+          "text": ". A lowercase "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 359
+          },
+          "text": "create table"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 373
+          },
+          "text": " is sent as a query, which is not what you want for DDL."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 324,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 324,
+            "column": 5
+          },
+          "text": "Migrations and live updates"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 326,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 326,
+            "column": 1
+          },
+          "text": "Migration classes are part of your JavaScript bundle. With "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 326,
+            "column": 60
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 326,
+                "column": 61
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 326,
+            "column": 95
+          },
+          "text": " a schema change reaches users without a store review. A rollback can then put older code on a newer schema, so prefer additive migrations (new tables, new nullable columns) and remove old columns in a later release."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 328,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 328,
+            "column": 4
+          },
+          "text": "Web support"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 330,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 330,
+            "column": 1
+          },
+          "text": "The community plugin runs on the web through the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 330,
+            "column": 50
+          },
+          "text": "jeep-sqlite"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 330,
+            "column": 63
+          },
+          "text": " web component (sql.js persisted to IndexedDB). It is useful for development in the browser:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 332,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add jeep-sqlite\ncp node_modules/sql.js/dist/sql-wasm.wasm public/assets/"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 337,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// main.ts, before initDatabase()\nimport { defineCustomElements as jeepSqlite } from 'jeep-sqlite/loader';\nimport { Capacitor } from '@capacitor/core';\n\nif (Capacitor.getPlatform() === 'web') {\n  jeepSqlite(window);\n  const el = document.createElement('jeep-sqlite');\n  document.body.appendChild(el);\n  await customElements.whenDefined('jeep-sqlite');\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 350,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 350,
+            "column": 1
+          },
+          "text": "On the web the database lives in memory and is written to IndexedDB when you call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 350,
+            "column": 83
+          },
+          "text": "sqliteConnection.saveToStore('app')"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 350,
+            "column": 120
+          },
+          "text": ". Call it after writes you care about, or data is lost on reload."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 352,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 352,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 354,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 354,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 354,
+                "column": 3
+              },
+              "text": "Column type for Post#title is not defined and cannot be guessed"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 354,
+                "column": 68
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 354,
+            "column": 71
+          },
+          "text": " esbuild did not emit metadata. Add an explicit type to the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 354,
+            "column": 131
+          },
+          "text": "@Column"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 354,
+            "column": 140
+          },
+          "text": " decorator."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 356,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 356,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 356,
+                "column": 3
+              },
+              "text": "Capacitor package has not been found installed"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 356,
+                "column": 51
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 356,
+            "column": 54
+          },
+          "text": " The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 356,
+            "column": 59
+          },
+          "text": "driver"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 356,
+            "column": 67
+          },
+          "text": " option is missing or undefined. Pass "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 356,
+            "column": 105
+          },
+          "text": "new SQLiteConnection(CapacitorSQLite)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 356,
+            "column": 144
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 358,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 358,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 358,
+                "column": 3
+              },
+              "text": "A \"connection already exists\" error on reload."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 358,
+            "column": 51
+          },
+          "text": " Initialization ran twice. Keep the single "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 358,
+            "column": 94
+          },
+          "text": "ready"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 358,
+            "column": 101
+          },
+          "text": " promise and call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 358,
+            "column": 119
+          },
+          "text": "checkConnectionsConsistency()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 358,
+            "column": 150
+          },
+          "text": " before "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 358,
+            "column": 158
+          },
+          "text": "initialize()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 358,
+            "column": 172
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 360,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 360,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 360,
+                "column": 3
+              },
+              "text": "No metadata for \"Post\" was found"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 360,
+                "column": 37
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 360,
+            "column": 40
+          },
+          "text": " The entity class is not in the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 360,
+            "column": 72
+          },
+          "text": "entities"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 360,
+            "column": 82
+          },
+          "text": " array, or you used a glob string. Import the class."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 362,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 362,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 362,
+                "column": 3
+              },
+              "text": "Data reset after every app update during development."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 362,
+            "column": 58
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 362,
+            "column": 59
+          },
+          "text": "synchronize: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 362,
+            "column": 78
+          },
+          "text": " is on, or migrations drop and recreate tables. Turn sync off and inspect the generated SQL."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 364,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 364,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 364,
+                "column": 3
+              },
+              "text": "Migrations ran in the CLI but not on the device."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 364,
+            "column": 53
+          },
+          "text": " The new class is not in the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 364,
+            "column": 82
+          },
+          "text": "migrations"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 364,
+            "column": 94
+          },
+          "text": " array in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 364,
+            "column": 104
+          },
+          "text": "data-source.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 364,
+            "column": 120
+          },
+          "text": ". The app does not scan folders."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 366,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 366,
+            "column": 4
+          },
+          "text": "Wrap-up"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 368,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 368,
+            "column": 1
+          },
+          "text": "TypeORM on Capacitor is three pieces: the community SQLite plugin as the driver, entities with explicit column types, and migrations generated against a local "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 368,
+            "column": 160
+          },
+          "text": "sqljs"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 368,
+            "column": 167
+          },
+          "text": " database and imported as classes. With those in place, repositories, relations and transactions behave the same as on your backend."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 370,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 370,
+            "column": 1
+          },
+          "text": "For a lighter setup on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 370,
+            "column": 24
+          },
+          "text": "@capgo/capacitor-fast-sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 370,
+            "column": 51
+          },
+          "text": ", see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 370,
+            "column": 57
+          },
+          "url": "/blog/kysely-capacitor-sqlite/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 370,
+                "column": 58
+              },
+              "text": "Kysely with Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 370,
+            "column": 112
+          },
+          "text": ". For the plugin basics, start with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 370,
+            "column": 148
+          },
+          "url": "/blog/how-to-use-sqlite-in-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 370,
+                "column": 149
+              },
+              "text": "How to use SQLite in a Capacitor app"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 370,
+            "column": 230
+          },
+          "text": ". When the native side changes, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 370,
+            "column": 262
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 370,
+                "column": 263
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 370,
+            "column": 291
+          },
+          "text": " can rebuild and sign the iOS and Android apps in the cloud."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3479 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-scan-a-document-to-pdf-in-a-capacitor-app/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-scan-a-document-to-pdf-in-a-capacitor-app.md",
+  "sourceSha256": "2eacc4f516be3c53fa74e86afbea606a22540c119acadea1db71f700949555e1",
+  "metadata": {
+    "slug": "how-to-scan-a-document-to-pdf-in-a-capacitor-app",
+    "title": "How to Scan a Document to PDF in a Capacitor App",
+    "description": "Scan a document to PDF in a Capacitor app: capture pages with the native scanner, build one PDF, then save, share, open, or print it on iOS and Android.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_plugins.webp",
+    "head_image_alt": "Scanning a paper document into a PDF inside a Capacitor mobile app",
+    "keywords": "capacitor document scanner, scan document to pdf capacitor, capacitor pdf, ionic document scanner, visionkit capacitor, ml kit document scanner, capacitor scan to pdf",
+    "tag": "Tutorial, Capacitor, Development",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "How do I scan a document to PDF in a Capacitor app?",
+        "answer": "Call DocumentScanner.scanDocument() from @capgo/capacitor-document-scanner to get one JPEG per page, then combine the pages into a single PDF with pdf-lib (or render them through @capgo/capacitor-pdf-generator), write it with @capacitor/filesystem, and share, open, or print the file."
+      },
+      {
+        "question": "Does the Capacitor document scanner work on the Android emulator?",
+        "answer": "No. The Android side uses the Google ML Kit document scanner, which is delivered through Google Play services and does not run on emulators. Test on a physical Android device. On iOS, VisionKit also needs a real device with a camera."
+      },
+      {
+        "question": "Is the PDF searchable?",
+        "answer": "Not by default. The scanner returns images, so the PDF contains one image per page with no text layer. If you need search or copy and paste, run OCR on the images (for example with ML Kit Text Recognition or Apple Vision) and store the text next to the PDF or upload it to a server-side OCR service."
+      },
+      {
+        "question": "How many pages can one scan contain?",
+        "answer": "The maxNumDocuments option controls it. On Android the plugin clamps it between 1 and 24 and defaults to 20. On iOS VisionKit caps a session at 24 pages. Split longer documents into several scans and merge the PDFs with pdf-lib."
+      },
+      {
+        "question": "Can I make the scan-to-PDF flow work on the web?",
+        "answer": "The native scanner only runs on iOS and Android. On the web, use a file input with capture=environment or getUserMedia to take a photo, then build the PDF with the same pdf-lib code, which runs in any browser."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To scan a document to PDF in a Capacitor app, open the native scanner with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 2,
+            "column": 76
+          },
+          "url": "/plugins/capacitor-document-scanner/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 2,
+                "column": 77
+              },
+              "text": "@capgo/capacitor-document-scanner"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 151
+          },
+          "text": ", take the JPEG pages it returns, and combine them into one PDF with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 220
+          },
+          "text": "pdf-lib"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 229
+          },
+          "text": ". From there you write the PDF with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 265
+          },
+          "text": "@capacitor/filesystem"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 288
+          },
+          "text": " and hand it to the share sheet, a PDF viewer, or the system print dialog. This guide walks through the full flow with code that runs on Capacitor 8, on both iOS and Android."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "How scan-to-PDF works on iOS and Android"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "Both platforms ship a system document scanner, so you do not need to build edge detection or perspective correction yourself:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 1
+              },
+              "blocks": []
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 5
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 11
+                  },
+                  "text": "Android"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Native scanner"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 20
+                  },
+                  "text": "VisionKit "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 30
+                  },
+                  "text": "VNDocumentCameraViewController"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 63
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 65
+                  },
+                  "text": "Google ML Kit Document Scanner (Play services)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "Edge detection and crop"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 29
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 35
+                  },
+                  "text": "Yes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Filters / cleanup"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 23
+                  },
+                  "text": "VisionKit built-in"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 44
+                  },
+                  "text": "base"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 50
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 52
+                  },
+                  "text": "base_with_filter"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 70
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 72
+                  },
+                  "text": "full"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 78
+                  },
+                  "text": " modes (stain and finger removal in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 114
+                  },
+                  "text": "full"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 120
+                  },
+                  "text": ")"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "Page limit per session"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 28
+                  },
+                  "text": "24"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 33
+                  },
+                  "text": "1 to 24, default 20"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "Camera permission prompt"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 30
+                  },
+                  "text": "Yes, needs "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 14,
+                    "column": 41
+                  },
+                  "text": "NSCameraUsageDescription"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 68
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 70
+                  },
+                  "text": "No, the scanner runs in Play services"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "text": "Works on emulator / simulator"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 35
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 40
+                  },
+                  "text": "No"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "text": "Output from the plugin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 28
+                  },
+                  "text": "JPEG pages"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 41
+                  },
+                  "text": "JPEG pages"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "text": "The plugin returns images, not a PDF. That is a deliberate split: you control the page size, compression, and file name, and the same PDF code works for photos picked from the gallery or files received from your backend."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 20,
+            "column": 4
+          },
+          "text": "Install the plugins"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-document-scanner @capacitor/filesystem pdf-lib\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "text": "The scanner plugin follows Capacitor major versions, so plugin v8 targets Capacitor 8. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 27,
+            "column": 88
+          },
+          "text": "pdf-lib"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 97
+          },
+          "text": " is a pure JavaScript library with no native code, which means it runs in the WebView and needs no sync."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 5
+          },
+          "text": "iOS setup"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 31,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 31,
+            "column": 1
+          },
+          "text": "Add a camera usage string to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 31,
+            "column": 30
+          },
+          "text": "ios/App/App/Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 31,
+            "column": 54
+          },
+          "text": ". VisionKit opens the camera, and iOS terminates the app if the key is missing:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 33,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<key>NSCameraUsageDescription</key>\n<string>We use the camera to scan your documents.</string>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "text": "The plugin's Swift package targets iOS 15 or later, which matches the Capacitor 8 minimum. Remember that App Store uploads now require Xcode 26, so build with it before you submit. If you do not own a Mac, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 38,
+            "column": 207
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 38,
+                "column": 208
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 236
+          },
+          "text": " can produce the signed iOS binary in the cloud."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 5
+          },
+          "text": "Android setup"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "text": "Nothing to add to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 42,
+            "column": 19
+          },
+          "text": "AndroidManifest.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 40
+          },
+          "text": ". The ML Kit scanner is a Google Play services module that downloads on first use and handles the camera itself, so your app does not request "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 42,
+            "column": 182
+          },
+          "text": "CAMERA"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 190
+          },
+          "text": ". The device needs Google Play services, which rules out most emulators and de-Googled phones. Plan a fallback (a plain camera capture) if you ship to markets where Play services is missing."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 44,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 44,
+            "column": 4
+          },
+          "text": "Scan the pages"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 46,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "text": "Start with a function that opens the scanner and returns the page paths, or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 46,
+            "column": 77
+          },
+          "text": "null"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 83
+          },
+          "text": " when the user cancels:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 48,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import {\n  DocumentScanner,\n  ResponseType,\n  ScannerMode,\n  ScanDocumentResponseStatus,\n} from '@capgo/capacitor-document-scanner';\n\nexport async function scanPages(): Promise<string[] | null> {\n  const result = await DocumentScanner.scanDocument({\n    responseType: ResponseType.ImageFilePath,\n    maxNumDocuments: 20,\n    letUserAdjustCrop: true,\n    scannerMode: ScannerMode.Full, // Android only\n    croppedImageQuality: 90,       // Android only\n  });\n\n  if (result.status === ScanDocumentResponseStatus.Cancel) {\n    return null;\n  }\n  return result.scannedImages ?? [];\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 72,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 72,
+            "column": 1
+          },
+          "text": "A few options are worth knowing:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 74,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 74,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 74,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 74,
+                    "column": 3
+                  },
+                  "text": "responseType"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 74,
+                    "column": 17
+                  },
+                  "text": ": "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 74,
+                    "column": 19
+                  },
+                  "text": "ImageFilePath"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 74,
+                    "column": 34
+                  },
+                  "text": " (default) returns file paths, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 74,
+                    "column": 65
+                  },
+                  "text": "Base64"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 74,
+                    "column": 73
+                  },
+                  "text": " returns base64 strings. Prefer file paths for multi-page documents. Base64 strings for 20 high resolution pages can reach tens of megabytes and every byte crosses the Capacitor bridge."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 75,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 75,
+                    "column": 3
+                  },
+                  "text": "maxNumDocuments"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 75,
+                    "column": 20
+                  },
+                  "text": ": set it to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 75,
+                    "column": 32
+                  },
+                  "text": "1"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 75,
+                    "column": 35
+                  },
+                  "text": " for single-page flows like receipts or ID cards."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 76,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 76,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 76,
+                    "column": 3
+                  },
+                  "text": "reviewCapturedDocument"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 27
+                  },
+                  "text": ": shows each captured page before continuing, useful when users scan important paperwork."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 77,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 77,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 77,
+                    "column": 3
+                  },
+                  "text": "brightness"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 15
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 77,
+                    "column": 20
+                  },
+                  "text": "contrast"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 30
+                  },
+                  "text": ": post-processing applied to the images. A contrast of "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 77,
+                    "column": 85
+                  },
+                  "text": "1.2"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 90
+                  },
+                  "text": " to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 77,
+                    "column": 94
+                  },
+                  "text": "1.5"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 99
+                  },
+                  "text": " often helps with faded receipts."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 78,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 78,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 78,
+                    "column": 3
+                  },
+                  "text": "scannerMode"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 16
+                  },
+                  "text": " (Android): "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 78,
+                    "column": 28
+                  },
+                  "text": "Full"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 34
+                  },
+                  "text": " adds ML-based cleanup, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 78,
+                    "column": 58
+                  },
+                  "text": "Base"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 64
+                  },
+                  "text": " is faster and keeps the image untouched."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 1
+          },
+          "text": "Where the files land differs per platform. On Android, pages go to the app cache directory. On iOS, the plugin writes them to the app's Documents directory. Neither location is a good long-term home, so the flow below builds the PDF, stores it where you want it, and deletes the page images."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 4
+          },
+          "text": "Combine the pages into one PDF"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 84,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 84,
+            "column": 1
+          },
+          "text": "pdf-lib"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 84,
+            "column": 10
+          },
+          "text": " can embed JPEGs directly without re-encoding them, so the PDF size stays close to the sum of the page sizes. Read each page through "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 84,
+            "column": 143
+          },
+          "text": "Capacitor.convertFileSrc"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 84,
+            "column": 169
+          },
+          "text": ", which turns a native path into a URL the WebView can fetch:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 86,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Capacitor } from '@capacitor/core';\nimport { PDFDocument } from 'pdf-lib';\n\nconst A4 = { width: 595.28, height: 841.89 }; // points\n\nexport async function pagesToPdf(paths: string[]): Promise<string> {\n  const pdf = await PDFDocument.create();\n  pdf.setTitle('Scanned document');\n  pdf.setCreator('My Capacitor App');\n\n  for (const path of paths) {\n    const bytes = await fetch(Capacitor.convertFileSrc(path)).then((r) => r.arrayBuffer());\n    const image = await pdf.embedJpg(bytes);\n\n    // Fit the image inside an A4 page, keeping its aspect ratio\n    const scale = Math.min(A4.width / image.width, A4.height / image.height);\n    const width = image.width * scale;\n    const height = image.height * scale;\n\n    const page = pdf.addPage([A4.width, A4.height]);\n    page.drawImage(image, {\n      x: (A4.width - width) / 2,\n      y: (A4.height - height) / 2,\n      width,\n      height,\n    });\n  }\n\n  // Base64 without the data URI prefix, ready for Filesystem.writeFile\n  return pdf.saveAsBase64();\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 120,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 1
+          },
+          "text": "If you prefer pages that match the scanned paper exactly, replace the A4 logic with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 120,
+            "column": 85
+          },
+          "text": "pdf.addPage([image.width, image.height])"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 127
+          },
+          "text": " and draw the image at full size. Receipts look better this way because they are long and narrow."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 122,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 122,
+            "column": 5
+          },
+          "text": "Alternative: render the PDF natively"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 124,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 124,
+            "column": 1
+          },
+          "text": "If your app already builds PDFs from HTML (invoices, reports), you can reuse that path with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 124,
+            "column": 93
+          },
+          "url": "/plugins/capacitor-pdf-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 124,
+                "column": 94
+              },
+              "text": "@capgo/capacitor-pdf-generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 124,
+            "column": 162
+          },
+          "text": ". It renders an HTML string with the platform's print engine and returns base64:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 126,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { PdfGenerator } from '@capgo/capacitor-pdf-generator';\nimport { Capacitor } from '@capacitor/core';\n\nconst html = `\n  <html><body style=\"margin:0\">\n    ${paths\n      .map((p) => `<img src=\"${Capacitor.convertFileSrc(p)}\" style=\"width:100%;page-break-after:always\" />`)\n      .join('')}\n  </body></html>`;\n\nconst result = await PdfGenerator.fromData({\n  data: html,\n  documentSize: 'A4',\n  orientation: 'portrait',\n  type: 'base64',\n});\n\nif (result.type === 'base64') {\n  // result.base64 contains the PDF\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 149,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 149,
+            "column": 1
+          },
+          "text": "This is handy when you want a cover page, a title, or a footer with a date on each page. For pure image-to-PDF, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 149,
+            "column": 113
+          },
+          "text": "pdf-lib"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 149,
+            "column": 122
+          },
+          "text": " gives you more control over page geometry and image compression."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 151,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 4
+          },
+          "text": "Save the PDF"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 153,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 153,
+            "column": 1
+          },
+          "text": "Write the base64 output with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 153,
+            "column": 30
+          },
+          "text": "@capacitor/filesystem"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 153,
+            "column": 53
+          },
+          "text": ". Pick the directory based on how long the file should live:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 155,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 155,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 155,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 155,
+                    "column": 3
+                  },
+                  "text": "Directory"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 155,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 155,
+                    "column": 15
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 155,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 155,
+                    "column": 25
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 155,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 155,
+                    "column": 31
+                  },
+                  "text": "Use it for"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 157,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 157,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 157,
+                    "column": 3
+                  },
+                  "text": "Directory.Cache"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 157,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 157,
+                    "column": 23
+                  },
+                  "text": "App cache, can be cleared by the OS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 157,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 157,
+                    "column": 61
+                  },
+                  "text": "Library/Caches"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 157,
+                    "column": 77
+                  },
+                  "text": ", can be cleared by the OS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 157,
+                "column": 104
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 157,
+                    "column": 106
+                  },
+                  "text": "PDFs you upload or share right away"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 158,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 158,
+                    "column": 3
+                  },
+                  "text": "Directory.Data"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 158,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 158,
+                    "column": 22
+                  },
+                  "text": "Private app files, removed on uninstall"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 158,
+                "column": 62
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 158,
+                    "column": 64
+                  },
+                  "text": "App "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 158,
+                    "column": 68
+                  },
+                  "text": "Documents"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 158,
+                    "column": 79
+                  },
+                  "text": " folder, backed up to iCloud"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 158,
+                "column": 108
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 158,
+                    "column": 110
+                  },
+                  "text": "PDFs your app manages and shows again later"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 159,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 159,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 159,
+                    "column": 3
+                  },
+                  "text": "Directory.LibraryNoCloud"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 159,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 159,
+                    "column": 32
+                  },
+                  "text": "Private app files"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 159,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 159,
+                    "column": 52
+                  },
+                  "text": "Library/NoCloud"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 159,
+                    "column": 69
+                  },
+                  "text": ", not backed up"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 159,
+                "column": 85
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 159,
+                    "column": 87
+                  },
+                  "text": "Large PDFs you can download again"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 161,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 1
+          },
+          "text": "On iOS, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 161,
+            "column": 9
+          },
+          "text": "Directory.Data"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 25
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 161,
+            "column": 30
+          },
+          "text": "Directory.Documents"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 51
+          },
+          "text": " point to the same folder. Add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 161,
+            "column": 82
+          },
+          "text": "UIFileSharingEnabled"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 104
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 161,
+            "column": 109
+          },
+          "text": "LSSupportsOpeningDocumentsInPlace"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 144
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 161,
+            "column": 148
+          },
+          "text": "Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 160
+          },
+          "text": " if users should see those PDFs in the Files app."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Filesystem, Directory } from '@capacitor/filesystem';\n\nexport async function savePdf(base64: string, name: string) {\n  const fileName = `${name.replace(/[^a-z0-9-_]/gi, '_')}.pdf`;\n  const { uri } = await Filesystem.writeFile({\n    path: `scans/${fileName}`,\n    data: base64,\n    directory: Directory.Data,\n    recursive: true,\n  });\n  return uri; // file:// URI you can share, open, or print\n}\n\nexport async function deletePages(paths: string[]) {\n  await Promise.all(\n    paths.map((path) => Filesystem.deleteFile({ path }).catch(() => undefined)),\n  );\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 1
+          },
+          "text": "On native platforms, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 184,
+            "column": 22
+          },
+          "text": "writeFile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 33
+          },
+          "text": " treats a string without an "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 184,
+            "column": 61
+          },
+          "text": "encoding"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 71
+          },
+          "text": " option as base64 and writes the binary bytes. Do not pass "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 184,
+            "column": 130
+          },
+          "text": "Encoding.UTF8"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 145
+          },
+          "text": " for PDFs, or the file will be corrupt."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 1
+          },
+          "text": "If the user should be able to find the PDF in their Downloads folder on Android, use "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 186,
+            "column": 86
+          },
+          "url": "/plugins/capacitor-file-sharer/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 186,
+                "column": 87
+              },
+              "text": "@capgo/capacitor-file-sharer"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 151
+          },
+          "text": "'s "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 186,
+            "column": 154
+          },
+          "text": "save()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 162
+          },
+          "text": " method, which writes to MediaStore Downloads without any storage permission on Android 10+. On iOS the same call opens the share sheet so the user can choose \"Save to Files\"."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 188,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 188,
+            "column": 4
+          },
+          "text": "Put the whole flow together"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 190,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "export async function scanToPdf(title: string) {\n  const pages = await scanPages();\n  if (!pages || pages.length === 0) return null;\n\n  try {\n    const base64 = await pagesToPdf(pages);\n    return await savePdf(base64, title);\n  } finally {\n    await deletePages(pages);\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 204,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 1
+          },
+          "text": "Wire it to a button and show a spinner while "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 204,
+            "column": 46
+          },
+          "text": "pagesToPdf"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 58
+          },
+          "text": " runs. On a mid-range Android phone, 10 pages typically take well under a few seconds since the JPEG data is copied, not decoded."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 206,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 4
+          },
+          "text": "Share, open, or print the PDF"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 208,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 208,
+            "column": 5
+          },
+          "text": "Share with the system share sheet"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 210,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { FileSharer } from '@capgo/capacitor-file-sharer';\n\nawait FileSharer.share({\n  filename: 'contract.pdf',\n  path: pdfUri,\n  contentType: 'application/pdf',\n  subject: 'Signed contract',\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 221,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 221,
+            "column": 1
+          },
+          "text": "@capgo/capacitor-file-sharer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 31
+          },
+          "text": " copies the file into its own cache folder and serves it through its own "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 221,
+            "column": 104
+          },
+          "text": "FileProvider"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 118
+          },
+          "text": " on Android, so you do not need to edit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 221,
+            "column": 158
+          },
+          "text": "file_paths.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 174
+          },
+          "text": ", even if the PDF lives in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 221,
+            "column": 201
+          },
+          "text": "Directory.Data"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 217
+          },
+          "text": ". If you use the official "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 221,
+            "column": 243
+          },
+          "text": "@capacitor/share"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 261
+          },
+          "text": " plugin instead, its "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 221,
+            "column": 282
+          },
+          "text": "files"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 289
+          },
+          "text": " option works out of the box only for the cache directory on Android. Other folders must be added to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 221,
+            "column": 390
+          },
+          "text": "android/app/src/main/res/xml/file_paths.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 435
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 223,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 5
+          },
+          "text": "Open in the user's PDF app"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 225,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 1
+          },
+          "text": "For a quick preview, the community file opener hands the file to Quick Look on iOS or to the default PDF viewer on Android:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 227,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capacitor-community/file-opener\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 232,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { FileOpener } from '@capacitor-community/file-opener';\n\nawait FileOpener.open({\n  filePath: pdfUri,\n  contentType: 'application/pdf',\n});"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 241,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 5
+          },
+          "text": "Print"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "link",
+          "location": {
+            "line": 243,
+            "column": 1
+          },
+          "url": "/plugins/capacitor-printer/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 243,
+                "column": 2
+              },
+              "text": "@capgo/capacitor-printer"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 58
+          },
+          "text": " opens "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 243,
+            "column": 65
+          },
+          "text": "UIPrintInteractionController"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 95
+          },
+          "text": " on iOS and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 243,
+            "column": 107
+          },
+          "text": "PrintManager"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 121
+          },
+          "text": " on Android:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Printer } from '@capgo/capacitor-printer';\n\nawait Printer.printPdf({\n  name: 'Signed contract',\n  path: pdfUri,\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 254,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 254,
+            "column": 5
+          },
+          "text": "name"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 11
+          },
+          "text": " becomes the print job name and the default file name if the user picks \"Save as PDF\" in the print dialog."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 256,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 256,
+            "column": 4
+          },
+          "text": "Upload the PDF"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 258,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 258,
+            "column": 1
+          },
+          "text": "To send the PDF to your backend, read it back as a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 258,
+            "column": 52
+          },
+          "text": "Blob"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 258,
+            "column": 58
+          },
+          "text": " and post it with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 258,
+            "column": 76
+          },
+          "text": "fetch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 258,
+            "column": 83
+          },
+          "text": ", or use a native uploader for large files so the upload continues when the app goes to the background:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 260,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Uploader } from '@capgo/capacitor-uploader';\n\nconst { id } = await Uploader.startUpload({\n  filePath: pdfUri,\n  serverUrl: 'https://api.example.com/documents',\n  method: 'POST',\n  headers: { Authorization: `Bearer ${token}` },\n  mimeType: 'application/pdf',\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 272,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 272,
+            "column": 1
+          },
+          "text": "See the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 272,
+            "column": 9
+          },
+          "url": "/plugins/capacitor-uploader/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 272,
+                "column": 10
+              },
+              "text": "Capacitor uploader plugin"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 272,
+            "column": 66
+          },
+          "text": " for progress events and multipart uploads."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 274,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 274,
+            "column": 4
+          },
+          "text": "Make scanned PDFs searchable"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 276,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 276,
+            "column": 1
+          },
+          "text": "Image-only PDFs cannot be searched or copied from. If users expect to search their scans:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 278,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 278,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 278,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 278,
+                    "column": 4
+                  },
+                  "text": "Run OCR on each page image before you delete it. On-device options include ML Kit Text Recognition on Android and the Vision framework on iOS, both reachable through community Capacitor plugins, or a server-side OCR service."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 279,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 279,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 279,
+                    "column": 4
+                  },
+                  "text": "Store the recognized text in your database next to the PDF path and search there."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 280,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 280,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 280,
+                    "column": 4
+                  },
+                  "text": "If the PDF itself must contain text, generate it server-side with an OCR tool that writes an invisible text layer, such as OCRmyPDF."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 282,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 282,
+            "column": 1
+          },
+          "text": "For most apps, step 2 is enough and avoids shipping a second large model in the app."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 284,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 284,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 286,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 286,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 286,
+                "column": 3
+              },
+              "text": "\"Document scanner is not supported on Android emulators\""
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 61
+          },
+          "text": ": expected. Use a physical device with Google Play services."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 288,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 288,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 288,
+                "column": 3
+              },
+              "text": "The app crashes on iOS the moment the scanner opens"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 56
+          },
+          "text": ": "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 288,
+            "column": 58
+          },
+          "text": "NSCameraUsageDescription"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 84
+          },
+          "text": " is missing from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 288,
+            "column": 101
+          },
+          "text": "Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 113
+          },
+          "text": ", or the user denied camera access earlier. Check Settings, Privacy, Camera."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 290,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 290,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 290,
+                "column": 3
+              },
+              "text": "embedJpg"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 290,
+                "column": 13
+              },
+              "text": " throws \"SOI not found\""
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 290,
+            "column": 38
+          },
+          "text": ": the bytes are not a JPEG. This happens if you passed a base64 data URL where pdf-lib expected raw bytes, or fetched a path that returned an HTML error page. Log "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 290,
+            "column": 201
+          },
+          "text": "Capacitor.convertFileSrc(path)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 290,
+            "column": 233
+          },
+          "text": " and open it in the Safari or Chrome inspector."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 292,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 292,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 292,
+                "column": 3
+              },
+              "text": "The PDF is huge"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 292,
+            "column": 20
+          },
+          "text": ": lower "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 292,
+            "column": 28
+          },
+          "text": "croppedImageQuality"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 292,
+            "column": 49
+          },
+          "text": " (Android) or re-compress pages with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 292,
+            "column": 86
+          },
+          "url": "/plugins/capacitor-file-compressor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 292,
+                "column": 87
+              },
+              "text": "@capgo/capacitor-file-compressor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 292,
+            "column": 159
+          },
+          "text": " before embedding. A quality of 70 to 80 is usually readable for text documents."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 294,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 294,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 294,
+                "column": 3
+              },
+              "text": "Pages appear rotated"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 294,
+            "column": 25
+          },
+          "text": ": rotate inside pdf-lib with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 294,
+            "column": 54
+          },
+          "text": "page.setRotation(degrees(90))"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 294,
+            "column": 85
+          },
+          "text": " or let the user fix rotation in the scanner review screen with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 294,
+            "column": 149
+          },
+          "text": "reviewCapturedDocument: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 294,
+            "column": 179
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 296,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 296,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 296,
+                "column": 3
+              },
+              "text": "Sharing fails on Android with "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 296,
+                "column": 33
+              },
+              "text": "FileUriExposedException"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 296,
+                "column": 58
+              },
+              "text": " or \"Failed to find configured root\""
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 296,
+            "column": 96
+          },
+          "text": ": you passed a path outside the folders declared in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 296,
+            "column": 148
+          },
+          "text": "file_paths.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 296,
+            "column": 164
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 296,
+            "column": 168
+          },
+          "text": "@capacitor/share"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 296,
+            "column": 186
+          },
+          "text": ". Use the file sharer plugin or copy the PDF to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 296,
+            "column": 234
+          },
+          "text": "Directory.Cache"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 296,
+            "column": 251
+          },
+          "text": " first."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 298,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 298,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 298,
+                "column": 3
+              },
+              "text": "Old page images fill up storage on iOS"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 298,
+            "column": 43
+          },
+          "text": ": the scanner writes JPEGs to the Documents directory. Delete them after building the PDF, as shown in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 298,
+            "column": 146
+          },
+          "text": "scanToPdf"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 298,
+            "column": 157
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 300,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 300,
+            "column": 4
+          },
+          "text": "Shipping updates to the scan flow"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 302,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 302,
+            "column": 1
+          },
+          "text": "Most of this feature lives in TypeScript: the PDF layout, file naming, upload logic, and UI. Changes to those parts do not need a new store release. With "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 302,
+            "column": 155
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 302,
+                "column": 156
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 302,
+            "column": 190
+          },
+          "text": " you can ship a fix to the PDF layout or upload endpoint to every user the same day, while native changes (adding the plugin, editing "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 302,
+            "column": 324
+          },
+          "text": "Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 302,
+            "column": 336
+          },
+          "text": ") still go through a normal build. The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 302,
+            "column": 375
+          },
+          "url": "/docs/plugins/document-scanner/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 302,
+                "column": 376
+              },
+              "text": "document scanner docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 302,
+            "column": 431
+          },
+          "text": " list every option if you need to tune the scanner further."
+        }
+      ]
+    }
+  ]
+}

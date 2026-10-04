@@ -1,0 +1,2868 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-use-better-auth-in-capacitor-apps/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-use-better-auth-in-capacitor-apps.md",
+  "sourceSha256": "9da3ed02025ad7926c0378a5142a92481b91fc162e0162f524d2bca06b3654c1",
+  "metadata": {
+    "slug": "how-to-use-better-auth-in-capacitor-apps",
+    "title": "How to Use Better Auth in Capacitor Apps (2026 Guide)",
+    "description": "Use Better Auth in a Capacitor 8 app: trusted origins, bearer tokens instead of cookies, email and password, native Google and Apple sign-in, and fixes.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/signup.webp",
+    "head_image_alt": "Sign-up screen of a Capacitor app backed by Better Auth",
+    "keywords": "better auth capacitor, better-auth ionic, better auth mobile app, better auth bearer plugin, capacitor authentication self hosted, better auth google sign in capacitor, better auth apple sign in",
+    "tag": "Tutorial, Security, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Does Better Auth work in Capacitor without changes?",
+        "answer": "The client SDK runs in the WebView, but two things need setup. Better Auth rejects requests from origins it does not trust, so add capacitor://localhost and https://localhost to trustedOrigins. And session cookies set by a different domain are unreliable in WKWebView, so use the bearer plugin and send the session token in the Authorization header."
+      },
+      {
+        "question": "Can I call authClient.signIn.social for Google inside the app?",
+        "answer": "Not with the default redirect flow. Google blocks OAuth in embedded WebViews with disallowed_useragent, and the redirect would navigate your app away from its bundle. Use a native sign-in plugin to get an ID token, then pass it to signIn.social with the idToken option."
+      },
+      {
+        "question": "Where should I store the Better Auth session token on mobile?",
+        "answer": "In the iOS Keychain or Android Keystore rather than localStorage. The setData and getData methods of @capgo/capacitor-native-biometric store strings encrypted at rest, and you can keep a copy in memory for the auth client's token getter."
+      },
+      {
+        "question": "Is Better Auth a good choice for enterprise SSO like Okta or Entra ID?",
+        "answer": "It can be. Better Auth's Generic OAuth plugin supports any OIDC provider. On native platforms the redirect has to run in the system browser and come back to the app with a deep link, which takes more wiring than social ID token sign-in. If you only need SSO and no user database, signing in directly with the provider can be simpler."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To use Better Auth in a Capacitor app, install the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 52
+          },
+          "text": "better-auth"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 65
+          },
+          "text": " client in your web code, point it at your Better Auth server, add the Capacitor origins ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 155
+          },
+          "text": "capacitor://localhost"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 178
+          },
+          "text": " on iOS, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 187
+          },
+          "text": "https://localhost"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 206
+          },
+          "text": " on Android) to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 222
+          },
+          "text": "trustedOrigins"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 238
+          },
+          "text": ", and switch from cookies to bearer tokens with the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 290
+          },
+          "text": "bearer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 298
+          },
+          "text": " plugin. Email and password works through the SDK as-is. For Google and Apple, get an ID token with a native plugin such as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 422
+          },
+          "text": "@capgo/capacitor-social-login"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 453
+          },
+          "text": " and hand it to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 469
+          },
+          "text": "authClient.signIn.social({ idToken })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 508
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide shows the server and client setup, token storage, social sign-in, enterprise providers, and the errors people hit when they move a Better Auth web app into Capacitor 8."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "What changes when Better Auth runs inside Capacitor"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "A Capacitor app is a web app served from a local origin inside a native WebView. Compared to a normal website, three things are different:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Topic"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 11
+                  },
+                  "text": "On a website"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 26
+                  },
+                  "text": "In a Capacitor app"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Origin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 12
+                  },
+                  "text": "https://app.example.com"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 40
+                  },
+                  "text": "capacitor://localhost"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 63
+                  },
+                  "text": " (iOS), "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 71
+                  },
+                  "text": "https://localhost"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 90
+                  },
+                  "text": " (Android)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "Auth server"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 17
+                  },
+                  "text": "Often same site, cookies just work"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 54
+                  },
+                  "text": "Different domain, third-party cookies are blocked by WKWebView"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "OAuth redirects"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 21
+                  },
+                  "text": "Full-page redirect is fine"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 50
+                  },
+                  "text": "Redirect leaves your bundled app, Google blocks WebViews"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "text": "The fixes are: trust the Capacitor origins, use bearer tokens, and use native plugins for social login."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 4
+          },
+          "text": "Step 1: Configure the Better Auth server"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "text": "This example uses Hono, but the Better Auth config is the same for Express, Next.js route handlers or any other runtime."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add better-auth hono"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// auth.ts\nimport { betterAuth } from 'better-auth';\nimport { bearer } from 'better-auth/plugins';\nimport { db } from './db'; // your Drizzle, Prisma, Kysely or pg instance\n\nexport const auth = betterAuth({\n  baseURL: process.env.BETTER_AUTH_URL, // https://auth.example.com\n  database: db,\n  emailAndPassword: {\n    enabled: true,\n  },\n  socialProviders: {\n    google: {\n      clientId: process.env.GOOGLE_WEB_CLIENT_ID as string,\n      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,\n    },\n    apple: {\n      clientId: process.env.APPLE_SERVICE_ID as string,\n      clientSecret: process.env.APPLE_CLIENT_SECRET as string,\n      appBundleIdentifier: process.env.APPLE_BUNDLE_ID as string, // com.example.app\n    },\n  },\n  trustedOrigins: [\n    'capacitor://localhost', // iOS WebView\n    'https://localhost', // Android WebView (androidScheme https, the default)\n    'https://app.example.com', // your web build\n    'https://appleid.apple.com',\n  ],\n  plugins: [bearer()],\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 59,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 59,
+            "column": 1
+          },
+          "text": "appBundleIdentifier"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 22
+          },
+          "text": " matters for Apple. Tokens from the native iOS sheet carry your bundle ID as audience, while web and Android tokens carry the Services ID. Better Auth uses this field to accept both."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 61,
+            "column": 1
+          },
+          "text": "Mount the handler and allow CORS from the app origins. Expose the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 61,
+            "column": 67
+          },
+          "text": "set-auth-token"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 61,
+            "column": 83
+          },
+          "text": " header, otherwise the client never sees the bearer token:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 63,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// server.ts\nimport { Hono } from 'hono';\nimport { cors } from 'hono/cors';\nimport { auth } from './auth';\n\nconst app = new Hono();\n\napp.use(\n  '/api/auth/*',\n  cors({\n    origin: ['capacitor://localhost', 'https://localhost', 'https://app.example.com'],\n    allowHeaders: ['Content-Type', 'Authorization'],\n    allowMethods: ['GET', 'POST', 'OPTIONS'],\n    exposeHeaders: ['set-auth-token'],\n    credentials: true,\n  }),\n);\n\napp.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));\n\nexport default app;"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 87,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 1
+          },
+          "text": "Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 87,
+            "column": 5
+          },
+          "text": "bunx @better-auth/cli migrate"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 36
+          },
+          "text": " (or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 87,
+            "column": 41
+          },
+          "text": "generate"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 51
+          },
+          "text": " for your ORM) to create the tables."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 89,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 89,
+            "column": 4
+          },
+          "text": "Step 2: Create the auth client in the app"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 91,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add better-auth @capgo/capacitor-native-biometric\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 96,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 1
+          },
+          "text": "Store the session token in the Keychain or Keystore, and keep a copy in memory so the client can read it synchronously:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 98,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// auth-client.ts\nimport { createAuthClient } from 'better-auth/client';\nimport { NativeBiometric } from '@capgo/capacitor-native-biometric';\n\nconst TOKEN_KEY = 'session.token';\nlet sessionToken = '';\n\nexport async function loadSessionToken() {\n  try {\n    const { value } = await NativeBiometric.getData({ key: TOKEN_KEY });\n    sessionToken = value;\n  } catch {\n    sessionToken = '';\n  }\n}\n\nasync function saveSessionToken(token: string) {\n  sessionToken = token;\n  if (token) {\n    await NativeBiometric.setData({ key: TOKEN_KEY, value: token });\n  } else {\n    await NativeBiometric.deleteData({ key: TOKEN_KEY }).catch(() => {});\n  }\n}\n\nexport const authClient = createAuthClient({\n  baseURL: 'https://auth.example.com',\n  fetchOptions: {\n    auth: {\n      type: 'Bearer',\n      token: () => sessionToken,\n    },\n    onSuccess: async (ctx) => {\n      const token = ctx.response.headers.get('set-auth-token');\n      if (token) await saveSessionToken(token);\n    },\n  },\n});\n\nexport async function clearSession() {\n  await saveSessionToken('');\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 143,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 143,
+            "column": 1
+          },
+          "text": "Call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 143,
+            "column": 6
+          },
+          "text": "await loadSessionToken()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 143,
+            "column": 32
+          },
+          "text": " before your app renders, then "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 143,
+            "column": 63
+          },
+          "text": "authClient.getSession()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 143,
+            "column": 88
+          },
+          "text": " to restore the user:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 145,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { authClient, loadSessionToken } from './auth-client';\n\nawait loadSessionToken();\nconst { data: session } = await authClient.getSession();\nif (session) {\n  console.log('Signed in as', session.user.email);\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 155,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 1
+          },
+          "text": "If you use React, Vue, Svelte or Solid, import "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 155,
+            "column": 48
+          },
+          "text": "createAuthClient"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 66
+          },
+          "text": " from the matching subpath ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 155,
+            "column": 94
+          },
+          "text": "better-auth/react"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 113
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 155,
+            "column": 115
+          },
+          "text": "better-auth/vue"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 132
+          },
+          "text": ", ...) to get the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 155,
+            "column": 150
+          },
+          "text": "useSession"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 162
+          },
+          "text": " hook. The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 155,
+            "column": 173
+          },
+          "text": "fetchOptions"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 187
+          },
+          "text": " stay the same. The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 155,
+            "column": 207
+          },
+          "text": "setData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 216
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 155,
+            "column": 221
+          },
+          "text": "getData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 230
+          },
+          "text": " methods are native only. On web, fall back to cookies or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 155,
+            "column": 288
+          },
+          "text": "sessionStorage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 304
+          },
+          "text": " using "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 155,
+            "column": 311
+          },
+          "text": "Capacitor.isNativePlatform()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 341
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 157,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 157,
+            "column": 4
+          },
+          "text": "Step 3: Email and password"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 159,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 159,
+            "column": 1
+          },
+          "text": "No plugin needed. These are plain HTTP calls."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 161,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { authClient, clearSession } from './auth-client';\n\nexport async function signUp(email: string, password: string, name: string) {\n  const { data, error } = await authClient.signUp.email({ email, password, name });\n  if (error) throw new Error(error.message);\n  return data;\n}\n\nexport async function signIn(email: string, password: string) {\n  const { data, error } = await authClient.signIn.email({ email, password });\n  if (error) throw new Error(error.message);\n  return data;\n}\n\nexport async function signOut() {\n  await authClient.signOut();\n  await clearSession();\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "text": "For email verification and password reset, Better Auth sends links that open a URL. Point "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 182,
+            "column": 91
+          },
+          "text": "callbackURL"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 104
+          },
+          "text": " at a page on your domain that is also configured as an iOS Universal Link and Android App Link, so the link opens the app on phones and the website elsewhere."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 4
+          },
+          "text": "Step 4: Native Google sign-in"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 1
+          },
+          "text": "Configure Google as described in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 186,
+            "column": 34
+          },
+          "url": "/blog/how-to-sign-in-with-google-using-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 186,
+                "column": 35
+              },
+              "text": "How to sign in with Google using Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 129
+          },
+          "text": ", then:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 188,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { SocialLogin } from '@capgo/capacitor-social-login';\nimport { authClient } from './auth-client';\n\nawait SocialLogin.initialize({\n  google: {\n    webClientId: 'WEB_CLIENT_ID.apps.googleusercontent.com',\n    iOSClientId: 'IOS_CLIENT_ID.apps.googleusercontent.com',\n    mode: 'online', // Better Auth needs the idToken, offline mode only returns a code\n  },\n});\n\nexport async function signInWithGoogle() {\n  const { result } = await SocialLogin.login({ provider: 'google', options: {} });\n\n  if (result.responseType !== 'online' || !result.idToken) {\n    throw new Error('Google did not return an ID token');\n  }\n\n  const { data, error } = await authClient.signIn.social({\n    provider: 'google',\n    idToken: {\n      token: result.idToken,\n      accessToken: result.accessToken?.token,\n    },\n  });\n  if (error) throw new Error(error.message);\n  return data;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 219,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 219,
+            "column": 1
+          },
+          "text": "Better Auth verifies the token against Google's keys and the configured client ID, creates or links the user, and returns a session. The bearer token arrives in the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 219,
+            "column": 166
+          },
+          "text": "set-auth-token"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 219,
+            "column": 182
+          },
+          "text": " header and your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 219,
+            "column": 199
+          },
+          "text": "onSuccess"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 219,
+            "column": 210
+          },
+          "text": " hook stores it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 221,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 4
+          },
+          "text": "Step 5: Native Apple sign-in"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 223,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 1
+          },
+          "text": "Configure Apple as described in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 223,
+            "column": 33
+          },
+          "url": "/blog/how-to-sign-in-with-apple-using-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 223,
+                "column": 34
+              },
+              "text": "How to sign in with Apple using Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 126
+          },
+          "text": ". Generate a nonce, pass it to Apple, and send the same value to Better Auth:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 225,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { SocialLogin } from '@capgo/capacitor-social-login';\nimport { authClient } from './auth-client';\n\nexport async function signInWithApple() {\n  const nonce = crypto.randomUUID();\n\n  const { result } = await SocialLogin.login({\n    provider: 'apple',\n    options: { scopes: ['email', 'name'], nonce },\n  });\n\n  if (!result.idToken) throw new Error('Apple did not return an ID token');\n\n  const { data, error } = await authClient.signIn.social({\n    provider: 'apple',\n    idToken: {\n      token: result.idToken,\n      nonce,\n      accessToken: result.accessToken?.token,\n    },\n  });\n  if (error) throw new Error(error.message);\n  return data;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 252,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 252,
+            "column": 1
+          },
+          "text": "Apple only shares the user's name on the first authorization. If you want it on the user record, update the profile right after the first sign-in with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 252,
+            "column": 152
+          },
+          "text": "result.profile.givenName"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 252,
+            "column": 178
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 252,
+            "column": 183
+          },
+          "text": "familyName"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 252,
+            "column": 195
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 254,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 1
+          },
+          "text": "Facebook follows the same pattern. On iOS with Limited Login you get an "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 254,
+            "column": 73
+          },
+          "text": "idToken"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 82
+          },
+          "text": ", elsewhere you pass the access token. The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 254,
+            "column": 125
+          },
+          "url": "/docs/plugins/social-login/better-auth/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 254,
+                "column": 126
+              },
+              "text": "Better Auth integration page"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 196
+          },
+          "text": " has the full Facebook example."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 256,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 256,
+            "column": 4
+          },
+          "text": "Step 6: Okta, Auth0, Entra ID and other OIDC providers"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 258,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 258,
+            "column": 1
+          },
+          "text": "Better Auth's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 258,
+            "column": 15
+          },
+          "text": "genericOAuth"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 258,
+            "column": 29
+          },
+          "text": " plugin ships helpers for Auth0, Okta, Keycloak and Microsoft Entra ID, plus manual config for any OIDC server. On the web build, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 258,
+            "column": 159
+          },
+          "text": "authClient.signIn.oauth2({ providerId })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 258,
+            "column": 201
+          },
+          "text": " works as on any site."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 260,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 260,
+            "column": 1
+          },
+          "text": "On iOS and Android the flow needs the system browser, because the provider login page must not load inside your WebView. The pattern that works:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 262,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 262,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 262,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 262,
+                    "column": 4
+                  },
+                  "text": "The app opens your Better Auth sign-in URL in the system browser (for example with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 262,
+                    "column": 87
+                  },
+                  "text": "SocialLogin.openSecureWindow"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 262,
+                    "column": 117
+                  },
+                  "text": " or an in-app browser plugin)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 263,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 263,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 263,
+                    "column": 4
+                  },
+                  "text": "Better Auth runs the OAuth dance with the provider and creates the session on the server."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 264,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 264,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 264,
+                    "column": 4
+                  },
+                  "text": "Your callback page converts that session into a short-lived one-time token (Better Auth has a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 264,
+                    "column": 98
+                  },
+                  "text": "oneTimeToken"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 264,
+                    "column": 112
+                  },
+                  "text": " plugin for this) and redirects to a deep link such as "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 264,
+                    "column": 167
+                  },
+                  "text": "com.example.app://auth?token=..."
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 264,
+                    "column": 201
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 265,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 265,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 265,
+                    "column": 4
+                  },
+                  "text": "The app verifies the one-time token with the auth client and receives a normal bearer session."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 267,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 267,
+            "column": 1
+          },
+          "text": "That is more moving parts than the ID token handoff. If you only need enterprise SSO and do not need Better Auth's user database, signing in directly against the provider is simpler, see the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 267,
+            "column": 192
+          },
+          "url": "/blog/how-to-sign-in-with-okta-using-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 267,
+                "column": 193
+              },
+              "text": "Okta"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 267,
+            "column": 247
+          },
+          "text": ", "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 267,
+            "column": 249
+          },
+          "url": "/blog/how-to-sign-in-with-auth0-using-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 267,
+                "column": 250
+              },
+              "text": "Auth0"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 267,
+            "column": 306
+          },
+          "text": " and "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 267,
+            "column": 311
+          },
+          "url": "/blog/how-to-sign-in-with-azure-entra-id-using-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 267,
+                "column": 312
+              },
+              "text": "Entra ID"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 267,
+            "column": 380
+          },
+          "text": " guides."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 269,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 269,
+            "column": 4
+          },
+          "text": "Step 7: Protect your API with the session"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 271,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 271,
+            "column": 1
+          },
+          "text": "Your own API can read the session from the bearer token with Better Auth's server API:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 273,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Hono } from 'hono';\nimport { auth } from './auth';\n\nconst api = new Hono();\n\napi.get('/me/orders', async (c) => {\n  const session = await auth.api.getSession({ headers: c.req.raw.headers });\n  if (!session) return c.json({ error: 'unauthorized' }, 401);\n  return c.json(await listOrders(session.user.id));\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 286,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 1
+          },
+          "text": "The bearer plugin makes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 286,
+            "column": 25
+          },
+          "text": "getSession"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 37
+          },
+          "text": " accept "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 286,
+            "column": 45
+          },
+          "text": "Authorization: Bearer <token>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 76
+          },
+          "text": " the same way it accepts the cookie."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 288,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 290,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 290,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 290,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 290,
+                    "column": 3
+                  },
+                  "text": "Problem"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 290,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 290,
+                    "column": 13
+                  },
+                  "text": "Cause"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 290,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 290,
+                    "column": 21
+                  },
+                  "text": "Fix"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 292,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 292,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 292,
+                    "column": 3
+                  },
+                  "text": "Invalid origin"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 19
+                  },
+                  "text": " or 403 on sign-in"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 292,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 40
+                  },
+                  "text": "Capacitor origin not trusted"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 292,
+                "column": 69
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 71
+                  },
+                  "text": "Add "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 292,
+                    "column": 75
+                  },
+                  "text": "capacitor://localhost"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 98
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 292,
+                    "column": 103
+                  },
+                  "text": "https://localhost"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 122
+                  },
+                  "text": " to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 292,
+                    "column": 126
+                  },
+                  "text": "trustedOrigins"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 293,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 293,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 293,
+                    "column": 3
+                  },
+                  "text": "CORS error in the WebView console"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 293,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 293,
+                    "column": 39
+                  },
+                  "text": "Server CORS does not list the app origins"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 293,
+                "column": 81
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 293,
+                    "column": 83
+                  },
+                  "text": "Add them to your CORS middleware, allow "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 293,
+                    "column": 123
+                  },
+                  "text": "Authorization"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 294,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 294,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 3
+                  },
+                  "text": "Sign-in succeeds but "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 294,
+                    "column": 24
+                  },
+                  "text": "getSession"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 36
+                  },
+                  "text": " returns "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 294,
+                    "column": 45
+                  },
+                  "text": "null"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 294,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 54
+                  },
+                  "text": "Relying on cookies across domains"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 294,
+                "column": 88
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 90
+                  },
+                  "text": "Use the bearer plugin and send the token"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 295,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 295,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 295,
+                    "column": 3
+                  },
+                  "text": "set-auth-token"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 295,
+                    "column": 19
+                  },
+                  "text": " is always "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 295,
+                    "column": 30
+                  },
+                  "text": "null"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 295,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 295,
+                    "column": 39
+                  },
+                  "text": "Header not exposed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 295,
+                "column": 58
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 295,
+                    "column": 60
+                  },
+                  "text": "Add "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 295,
+                    "column": 64
+                  },
+                  "text": "exposeHeaders: ['set-auth-token']"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 295,
+                    "column": 99
+                  },
+                  "text": " to CORS"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 296,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 296,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 296,
+                    "column": 3
+                  },
+                  "text": "Google: "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 296,
+                    "column": 11
+                  },
+                  "text": "disallowed_useragent"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 296,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 296,
+                    "column": 36
+                  },
+                  "text": "OAuth page loaded in the WebView"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 296,
+                "column": 69
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 296,
+                    "column": 71
+                  },
+                  "text": "Use native sign-in and the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 296,
+                    "column": 98
+                  },
+                  "text": "idToken"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 296,
+                    "column": 107
+                  },
+                  "text": " handoff"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 297,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 297,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 3
+                  },
+                  "text": "Google ID token rejected"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 297,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 30
+                  },
+                  "text": "Audience does not match the configured client ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 297,
+                "column": 79
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 81
+                  },
+                  "text": "Decode the token with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 297,
+                    "column": 103
+                  },
+                  "text": "SocialLogin.decodeIdToken"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 130
+                  },
+                  "text": " and compare "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 297,
+                    "column": 143
+                  },
+                  "text": "aud"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 148
+                  },
+                  "text": " with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 297,
+                    "column": 154
+                  },
+                  "text": "clientId"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 298,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 298,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 298,
+                    "column": 3
+                  },
+                  "text": "Apple ID token rejected on iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 298,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 298,
+                    "column": 36
+                  },
+                  "text": "Audience is the bundle ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 298,
+                "column": 62
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 298,
+                    "column": 64
+                  },
+                  "text": "Set "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 298,
+                    "column": 68
+                  },
+                  "text": "appBundleIdentifier"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 298,
+                    "column": 89
+                  },
+                  "text": " in the Apple provider"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 299,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 299,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 299,
+                    "column": 3
+                  },
+                  "text": "Apple nonce error"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 299,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 299,
+                    "column": 23
+                  },
+                  "text": "Different nonce sent to Apple and Better Auth"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 299,
+                "column": 69
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 299,
+                    "column": 71
+                  },
+                  "text": "Generate once, reuse the same value"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 300,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 300,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 3
+                  },
+                  "text": "Session lost after app restart"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 300,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 36
+                  },
+                  "text": "Token kept only in memory"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 300,
+                "column": 62
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 64
+                  },
+                  "text": "Persist with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 300,
+                    "column": 77
+                  },
+                  "text": "setData"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 86
+                  },
+                  "text": " and load it before the first request"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 302,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 302,
+            "column": 4
+          },
+          "text": "Deploying the mobile side"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 304,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 304,
+            "column": 1
+          },
+          "text": "Auth changes are rarely native. Trusted origins and providers are server config, and the client code is TypeScript, so most fixes can ship through "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 304,
+            "column": 148
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 304,
+                "column": 149
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 304,
+            "column": 183
+          },
+          "text": " instead of a store release. You only need a new binary when you add a native plugin or change URL schemes."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 306,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 306,
+            "column": 4
+          },
+          "text": "Related guides"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 308,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 308,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 308,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 308,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-add-authentication-to-a-capacitor-app/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 308,
+                        "column": 4
+                      },
+                      "text": "How to add authentication to a Capacitor app"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 308,
+                    "column": 102
+                  },
+                  "text": " compares Better Auth with Firebase, Supabase and hosted identity providers."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 309,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 309,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 309,
+                    "column": 3
+                  },
+                  "url": "/blog/biometric-authentication-in-capacitor-apps/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 309,
+                        "column": 4
+                      },
+                      "text": "Biometric authentication in Capacitor apps"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 309,
+                    "column": 98
+                  },
+                  "text": " for unlocking a stored session with Face ID or fingerprint."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 310,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 310,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 310,
+                    "column": 3
+                  },
+                  "url": "/plugins/capacitor-social-login/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 310,
+                        "column": 4
+                      },
+                      "text": "Social Login plugin"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 310,
+                    "column": 58
+                  },
+                  "text": " for the native Google, Apple and Facebook flows."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

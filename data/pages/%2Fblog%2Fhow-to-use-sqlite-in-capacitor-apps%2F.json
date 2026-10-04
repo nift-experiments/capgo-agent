@@ -1,0 +1,4600 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-use-sqlite-in-capacitor-apps/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-use-sqlite-in-capacitor-apps.md",
+  "sourceSha256": "b1fa784f4eb1f1e937e2a55c44e3edd061662f197245f02cc70c20295a94742c",
+  "metadata": {
+    "slug": "how-to-use-sqlite-in-capacitor-apps",
+    "title": "How to Use SQLite in a Capacitor App (2026 Guide)",
+    "description": "Learn how to use SQLite in a Capacitor app: pick a plugin, open a database, run migrations, transactions, encryption and web support, with working code.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capacitor-guide.webp",
+    "head_image_alt": "Capacitor logo for a guide on using SQLite in a Capacitor app",
+    "keywords": "sqlite capacitor, capacitor sqlite, capacitor sqlite plugin, sqlite ionic capacitor, capacitor fast sql, offline database capacitor, capacitor 8 sqlite",
+    "tag": "Tutorial, Capacitor, Development",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "What is the best SQLite plugin for Capacitor 8?",
+        "answer": "For new apps, @capgo/capacitor-fast-sql is a strong default: it supports iOS, Android and web (SQLite Wasm with OPFS), optional SQLCipher encryption, transactions, batches and BLOBs, and it moves query data over a local HTTP channel instead of the Capacitor bridge. @capacitor-community/sqlite is the mature alternative and is required if you want TypeORM's built-in capacitor driver."
+      },
+      {
+        "question": "Can I use SQLite in a Capacitor app on the web?",
+        "answer": "Yes. Fast SQL uses the official @sqlite.org/sqlite-wasm build with OPFS persistence on the web. Your server must send Cross-Origin-Opener-Policy: same-origin and Cross-Origin-Embedder-Policy: require-corp, otherwise the plugin falls back to a non-persistent database."
+      },
+      {
+        "question": "How do I run schema migrations with SQLite in Capacitor?",
+        "answer": "Store the schema version in PRAGMA user_version, keep an ordered list of migration steps in your code, and on startup run every step newer than the stored version inside a transaction, bumping user_version at the end of each step. Never edit a step that already shipped."
+      },
+      {
+        "question": "Is SQLite better than Capacitor Preferences or localStorage?",
+        "answer": "For more than a handful of values, yes. Preferences is meant for small key-value settings, and WebView storage like localStorage or IndexedDB can be evicted by the OS. SQLite gives you a real file on disk, indexes, transactions and queries."
+      },
+      {
+        "question": "Does the database survive a Capgo live update?",
+        "answer": "Yes. Live updates replace the web bundle, not the app data directory, so the SQLite file stays. Your migration code ships with the bundle, so keep migrations additive so an older bundle can still read a newer schema after a rollback."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To use SQLite in a Capacitor app, install a native SQLite plugin such as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 74
+          },
+          "text": "@capgo/capacitor-fast-sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 101
+          },
+          "text": ", open a database once at startup, create your schema with versioned migrations, then read and write with parameterized SQL. This guide walks through that full setup on Capacitor 8 for iOS, Android and the web, including transactions, encryption, file locations, and the errors you are most likely to hit."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "If you only need a few settings, SQLite is overkill. If you store lists, records, or anything you want to filter, sort, or sync, it is the right tool."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "When SQLite is the right storage choice"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "Capacitor apps have several places to put data. They solve different problems:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Storage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 13
+                  },
+                  "text": "Good for"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 24
+                  },
+                  "text": "Limits"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "localStorage"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 17
+                  },
+                  "text": " / IndexedDB"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 32
+                  },
+                  "text": "Throwaway cache"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 50
+                  },
+                  "text": "Lives inside the WebView, the OS can evict it, no real queries in localStorage"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "@capacitor/preferences"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 30
+                  },
+                  "text": "A few small settings (theme, language)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 69
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 71
+                  },
+                  "text": "String values only, not meant for large data, not encrypted"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "Keychain / Keystore storage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 33
+                  },
+                  "text": "Tokens, encryption keys"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 57
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 59
+                  },
+                  "text": "Small secrets only"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "text": "Files ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 10
+                  },
+                  "text": "@capacitor/filesystem"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 33
+                  },
+                  "text": ")"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 37
+                  },
+                  "text": "Images, PDFs, exports"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 61
+                  },
+                  "text": "No querying"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "text": "SQLite"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 12
+                  },
+                  "text": "Records, offline data, sync queues, search"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 57
+                  },
+                  "text": "You manage schema and migrations"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "text": "Pick SQLite when you need any of these: offline-first data, more than a few hundred records, filters and sorting, relations between tables, atomic multi-step writes, or encryption at rest for structured data."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 20,
+            "column": 4
+          },
+          "text": "Choosing a Capacitor SQLite plugin in 2026"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "text": "There are three realistic options for native SQLite on Capacitor 8:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 1
+              },
+              "blocks": []
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 24,
+                    "column": 5
+                  },
+                  "text": "@capgo/capacitor-fast-sql"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 24,
+                    "column": 35
+                  },
+                  "text": "@capacitor-community/sqlite"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 65
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 24,
+                    "column": 67
+                  },
+                  "text": "@capgo/capacitor-data-storage-sqlite"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 3
+                  },
+                  "text": "Purpose"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 13
+                  },
+                  "text": "General SQL database"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 36
+                  },
+                  "text": "General SQL database"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 57
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 59
+                  },
+                  "text": "String key-value store on SQLite"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 3
+                  },
+                  "text": "Platforms"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 15
+                  },
+                  "text": "iOS, Android, Web"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 35
+                  },
+                  "text": "iOS, Android, Web, Electron"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 63
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 65
+                  },
+                  "text": "iOS, Android, Web, Electron"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 3
+                  },
+                  "text": "Web engine"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 16
+                  },
+                  "text": "Official SQLite Wasm + OPFS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 46
+                  },
+                  "text": "jeep-sqlite (sql.js + IndexedDB)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 79
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 81
+                  },
+                  "text": "IndexedDB"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 3
+                  },
+                  "text": "Data transport"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 20
+                  },
+                  "text": "Local HTTP channel, bypasses the bridge"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 60
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 62
+                  },
+                  "text": "Capacitor bridge"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 79
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 81
+                  },
+                  "text": "Capacitor bridge"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 30,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 3
+                  },
+                  "text": "Encryption"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 30,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 16
+                  },
+                  "text": "Optional SQLCipher (iOS, Android)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 30,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 52
+                  },
+                  "text": "SQLCipher always bundled"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 30,
+                "column": 77
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 79
+                  },
+                  "text": "SQLCipher, passphrase in config"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 31,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 3
+                  },
+                  "text": "Row format"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 16
+                  },
+                  "text": "Objects keyed by column"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 42
+                  },
+                  "text": "Objects keyed by column"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 68
+                  },
+                  "text": "Strings"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 3
+                  },
+                  "text": "ORM support"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 17
+                  },
+                  "text": "Custom drivers (Kysely, Drizzle)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 52
+                  },
+                  "text": "TypeORM built-in driver"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 76
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 78
+                  },
+                  "text": "None"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "text": "This guide uses Fast SQL. It is maintained by Capgo, tracks Capacitor major versions (plugin v8 for Capacitor 8), keeps SQLCipher opt-in, and avoids serializing large result sets through the bridge. If you already run the community plugin, read our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 34,
+            "column": 250
+          },
+          "url": "/blog/capacitor-community-sqlite-alternative/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 34,
+                "column": 251
+              },
+              "text": "comparison and migration guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 329
+          },
+          "text": " first."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 4
+          },
+          "text": "Install Fast SQL"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-fast-sql\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "text": "Fast SQL starts a small HTTP server bound to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 43,
+            "column": 46
+          },
+          "text": "localhost"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 57
+          },
+          "text": " and sends SQL to it with a per-connection bearer token. Both platforms block cleartext HTTP by default, so allow it for loopback only."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 5
+          },
+          "text": "iOS: allow local networking"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 47,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 47,
+            "column": 1
+          },
+          "text": "Add this to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 47,
+            "column": 13
+          },
+          "text": "ios/App/App/Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 47,
+            "column": 37
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 49,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<key>NSAppTransportSecurity</key>\n<dict>\n    <key>NSAllowsLocalNetworking</key>\n    <true/>\n</dict>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 57,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 57,
+            "column": 1
+          },
+          "text": "NSAllowsLocalNetworking"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 57,
+            "column": 26
+          },
+          "text": " only covers loopback and local addresses. It does not relax App Transport Security for your real API calls."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 59,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 5
+          },
+          "text": "Android: allow cleartext to localhost"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 61,
+            "column": 1
+          },
+          "text": "Create "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 61,
+            "column": 8
+          },
+          "text": "android/app/src/main/res/xml/network_security_config.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 61,
+            "column": 66
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 63,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<network-security-config>\n    <domain-config cleartextTrafficPermitted=\"true\">\n        <domain includeSubdomains=\"false\">localhost</domain>\n        <domain includeSubdomains=\"false\">127.0.0.1</domain>\n    </domain-config>\n</network-security-config>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 1
+          },
+          "text": "Reference it in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 73,
+            "column": 17
+          },
+          "text": "android/app/src/main/AndroidManifest.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 59
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 75,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<application\n    android:networkSecurityConfig=\"@xml/network_security_config\"\n    ...>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 1
+          },
+          "text": "If you already have a network security config (for SSL pinning, for example), add the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 81,
+            "column": 87
+          },
+          "text": "domain-config"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 102
+          },
+          "text": " block to it instead of creating a second file."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 4
+          },
+          "text": "Open the database once"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 85,
+            "column": 1
+          },
+          "text": "Create a single module that owns the connection. Opening the same database repeatedly is wasteful, and you want one place to run migrations."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 87,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/index.ts\nimport { FastSQL, type SQLConnection } from '@capgo/capacitor-fast-sql';\nimport { migrate } from './migrate';\n\nlet dbPromise: Promise<SQLConnection> | null = null;\n\nexport function getDb(): Promise<SQLConnection> {\n  if (!dbPromise) {\n    dbPromise = (async () => {\n      const db = await FastSQL.connect({\n        database: 'notes',\n        walMode: true, // PRAGMA journal_mode = WAL\n        performancePresets: true, // synchronous=NORMAL, busy_timeout, foreign_keys=ON\n      });\n      await migrate(db);\n      return db;\n    })().catch((error) => {\n      dbPromise = null; // let the next call retry instead of reusing the failure\n      throw error;\n    });\n  }\n  return dbPromise;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 113,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 1
+          },
+          "text": "walMode"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 10
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 15
+          },
+          "text": "performancePresets"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 35
+          },
+          "text": " are available from plugin version 8.0.49. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 78
+          },
+          "text": "performancePresets"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 98
+          },
+          "text": " also turns on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 113
+          },
+          "text": "foreign_keys"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 127
+          },
+          "text": ", which SQLite leaves off by default, so "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 168
+          },
+          "text": "ON DELETE CASCADE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 187
+          },
+          "text": " actually works."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 115,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 1
+          },
+          "text": "Call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 115,
+            "column": 6
+          },
+          "text": "getDb()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 15
+          },
+          "text": " wherever you need the database. The first call opens and migrates, later calls reuse the same promise. If opening or migrating fails, the next call tries again."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 4
+          },
+          "text": "Schema migrations with PRAGMA user_version"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 119,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 1
+          },
+          "text": "Fast SQL gives you raw SQL, not a migration framework, which is fine because SQLite already has a version slot in the file header: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 119,
+            "column": 132
+          },
+          "text": "PRAGMA user_version"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 153
+          },
+          "text": ". Keep an ordered array of steps and apply only what is missing."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/migrate.ts\nimport type { SQLConnection } from '@capgo/capacitor-fast-sql';\n\n// Index 0 = version 1, index 1 = version 2, ...\n// Never edit a step after it shipped. Add a new one.\nconst steps: string[][] = [\n  [\n    `CREATE TABLE IF NOT EXISTS notes (\n       id INTEGER PRIMARY KEY AUTOINCREMENT,\n       title TEXT NOT NULL,\n       body TEXT,\n       created_at INTEGER NOT NULL\n     )`,\n  ],\n  [\n    `ALTER TABLE notes ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0`,\n    `CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes (created_at)`,\n  ],\n];\n\nexport async function migrate(db: SQLConnection): Promise<void> {\n  const rows = await db.query('PRAGMA user_version');\n  const current = Number(rows[0]?.user_version ?? 0);\n\n  for (let version = current; version < steps.length; version++) {\n    await db.transaction(async (tx) => {\n      for (const statement of steps[version]) {\n        await tx.execute(statement);\n      }\n      // PRAGMA does not accept bound parameters, the value is a trusted integer\n      await tx.execute(`PRAGMA user_version = ${version + 1}`);\n    });\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "text": "Rules that keep this safe:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 160,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 160,
+                    "column": 3
+                  },
+                  "text": "One SQL statement per "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 160,
+                    "column": 25
+                  },
+                  "text": "execute()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 160,
+                    "column": 36
+                  },
+                  "text": " call. Both native implementations prepare only the first statement of a string, so "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 160,
+                    "column": 120
+                  },
+                  "text": "\"CREATE ...; CREATE ...\""
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 160,
+                    "column": 146
+                  },
+                  "text": " silently runs one of them."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 161,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 161,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 161,
+                    "column": 3
+                  },
+                  "text": "Each version runs in a transaction, so a crash halfway leaves the database at the previous version and the step re-runs next launch."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 162,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 162,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 162,
+                    "column": 3
+                  },
+                  "text": "Prefer additive changes (new tables, new nullable columns). SQLite supports "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 162,
+                    "column": 79
+                  },
+                  "text": "ALTER TABLE ... DROP COLUMN"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 162,
+                    "column": 108
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 162,
+                    "column": 113
+                  },
+                  "text": "RENAME COLUMN"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 162,
+                    "column": 128
+                  },
+                  "text": " in recent versions, but the system SQLite on older Android releases may be behind, so the portable way to reshape a table is create new table, copy, drop old, rename."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 164,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 5
+          },
+          "text": "Migrations and live updates"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 166,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 1
+          },
+          "text": "If you ship JavaScript changes with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 166,
+            "column": 37
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 166,
+                "column": 38
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 72
+          },
+          "text": ", your migration code ships with the bundle. That is convenient, since a schema change does not need a store release. It also means a rollback can put an older bundle on top of a newer schema. Keep migrations backward compatible (add columns, do not rename or drop them in the same release that stops using them) and an older bundle keeps working."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 168,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 4
+          },
+          "text": "Reading and writing data"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 170,
+            "column": 1
+          },
+          "text": "SQLConnection"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 16
+          },
+          "text": " gives you four methods you will use all the time:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 172,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 172,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 172,
+                    "column": 3
+                  },
+                  "text": "Method"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 172,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 172,
+                    "column": 12
+                  },
+                  "text": "Returns"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 172,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 172,
+                    "column": 22
+                  },
+                  "text": "Use for"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 174,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 174,
+                    "column": 3
+                  },
+                  "text": "query(sql, params)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 174,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 174,
+                    "column": 26
+                  },
+                  "text": "SQLRow[]"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 174,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 174,
+                    "column": 39
+                  },
+                  "text": "SELECT and PRAGMA reads"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 175,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 175,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 175,
+                    "column": 3
+                  },
+                  "text": "run(sql, params)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 175,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 175,
+                    "column": 24
+                  },
+                  "text": "{ rowsAffected, insertId }"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 175,
+                "column": 53
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 175,
+                    "column": 55
+                  },
+                  "text": "INSERT, UPDATE, DELETE"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 176,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 176,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 176,
+                    "column": 3
+                  },
+                  "text": "execute(sql, params)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 176,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 176,
+                    "column": 28
+                  },
+                  "text": "{ rows, rowsAffected, insertId }"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 176,
+                "column": 63
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 65
+                  },
+                  "text": "Anything, full result"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 177,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 177,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 177,
+                    "column": 3
+                  },
+                  "text": "executeBatch(ops)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 177,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 177,
+                    "column": 25
+                  },
+                  "text": "SQLResult[]"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 177,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 177,
+                    "column": 41
+                  },
+                  "text": "Many statements in one round trip"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 179,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 179,
+            "column": 1
+          },
+          "text": "Always bind values with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 179,
+            "column": 25
+          },
+          "text": "?"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 179,
+            "column": 28
+          },
+          "text": " placeholders. Never build SQL with string concatenation from user input."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 181,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/notes.ts\nimport { getDb } from './index';\n\nexport interface Note {\n  id: number;\n  title: string;\n  body: string | null;\n  created_at: number;\n  pinned: number;\n}\n\nexport async function addNote(title: string, body: string | null): Promise<number> {\n  const db = await getDb();\n  const { insertId } = await db.run(\n    'INSERT INTO notes (title, body, created_at) VALUES (?, ?, ?)',\n    [title, body, Date.now()],\n  );\n  if (insertId == null) throw new Error('Insert did not return an id');\n  return insertId;\n}\n\nexport async function listNotes(search = ''): Promise<Note[]> {\n  const db = await getDb();\n  const rows = await db.query(\n    'SELECT id, title, body, created_at, pinned FROM notes WHERE title LIKE ? ORDER BY pinned DESC, created_at DESC',\n    [`%${search}%`],\n  );\n  return rows as unknown as Note[];\n}\n\nexport async function setPinned(id: number, pinned: boolean): Promise<void> {\n  const db = await getDb();\n  await db.run('UPDATE notes SET pinned = ? WHERE id = ?', [pinned ? 1 : 0, id]);\n}\n\nexport async function deleteNote(id: number): Promise<number> {\n  const db = await getDb();\n  const { rowsAffected } = await db.run('DELETE FROM notes WHERE id = ?', [id]);\n  return rowsAffected;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 224,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 224,
+            "column": 1
+          },
+          "text": "Rows come back as plain objects keyed by column name, so there is no columns/values mapping step. SQLite has no boolean type, so store "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 224,
+            "column": 136
+          },
+          "text": "1"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 224,
+            "column": 139
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 224,
+            "column": 144
+          },
+          "text": "0"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 224,
+            "column": 147
+          },
+          "text": " and convert at the edge of your data layer, as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 224,
+            "column": 195
+          },
+          "text": "setPinned"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 224,
+            "column": 206
+          },
+          "text": " does."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 226,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 4
+          },
+          "text": "Transactions and batch writes"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 228,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 228,
+            "column": 1
+          },
+          "text": "Wrap every multi-step write in a transaction. It keeps data consistent and it is much faster, because SQLite syncs to disk once per commit instead of once per statement."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 230,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { getDb } from './index';\n\nexport async function importNotes(items: { title: string; body: string }[]) {\n  const db = await getDb();\n  const now = Date.now();\n\n  await db.transaction(async (tx) => {\n    await tx.executeBatch(\n      items.map((item) => ({\n        statement: 'INSERT INTO notes (title, body, created_at) VALUES (?, ?, ?)',\n        params: [item.title, item.body, now],\n      })),\n    );\n  });\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 248,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 248,
+            "column": 1
+          },
+          "text": "transaction()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 16
+          },
+          "text": " commits when the callback resolves and rolls back if it throws. If you need manual control there is also "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 248,
+            "column": 122
+          },
+          "text": "beginTransaction()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 142
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 248,
+            "column": 144
+          },
+          "text": "commit()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 154
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 248,
+            "column": 159
+          },
+          "text": "rollback()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 171
+          },
+          "text": " on the connection."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 250,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 250,
+            "column": 1
+          },
+          "text": "All calls share a single native connection per database. While a transaction is open, other code that writes to the same database runs inside it. Keep transactions short and avoid awaiting network requests inside them."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 252,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 252,
+            "column": 4
+          },
+          "text": "Storing binary data"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 254,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 1
+          },
+          "text": "Pass a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 254,
+            "column": 8
+          },
+          "text": "Uint8Array"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 20
+          },
+          "text": " and you get a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 254,
+            "column": 35
+          },
+          "text": "Uint8Array"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 47
+          },
+          "text": " back. The plugin base64-encodes it for transport and stores a real BLOB."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 256,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const db = await getDb();\nawait db.execute('CREATE TABLE IF NOT EXISTS thumbnails (note_id INTEGER PRIMARY KEY, data BLOB)');\nawait db.run('INSERT OR REPLACE INTO thumbnails (note_id, data) VALUES (?, ?)', [noteId, bytes]);\n\nconst [row] = await db.query('SELECT data FROM thumbnails WHERE note_id = ?', [noteId]);\nconst image = row?.data as Uint8Array | undefined;"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 265,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 265,
+            "column": 1
+          },
+          "text": "Keep large media (photos, videos) as files and store only the path in SQLite. BLOBs are fine for thumbnails, small attachments, and embeddings."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 267,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 267,
+            "column": 4
+          },
+          "text": "Encrypting the database"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 269,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 269,
+            "column": 1
+          },
+          "text": "Fast SQL supports SQLCipher on iOS and Android. It is opt-in, so apps that do not need it do not ship it:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 271,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const db = await FastSQL.connect({\n  database: 'vault',\n  encrypted: true,\n  encryptionKey: keyFromSecureStorage,\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 279,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 279,
+            "column": 1
+          },
+          "text": "On Android you add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 279,
+            "column": 20
+          },
+          "text": "net.zetetic:sqlcipher-android"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 279,
+            "column": 51
+          },
+          "text": " to your app's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 279,
+            "column": 66
+          },
+          "text": "build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 279,
+            "column": 80
+          },
+          "text": ". On iOS you switch the pod to the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 279,
+            "column": 115
+          },
+          "text": "CapgoCapacitorFastSql/SQLCipher"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 279,
+            "column": 148
+          },
+          "text": " subspec. Generating the key, storing it in the Keychain or Keystore, encrypting an existing plaintext database and rotating keys are covered step by step in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 279,
+            "column": 306
+          },
+          "url": "/blog/encrypt-sqlite-database-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 279,
+                "column": 307
+              },
+              "text": "How to encrypt a SQLite database in Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 279,
+            "column": 395
+          },
+          "text": ". Encryption is not available on the web."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 281,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 281,
+            "column": 4
+          },
+          "text": "Web support"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 283,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 283,
+            "column": 1
+          },
+          "text": "On the web Fast SQL uses the official "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 283,
+            "column": 39
+          },
+          "text": "@sqlite.org/sqlite-wasm"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 283,
+            "column": 64
+          },
+          "text": " build and stores the file in the Origin Private File System (OPFS). It is a real SQLite file, not a copy held in memory and flushed to IndexedDB."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 285,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 285,
+            "column": 1
+          },
+          "text": "OPFS needs cross-origin isolation, so your dev server and your production host must send two headers:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 287,
+        "column": 1
+      },
+      "lang": "http",
+      "meta": null,
+      "text": "Cross-Origin-Opener-Policy: same-origin\nCross-Origin-Embedder-Policy: require-corp"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 292,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 292,
+            "column": 1
+          },
+          "text": "With Vite:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 294,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// vite.config.ts\nimport { defineConfig } from 'vite';\n\nexport default defineConfig({\n  server: {\n    headers: {\n      'Cross-Origin-Opener-Policy': 'same-origin',\n      'Cross-Origin-Embedder-Policy': 'require-corp',\n    },\n  },\n  optimizeDeps: {\n    exclude: ['@sqlite.org/sqlite-wasm'],\n  },\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 311,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 311,
+            "column": 1
+          },
+          "text": "If the headers are missing, the plugin logs a warning and falls back to a non-persistent database: everything works until you reload. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 311,
+            "column": 135
+          },
+          "text": "CapgoCapacitorFastSql.configureWeb({ useOpfs, worker })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 311,
+            "column": 192
+          },
+          "text": " lets you change the defaults before the first "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 311,
+            "column": 239
+          },
+          "text": "connect()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 311,
+            "column": 250
+          },
+          "text": ", and it is a no-op on native."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 313,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 313,
+            "column": 1
+          },
+          "text": "require-corp"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 313,
+            "column": 15
+          },
+          "text": " also blocks cross-origin images and scripts that do not send CORP or CORS headers, so test third-party embeds when you turn it on."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 315,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 315,
+            "column": 4
+          },
+          "text": "Where the database file lives"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 317,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 317,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 317,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 317,
+                    "column": 3
+                  },
+                  "text": "Platform"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 317,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 317,
+                    "column": 14
+                  },
+                  "text": "Location"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 317,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 317,
+                    "column": 25
+                  },
+                  "text": "Notes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 319,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 319,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 319,
+                    "column": 3
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 319,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 319,
+                    "column": 9
+                  },
+                  "text": "Documents/<name>.db"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 319,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 319,
+                    "column": 33
+                  },
+                  "text": "Included in iCloud and device backups by default"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 320,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 320,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 320,
+                    "column": 3
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 320,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 320,
+                    "column": 13
+                  },
+                  "text": "files/<name>.db"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 320,
+                    "column": 30
+                  },
+                  "text": " in the app's internal storage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 320,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 320,
+                    "column": 63
+                  },
+                  "text": "Subject to Android Auto Backup rules"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 321,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 321,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 321,
+                    "column": 3
+                  },
+                  "text": "Web"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 321,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 321,
+                    "column": 9
+                  },
+                  "text": "OPFS for the page origin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 321,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 321,
+                    "column": 36
+                  },
+                  "text": "Cleared if the user clears site data"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 323,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 323,
+            "column": 1
+          },
+          "text": "Two practical consequences. First, uninstalling the app deletes the file on both mobile platforms. Second, backups can restore the database file onto a new device. That is usually what you want, but if the database is encrypted with a key that does not travel with the backup, the restored file cannot be opened. The encryption guide covers how to handle that."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 325,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 325,
+            "column": 4
+          },
+          "text": "Performance checklist"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 327,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 327,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 327,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 327,
+                    "column": 3
+                  },
+                  "text": "Turn on "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 327,
+                    "column": 11
+                  },
+                  "text": "walMode"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 327,
+                    "column": 20
+                  },
+                  "text": ". Readers stop blocking the writer."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 328,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 328,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 328,
+                    "column": 3
+                  },
+                  "text": "Batch writes in a transaction with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 328,
+                    "column": 38
+                  },
+                  "text": "executeBatch"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 328,
+                    "column": 52
+                  },
+                  "text": ". This is the single biggest win for imports and sync."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 329,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 329,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 329,
+                    "column": 3
+                  },
+                  "text": "Add indexes for columns you filter or sort on, then check with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 329,
+                    "column": 66
+                  },
+                  "text": "EXPLAIN QUERY PLAN"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 329,
+                    "column": 86
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 330,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 330,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 330,
+                    "column": 3
+                  },
+                  "text": "Select only the columns you need. Large "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 330,
+                    "column": 43
+                  },
+                  "text": "TEXT"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 330,
+                    "column": 49
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 330,
+                    "column": 54
+                  },
+                  "text": "BLOB"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 330,
+                    "column": 60
+                  },
+                  "text": " columns cost transfer time even over the HTTP channel."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 331,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 331,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 331,
+                    "column": 3
+                  },
+                  "text": "Paginate with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 331,
+                    "column": 17
+                  },
+                  "text": "WHERE created_at < ? ORDER BY created_at DESC LIMIT 50"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 331,
+                    "column": 73
+                  },
+                  "text": " instead of large "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 331,
+                    "column": 91
+                  },
+                  "text": "OFFSET"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 331,
+                    "column": 99
+                  },
+                  "text": " values."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 332,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 332,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 332,
+                    "column": 3
+                  },
+                  "text": "After deleting a lot of data, run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 332,
+                    "column": 37
+                  },
+                  "text": "VACUUM"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 332,
+                    "column": 45
+                  },
+                  "text": " occasionally to shrink the file. It rewrites the whole database, so do it during idle time."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 334,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 334,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 336,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 336,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 336,
+                "column": 3
+              },
+              "text": "SQL execution failed"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 336,
+                "column": 25
+              },
+              "text": " on iOS right after connect."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 336,
+            "column": 55
+          },
+          "text": " The local HTTP request was blocked. Check that "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 336,
+            "column": 103
+          },
+          "text": "NSAllowsLocalNetworking"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 336,
+            "column": 128
+          },
+          "text": " is in the right "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 336,
+            "column": 145
+          },
+          "text": "Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 336,
+            "column": 157
+          },
+          "text": " and rebuild the native app, a live reload is not enough."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 338,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 338,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 338,
+                "column": 3
+              },
+              "text": "CLEARTEXT communication to localhost not permitted"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 338,
+                "column": 55
+              },
+              "text": " on Android."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 338,
+            "column": 69
+          },
+          "text": " The network security config is missing or not referenced from the manifest."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 340,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 340,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 340,
+                "column": 3
+              },
+              "text": "Only the first statement ran."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 340,
+            "column": 34
+          },
+          "text": " You passed several statements in one string. Split them, or use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 340,
+            "column": 99
+          },
+          "text": "executeBatch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 340,
+            "column": 113
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 342,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 342,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 342,
+                "column": 3
+              },
+              "text": "no such table"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 342,
+                "column": 18
+              },
+              "text": " after an update."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 342,
+            "column": 37
+          },
+          "text": " The migration did not run, or it ran against another database name. Log "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 342,
+            "column": 110
+          },
+          "text": "PRAGMA user_version"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 342,
+            "column": 131
+          },
+          "text": " at startup and compare with your steps array."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 344,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 344,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 344,
+                "column": 3
+              },
+              "text": "A filter on a boolean or computed value never matches on Android."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 344,
+            "column": 70
+          },
+          "text": " For read queries the Android implementation binds parameters as text. Comparisons against a column with INTEGER affinity still work because SQLite converts the text, but comparisons against expressions (for example "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 344,
+            "column": 286
+          },
+          "text": "json_extract(...) = ?"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 344,
+            "column": 309
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 344,
+            "column": 313
+          },
+          "text": "count(*) > ?"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 344,
+            "column": 327
+          },
+          "text": ") compare text with a number. Pass "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 344,
+            "column": 362
+          },
+          "text": "1"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 344,
+            "column": 365
+          },
+          "text": "/"
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 344,
+            "column": 366
+          },
+          "text": "0"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 344,
+            "column": 369
+          },
+          "text": " instead of "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 344,
+            "column": 381
+          },
+          "text": "true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 344,
+            "column": 387
+          },
+          "text": "/"
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 344,
+            "column": 388
+          },
+          "text": "false"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 344,
+            "column": 395
+          },
+          "text": ", and use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 344,
+            "column": 405
+          },
+          "text": "CAST(? AS INTEGER)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 344,
+            "column": 425
+          },
+          "text": " when comparing against an expression."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 346,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 346,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 346,
+                "column": 3
+              },
+              "text": "INSERT ... RETURNING"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 346,
+                "column": 25
+              },
+              "text": " returns no rows on Android."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 346,
+            "column": 55
+          },
+          "text": " In the current plugin version, Android only returns rows for statements that start with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 346,
+            "column": 144
+          },
+          "text": "SELECT"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 346,
+            "column": 152
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 346,
+            "column": 154
+          },
+          "text": "PRAGMA"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 346,
+            "column": 162
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 346,
+            "column": 166
+          },
+          "text": "EXPLAIN"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 346,
+            "column": 175
+          },
+          "text": ". Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 346,
+            "column": 181
+          },
+          "text": "insertId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 346,
+            "column": 191
+          },
+          "text": " from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 346,
+            "column": 197
+          },
+          "text": "run()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 346,
+            "column": 204
+          },
+          "text": " and select the row afterwards. The same applies to queries that start with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 346,
+            "column": 280
+          },
+          "text": "WITH"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 346,
+            "column": 286
+          },
+          "text": ": wrap them so they start with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 346,
+            "column": 317
+          },
+          "text": "SELECT"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 346,
+            "column": 325
+          },
+          "text": ", or test them on Android early."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 348,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 348,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 348,
+                "column": 3
+              },
+              "text": "Data disappears on reload in the browser."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 348,
+            "column": 46
+          },
+          "text": " OPFS is not available, almost always because the COOP/COEP headers are missing on the deployed host."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 350,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 350,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 350,
+                "column": 3
+              },
+              "text": "Encryption is not available in this build"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 350,
+                "column": 46
+              },
+              "text": " on iOS."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 350,
+            "column": 56
+          },
+          "text": " You passed "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 350,
+            "column": 68
+          },
+          "text": "encrypted: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 350,
+            "column": 85
+          },
+          "text": " without switching to the SQLCipher subspec."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 352,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 352,
+            "column": 4
+          },
+          "text": "Going further"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 354,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 354,
+            "column": 1
+          },
+          "text": "Raw SQL is fine for small apps. Once you have more than a few tables, a typed layer helps:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 356,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 356,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 356,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 356,
+                    "column": 3
+                  },
+                  "url": "/blog/kysely-capacitor-sqlite/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 356,
+                        "column": 4
+                      },
+                      "text": "Kysely with Capacitor and SQLite"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 356,
+                    "column": 69
+                  },
+                  "text": ": typed query builder with a small custom driver for Fast SQL."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 357,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 357,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 357,
+                    "column": 3
+                  },
+                  "url": "/blog/drizzle-orm-capacitor-sqlite/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 357,
+                        "column": 4
+                      },
+                      "text": "Drizzle ORM with Capacitor and SQLite"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 357,
+                    "column": 79
+                  },
+                  "text": ": schema in TypeScript, generated migrations."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 358,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 358,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 358,
+                    "column": 3
+                  },
+                  "url": "/blog/typeorm-capacitor-sqlite/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 358,
+                        "column": 4
+                      },
+                      "text": "TypeORM with Capacitor and SQLite"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 358,
+                    "column": 71
+                  },
+                  "text": ": decorators and repositories."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 359,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 359,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 359,
+                    "column": 3
+                  },
+                  "url": "/blog/capacitor-key-value-storage/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 359,
+                        "column": 4
+                      },
+                      "text": "Key-value storage options in Capacitor"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 359,
+                    "column": 79
+                  },
+                  "text": ": when Preferences or a KV table on SQLite is enough."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 361,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 361,
+            "column": 1
+          },
+          "text": "The plugin reference lives in the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 361,
+            "column": 35
+          },
+          "url": "/docs/plugins/fast-sql/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 361,
+                "column": 36
+              },
+              "text": "Fast SQL docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 361,
+            "column": 75
+          },
+          "text": " and the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 361,
+            "column": 84
+          },
+          "url": "/plugins/capacitor-fast-sql/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 361,
+                "column": 85
+              },
+              "text": "plugin page"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 361,
+            "column": 127
+          },
+          "text": ". Fast SQL needs a native rebuild when you add it or change its configuration. If you do not want to maintain a Mac for that, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 361,
+            "column": 253
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 361,
+                "column": 254
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 361,
+            "column": 282
+          },
+          "text": " can produce signed iOS and Android binaries in the cloud. Since April 2026 App Store uploads must be built with Xcode 26 or later, so check your build machine before the next release."
+        }
+      ]
+    }
+  ]
+}

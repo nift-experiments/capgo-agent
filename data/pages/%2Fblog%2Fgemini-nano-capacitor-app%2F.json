@@ -1,0 +1,2558 @@
+{
+  "version": 1,
+  "route": "/blog/gemini-nano-capacitor-app/",
+  "source": "corpus/source/apps/web/src/content/blog/en/gemini-nano-capacitor-app.md",
+  "sourceSha256": "15724f110cbc14025ff92f8f4a8e507da7e09be75c92be75e269a6377ee19d8f",
+  "metadata": {
+    "slug": "gemini-nano-capacitor-app",
+    "title": "How to Use Gemini Nano in a Capacitor App",
+    "description": "Use Gemini Nano in a Capacitor app for on-device AI on Android: device support, AICore checks, streaming with @capgo/capacitor-llm, and a Gemma fallback.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/blog-images/capacitor-ai-mobile-apps.webp",
+    "head_image_alt": "Illustration of AI features running inside a Capacitor mobile app",
+    "keywords": "Gemini Nano Capacitor, Gemini Nano Android, on-device AI Capacitor, ML Kit GenAI Prompt API, AICore, Capacitor LLM plugin, Gemma 4 LiteRT-LM, Ionic on-device AI",
+    "tag": "Tutorial, Android, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Does Gemini Nano work offline in a Capacitor app?",
+        "answer": "Yes, once the model is on the device. Inference runs locally through Android AICore, so prompts and responses are processed on the device and do not need a network connection."
+      },
+      {
+        "question": "Which phones support Gemini Nano?",
+        "answer": "Google publishes the list per ML Kit GenAI API. For the Prompt API it includes Pixel 9 and later and recent flagships from Samsung, OnePlus, OPPO, Xiaomi, vivo, Honor, realme and others. Devices need Android API 26 or higher and a locked bootloader."
+      },
+      {
+        "question": "Do I need to download Gemini Nano myself?",
+        "answer": "No. AICore manages one shared copy of the model for all apps. @capgo/capacitor-llm uses it when the status is available and returns a clear error otherwise, so you can fall back to a downloadable Gemma model."
+      },
+      {
+        "question": "Can Gemini Nano run in the background?",
+        "answer": "No. Google only allows ML Kit GenAI inference while your app is the top foreground app, and enforces per-app quotas. Run generation from visible screens."
+      },
+      {
+        "question": "Is the Capgo LLM plugin free?",
+        "answer": "Yes. @capgo/capacitor-llm is open source on npm and GitHub, with no license key. It also supports Apple Intelligence on iOS and Gemma models on Android and web."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To use Gemini Nano in a Capacitor app, install "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 48
+          },
+          "text": "@capgo/capacitor-llm"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 70
+          },
+          "text": ", call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 77
+          },
+          "text": "setModel({ path: 'Gemini Nano' })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 112
+          },
+          "text": " on Android, then create a chat and stream the reply through the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 177
+          },
+          "text": "textFromAi"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 189
+          },
+          "text": " event. The plugin talks to Gemini Nano through Google's ML Kit GenAI Prompt API, which runs the model inside Android's AICore system service, so text never leaves the phone."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide covers how Gemini Nano runs, which devices support it, the exact plugin calls, streaming, quotas and limits, a Gemma fallback for unsupported phones, and how the same code reaches Apple Intelligence on iOS."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "How Gemini Nano runs on Android"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "Gemini Nano is Google's smallest Gemini model, built for phones. Apps do not bundle it. Android's "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 8,
+            "column": 99
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 8,
+                "column": 101
+              },
+              "text": "AICore"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 109
+          },
+          "text": " service downloads it, updates it, and runs inference, and apps reach it through the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 8,
+            "column": 194
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 8,
+                "column": 196
+              },
+              "text": "ML Kit GenAI APIs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 215
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 10,
+                        "column": 5
+                      },
+                      "text": "Prompt API:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 18
+                  },
+                  "text": " free-form text prompts, the API this plugin uses ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 69
+                  },
+                  "text": "com.google.mlkit:genai-prompt"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 100
+                  },
+                  "text": ")."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 11,
+                        "column": 5
+                      },
+                      "text": "Feature APIs:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 20
+                  },
+                  "text": " fixed tasks such as summarization, proofreading, rewriting, and image description."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 13,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "text": "Google ships the Prompt API as a beta, without an SLA or deprecation policy, so expect behavior changes between releases and keep the integration behind your own small wrapper."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 15,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "text": "Because inference is local, you get three things a cloud model cannot give you: it works offline, it has no per-token cost, and user text stays on the device. The trade-off is a smaller model with a short context and output, so pick tasks that fit: rewriting, summarizing a note, classifying a message, extracting fields, drafting short replies."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 17,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 4
+          },
+          "text": "Supported devices and requirements"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 19,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "text": "Google publishes the supported list per API on the ML Kit GenAI site, grouped by Gemini Nano version (nano-v2, nano-v3, nano-v4). For the Prompt API it covers the Pixel 9 and later, recent Samsung Galaxy S and Z flagships, and recent flagships from OnePlus, OPPO, Xiaomi, vivo, Honor, realme, Motorola, and others. Check the live list before you promise a feature to a specific device."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 21,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "text": "Every supported device also needs:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "text": "Requirement"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 17
+                  },
+                  "text": "Detail"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "text": "Android version"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 21
+                  },
+                  "text": "API level 26 or higher (the plugin checks this)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 3
+                  },
+                  "text": "Bootloader"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 16
+                  },
+                  "text": "Locked. Google does not support the GenAI APIs on unlocked bootloaders"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 3
+                  },
+                  "text": "AICore"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 12
+                  },
+                  "text": "Present and set up. Right after a device setup or reset it can take a while to finish"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 3
+                  },
+                  "text": "App state"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 15
+                  },
+                  "text": "Your app must be the top foreground app during inference"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "text": "Different Nano versions can return different output for the same prompt. Test your prompts on at least one device per version you care about."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 4
+          },
+          "text": "Install the plugin"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-llm\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 1
+          },
+          "text": "The plugin follows Capacitor's major version: use 8.x with Capacitor 8. No Android manifest changes are needed for Gemini Nano. Full reference: "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 39,
+            "column": 145
+          },
+          "url": "/docs/plugins/llm/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 39,
+                "column": 146
+              },
+              "text": "plugin docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 178
+          },
+          "text": " and "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 39,
+            "column": 183
+          },
+          "url": "/plugins/capacitor-llm/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 39,
+                "column": 184
+              },
+              "text": "plugin page"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 221
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 4
+          },
+          "text": "Step 1: Load Gemini Nano and check readiness"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "text": "setModel"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 11
+          },
+          "text": " with the special path "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 43,
+            "column": 34
+          },
+          "text": "'Gemini Nano'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 49
+          },
+          "text": " asks ML Kit for the model status. It resolves when the status is available and rejects otherwise, with a message that includes the status:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 45,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 3
+                  },
+                  "text": "Status from AICore"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 24
+                  },
+                  "text": "Plugin behavior"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 47,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 47,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 3
+                  },
+                  "text": "available"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 47,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 15
+                  },
+                  "text": "setModel"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 25
+                  },
+                  "text": " resolves, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 36
+                  },
+                  "text": "readinessChange"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 53
+                  },
+                  "text": " emits "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 60
+                  },
+                  "text": "ready"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 48,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 48,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 48,
+                    "column": 3
+                  },
+                  "text": "downloadable"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 48,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 48,
+                    "column": 18
+                  },
+                  "text": "Rejects: \"Gemini Nano is downloadable but not downloaded on this device\""
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 49,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 49,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 49,
+                    "column": 3
+                  },
+                  "text": "downloading"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 49,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 49,
+                    "column": 17
+                  },
+                  "text": "Rejects with the downloading status"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 50,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 50,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 50,
+                    "column": 3
+                  },
+                  "text": "unavailable"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 50,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 50,
+                    "column": 17
+                  },
+                  "text": "Rejects: \"Gemini Nano is unavailable on this device\""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Capacitor } from '@capacitor/core';\nimport { CapgoLLM } from '@capgo/capacitor-llm';\n\nexport async function loadGeminiNano(): Promise<boolean> {\n  if (Capacitor.getPlatform() !== 'android') return false;\n\n  try {\n    await CapgoLLM.setModel({\n      path: 'Gemini Nano',\n      temperature: 0.3,\n      topk: 16,\n    });\n  } catch (error) {\n    console.warn('Gemini Nano not ready:', error);\n    return false;\n  }\n\n  const { readiness } = await CapgoLLM.getReadiness();\n  return readiness === 'ready';\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 75,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "text": "The plugin does not start the AICore model download itself. If a device reports downloadable, the model usually arrives after another app or the system requests it, so check again on a later launch rather than hiding the feature permanently."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 77,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 4
+          },
+          "text": "Step 2: Create a chat and stream the answer"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 79,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 1
+          },
+          "text": "A chat keeps the conversation history. On Android, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 79,
+            "column": 52
+          },
+          "text": "sendMessage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 65
+          },
+          "text": " resolves as soon as generation starts, and text arrives through events. Wrap it in a promise that resolves on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 79,
+            "column": 176
+          },
+          "text": "aiFinished"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 188
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { CapgoLLM } from '@capgo/capacitor-llm';\n\n// Android sends deltas. iOS Apple Intelligence sends the full text so far.\n// This merge handles both.\nfunction mergeChunk(current: string, chunk: string) {\n  return chunk.startsWith(current) ? chunk : current + chunk;\n}\n\nexport async function ask(\n  chatId: string,\n  message: string,\n  onText: (textSoFar: string) => void,\n): Promise<string> {\n  let text = '';\n  let finish!: (value: string) => void;\n  let fail!: (error: Error) => void;\n  const done = new Promise<string>((resolve, reject) => {\n    finish = resolve;\n    fail = reject;\n  });\n\n  const handles = await Promise.all([\n    CapgoLLM.addListener('textFromAi', (event) => {\n      if (event.chatId !== chatId) return;\n      text = mergeChunk(text, event.text);\n      onText(text);\n    }),\n    CapgoLLM.addListener('aiFinished', (event) => {\n      if (event.chatId === chatId) finish(text);\n    }),\n    CapgoLLM.addListener('generationError', (event) => {\n      if (!event.chatId || event.chatId === chatId) fail(new Error(event.error));\n    }),\n  ]);\n\n  // If the app is backgrounded mid-answer, neither event may arrive\n  const timeout = setTimeout(() => fail(new Error('Generation timed out')), 60_000);\n\n  try {\n    await CapgoLLM.sendMessage({ chatId, message });\n    return await done;\n  } finally {\n    clearTimeout(timeout);\n    await Promise.all(handles.map((h) => h.remove()));\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 130,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 130,
+            "column": 1
+          },
+          "text": "Use it for a real feature, for example drafting a reply to a customer review:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 132,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const INSTRUCTIONS =\n  'You write short, polite replies to customer reviews for a small shop. ' +\n  'Answer each point, stay under 60 words, never promise refunds.';\n\nexport async function draftReply(review: string, render: (t: string) => void) {\n  const { id } = await CapgoLLM.createChat();\n  return ask(id, `${INSTRUCTIONS}\\n\\nReview:\\n${review}\\n\\nReply:`, render);\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 143,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 143,
+            "column": 1
+          },
+          "text": "createChat()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 143,
+            "column": 15
+          },
+          "text": " takes no options, so put instructions at the start of the first message. Create a new chat per task. On the Gemini Nano path the plugin keeps the history in memory and sends it with every message, so long chats use up the input budget quickly."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 145,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 145,
+            "column": 4
+          },
+          "text": "Limits to design for"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 147,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 147,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 147,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 147,
+                    "column": 3
+                  },
+                  "text": "Limit"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 147,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 147,
+                    "column": 11
+                  },
+                  "text": "Value"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 147,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 147,
+                    "column": 19
+                  },
+                  "text": "What to do"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 149,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 149,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 149,
+                    "column": 3
+                  },
+                  "text": "Input"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 149,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 149,
+                    "column": 11
+                  },
+                  "text": "Under about 4,000 tokens per request (Google)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 149,
+                "column": 57
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 149,
+                    "column": 59
+                  },
+                  "text": "Keep chats short, trim long documents"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 150,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 150,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 150,
+                    "column": 3
+                  },
+                  "text": "Output"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 150,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 150,
+                    "column": 12
+                  },
+                  "text": "The plugin caps Gemini Nano responses at 256 tokens"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 150,
+                "column": 64
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 150,
+                    "column": 66
+                  },
+                  "text": "Ask for short outputs, split long tasks"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 151,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 151,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 151,
+                    "column": 3
+                  },
+                  "text": "Foreground"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 151,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 151,
+                    "column": 16
+                  },
+                  "text": "Inference only while your app is on top"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 151,
+                "column": 56
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 151,
+                    "column": 58
+                  },
+                  "text": "Never run it from background tasks"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 152,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 152,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 152,
+                    "column": 3
+                  },
+                  "text": "Quota"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 152,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 152,
+                    "column": 11
+                  },
+                  "text": "Per-app quotas, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 152,
+                    "column": 27
+                  },
+                  "text": "BUSY"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 152,
+                    "column": 33
+                  },
+                  "text": " and battery quota errors"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 152,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 152,
+                    "column": 61
+                  },
+                  "text": "Debounce, avoid generating on every keystroke"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 153,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 153,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 153,
+                    "column": 3
+                  },
+                  "text": "Concurrency"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 153,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 153,
+                    "column": 17
+                  },
+                  "text": "One generation per chat"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 153,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 153,
+                    "column": 43
+                  },
+                  "text": "Disable the send button while streaming"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 154,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 154,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 154,
+                    "column": 3
+                  },
+                  "text": "Speed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 154,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 154,
+                    "column": 11
+                  },
+                  "text": "Several seconds for a paragraph"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 154,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 154,
+                    "column": 45
+                  },
+                  "text": "Always stream to the UI"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 156,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "text": "Treat a quota error as temporary. Show a retry option rather than an error dialog."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 4
+          },
+          "text": "Fallback: Gemma 4 when Gemini Nano is missing"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "text": "Most Android phones in use today do not have Gemini Nano. The same plugin can run open Gemma models through LiteRT-LM, so you keep one API. The model is large, often over a gigabyte, so download it only after the user opts in, ideally on Wi-Fi."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 162,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Preferences } from '@capacitor/preferences';\nimport { CapgoLLM } from '@capgo/capacitor-llm';\n\nconst GEMMA_URL =\n  'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm?download=true';\n\nexport async function loadGemma(onProgress: (pct: number) => void) {\n  const saved = await Preferences.get({ key: 'gemmaPath' });\n  if (saved.value) {\n    try {\n      await CapgoLLM.setModel({ path: saved.value, modelType: 'litertlm', maxTokens: 4096 });\n      return;\n    } catch {\n      // File missing or corrupt, download again\n    }\n  }\n\n  const sub = await CapgoLLM.addListener('downloadProgress', (e) => onProgress(e.progress));\n  try {\n    const { path } = await CapgoLLM.downloadModel({\n      url: GEMMA_URL,\n      filename: 'gemma-4-E2B-it.litertlm',\n    });\n    await Preferences.set({ key: 'gemmaPath', value: path });\n    await CapgoLLM.setModel({ path, modelType: 'litertlm', maxTokens: 4096 });\n  } finally {\n    await sub.remove();\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 194,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 194,
+            "column": 1
+          },
+          "text": "Then pick the engine at startup:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 196,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "export async function initOnDeviceAI(userAcceptedDownload: boolean, onProgress: (p: number) => void) {\n  if (await loadGeminiNano()) return 'gemini-nano';\n  if (userAcceptedDownload) {\n    await loadGemma(onProgress);\n    return 'gemma';\n  }\n  return 'none';\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 207,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 1
+          },
+          "text": "If neither is possible, hide the feature or call a cloud model. Do not block core flows on local AI."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 209,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 4
+          },
+          "text": "The same code on iOS"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 211,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 211,
+            "column": 1
+          },
+          "text": "On iOS the plugin uses Apple Intelligence through the Foundation Models framework. Change one line:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 213,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await CapgoLLM.setModel({ path: 'Apple Intelligence' });"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 217,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 217,
+            "column": 1
+          },
+          "text": "createChat"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 217,
+            "column": 13
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 217,
+            "column": 15
+          },
+          "text": "sendMessage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 217,
+            "column": 28
+          },
+          "text": ", and the events stay the same, and the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 217,
+            "column": 68
+          },
+          "text": "mergeChunk"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 217,
+            "column": 80
+          },
+          "text": " helper above already handles the iOS streaming format. Device requirements differ (iOS 26 and an Apple Intelligence capable device). Our guide on "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 217,
+            "column": 227
+          },
+          "url": "/blog/apple-intelligence-capacitor-app/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 217,
+                "column": 228
+              },
+              "text": "Apple Intelligence in a Capacitor app"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 217,
+            "column": 307
+          },
+          "text": " covers that side."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 219,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 219,
+            "column": 4
+          },
+          "text": "Testing"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 221,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 221,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 221,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 221,
+                    "column": 3
+                  },
+                  "text": "Use a real supported phone. Emulators do not provide AICore with Gemini Nano."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 222,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 222,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 222,
+                    "column": 3
+                  },
+                  "text": "Log the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 222,
+                    "column": 11
+                  },
+                  "text": "setModel"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 222,
+                    "column": 21
+                  },
+                  "text": " rejection message. It tells you exactly which status AICore reports."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 223,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 223,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 223,
+                    "column": 3
+                  },
+                  "text": "On a freshly set up or reset device, wait for AICore to finish its initial setup while online, then retry."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 224,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 224,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 224,
+                    "column": 3
+                  },
+                  "text": "Test your prompts on the lowest Nano version you support. Shorter, explicit prompts are more stable across versions."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 226,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 228,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 228,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 228,
+                "column": 3
+              },
+              "text": "\"Gemini Nano is unavailable on this device\"."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 228,
+            "column": 49
+          },
+          "text": " The device is not on Google's list, the bootloader is unlocked, or AICore is not set up yet."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 230,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 230,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 230,
+                "column": 3
+              },
+              "text": "\"Gemini Nano is downloadable but not downloaded\"."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 230,
+            "column": 54
+          },
+          "text": " The device supports it but the model is not present. Offer the Gemma fallback or retry later."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 232,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 232,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 232,
+                "column": 3
+              },
+              "text": "\"Chat session not found\"."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 232,
+            "column": 30
+          },
+          "text": " You called "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 232,
+            "column": 42
+          },
+          "text": "sendMessage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 232,
+            "column": 55
+          },
+          "text": " with a chat created before a new "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 232,
+            "column": 89
+          },
+          "text": "setModel"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 232,
+            "column": 99
+          },
+          "text": ". Loading a model clears existing chats, so create a new one."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 234,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 234,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 234,
+                "column": 3
+              },
+              "text": "\"Model not ready\"."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 234,
+            "column": 23
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 234,
+            "column": 24
+          },
+          "text": "setModel"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 234,
+            "column": 34
+          },
+          "text": " failed or was not called before "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 234,
+            "column": 67
+          },
+          "text": "createChat"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 234,
+            "column": 79
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 236,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 236,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 236,
+                "column": 3
+              },
+              "text": "Output stops mid-sentence."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 236,
+            "column": 31
+          },
+          "text": " You hit the output cap. Ask for a shorter answer or split the task."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 238,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 238,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 238,
+                "column": 3
+              },
+              "text": "Errors when the app goes to the background."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 48
+          },
+          "text": " Inference is foreground-only. Cancel UI state on pause and let the user retry."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 240,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 240,
+            "column": 4
+          },
+          "text": "Privacy and store review"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 242,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 242,
+            "column": 1
+          },
+          "text": "Prompts and responses stay on the device with Gemini Nano, which simplifies your Data safety form. Google's ML Kit terms still mention metrics processing, so describe on-device AI use in your privacy policy. If you add the Gemma fallback, the model download comes from Hugging Face, so mention that network request too."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 244,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 244,
+            "column": 1
+          },
+          "text": "Prompts and UI copy for AI features change often. If you need to tune them after release, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 244,
+            "column": 91
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 244,
+                "column": 92
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 244,
+            "column": 126
+          },
+          "text": " let you ship new web code without waiting on store review. For the bigger picture on AI in hybrid apps, read "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 244,
+            "column": 236
+          },
+          "url": "/blog/capacitor-ai-mobile-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 244,
+                "column": 237
+              },
+              "text": "why Capacitor works well for AI mobile apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 244,
+            "column": 314
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 246,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 246,
+            "column": 4
+          },
+          "text": "Wrap-up"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 248,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 1
+          },
+          "text": "Gemini Nano gives Capacitor apps free, private, offline text generation on supported Android phones. Load it with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 248,
+            "column": 115
+          },
+          "text": "setModel({ path: 'Gemini Nano' })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 150
+          },
+          "text": ", stream through "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 248,
+            "column": 167
+          },
+          "text": "textFromAi"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 179
+          },
+          "text": ", keep prompts and outputs short, respect the foreground and quota rules, and keep a Gemma or cloud fallback for the many devices that do not have it."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3325 @@
+{
+  "version": 1,
+  "route": "/blog/migrate-capacitor-plugin-to-swift-package-manager/",
+  "source": "corpus/source/apps/web/src/content/blog/en/migrate-capacitor-plugin-to-swift-package-manager.md",
+  "sourceSha256": "9cd380451c9e6a7e2b9a0d6e2b2f973c4325ba2523e70adf140b31734bd03321",
+  "metadata": {
+    "slug": "migrate-capacitor-plugin-to-swift-package-manager",
+    "title": "Migrate a Capacitor Plugin to Swift Package Manager",
+    "description": "Add Swift Package Manager support to a Capacitor plugin: Package.swift naming rules, CAPBridgedPlugin, Sources layout, resources, Obj-C code and cap2spm.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capacitor-spm-migration-guide.jpg",
+    "head_image_alt": "Illustration for migrating a Capacitor plugin from CocoaPods to Swift Package Manager",
+    "keywords": "Capacitor plugin SPM, migrate Capacitor plugin to Swift Package Manager, Package.swift Capacitor plugin, CAPBridgedPlugin, cap2spm, capacitor-plugin-converter, CocoaPods to SPM",
+    "tag": "Capacitor, iOS, Migration",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Can I keep the Plugin.m and Plugin.h files and add Package.swift next to them?",
+        "answer": "Not in the same target. SwiftPM does not allow Swift and Objective-C sources in one target, and the CAP_PLUGIN macro file is Objective-C. Move the registration into Swift with CAPBridgedPlugin and delete the bridge files. If you have real Objective-C code, put it in its own target."
+      },
+      {
+        "question": "What name must my Package.swift use?",
+        "answer": "The Capacitor CLI derives it from the npm package name: remove @, replace / and - with _, then camel-case each part. @capgo/capacitor-updater becomes CapgoCapacitorUpdater. The package name and the library product name must both match that value."
+      },
+      {
+        "question": "Do I still need the podspec after adding SPM?",
+        "answer": "Yes, keep it. Apps that still use CocoaPods install your plugin through the podspec. Point s.source_files at ios/Sources so both package managers compile the same files."
+      },
+      {
+        "question": "What happens if I forget a method in pluginMethods?",
+        "answer": "The build succeeds, but JavaScript calls to that method fail at runtime because the bridge never registered it. Compare the list against every @objc func that takes a CAPPluginCall."
+      },
+      {
+        "question": "Is cap2spm safe to run?",
+        "answer": "It works for most plugins that are Swift-only apart from the bridge files, but the maintainers mark it as under heavy development. Run it on a clean git tree and review the diff."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To migrate a Capacitor plugin to Swift Package Manager, add a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 63
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 78
+          },
+          "text": " at the plugin root whose package and product name match what the Capacitor CLI expects, move the iOS code into "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 190
+          },
+          "text": "ios/Sources/<Target>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 212
+          },
+          "text": ", replace the Objective-C "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 238
+          },
+          "text": "CAP_PLUGIN"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 250
+          },
+          "text": " bridge files with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 269
+          },
+          "text": "CAPBridgedPlugin"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 287
+          },
+          "text": " conformance in Swift, and add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 318
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 333
+          },
+          "text": " to the npm "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 345
+          },
+          "text": "files"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 352
+          },
+          "text": " list. Keep the podspec so CocoaPods apps keep working."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "Since Capacitor 8, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 4,
+            "column": 20
+          },
+          "text": "cap add ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 33
+          },
+          "text": " creates SPM projects by default. A plugin without "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 4,
+            "column": 84
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 99
+          },
+          "text": " gets skipped in those apps with the warning \"Some installed Capacitor plugins are not compatible with SPM\", and users then see \"plugin is not implemented\" at runtime. This guide covers the manual migration, the converter tool, and the parts most guides skip: naming rules, resources, Objective-C code and third-party dependencies."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "App teams moving their own project should read "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 6,
+            "column": 48
+          },
+          "url": "/blog/how-to-migrate-your-capacitor-app-to-spm/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 6,
+                "column": 49
+              },
+              "text": "How to Migrate Your Capacitor App to SPM"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 139
+          },
+          "text": " instead."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 4
+          },
+          "text": "How Capacitor consumes your package"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "text": "On "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 10,
+            "column": 4
+          },
+          "text": "bunx cap sync ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 10,
+            "column": 23
+          },
+          "text": ", the CLI rewrites "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 10,
+            "column": 42
+          },
+          "text": "ios/App/CapApp-SPM/Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 10,
+            "column": 76
+          },
+          "text": " in the app. For each Capacitor plugin that has a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 10,
+            "column": 126
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 10,
+            "column": 141
+          },
+          "text": ", it adds two lines:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 12,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": ".package(name: \"CapgoCapacitorUpdater\", path: \"../../../node_modules/@capgo/capacitor-updater\")\n// ...\n.product(name: \"CapgoCapacitorUpdater\", package: \"CapgoCapacitorUpdater\")"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "text": "Two consequences:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 20,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 20,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 20,
+                        "column": 6
+                      },
+                      "text": "Your package is consumed by local path from "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 20,
+                        "column": 50
+                      },
+                      "text": "node_modules"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 66
+                  },
+                  "text": ", not from a git URL. Your "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 20,
+                    "column": 93
+                  },
+                  "text": "Package.swift"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 108
+                  },
+                  "text": " must sit at the npm package root, and everything it references must be published to npm."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 21,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 21,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 21,
+                        "column": 6
+                      },
+                      "text": "The name is derived from the npm name"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 45
+                  },
+                  "text": ", not from your podspec. The CLI strips "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 21,
+                    "column": 85
+                  },
+                  "text": "@"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 88
+                  },
+                  "text": ", turns "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 21,
+                    "column": 96
+                  },
+                  "text": "/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 99
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 21,
+                    "column": 104
+                  },
+                  "text": "-"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 107
+                  },
+                  "text": " into "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 21,
+                    "column": 113
+                  },
+                  "text": "_"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 116
+                  },
+                  "text": ", then camel-cases each segment and capitalizes the first letter:"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "text": "npm package"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 17
+                  },
+                  "text": "Required package and product name"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "text": "@capacitor/haptics"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 25,
+                    "column": 26
+                  },
+                  "text": "CapacitorHaptics"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 26,
+                    "column": 3
+                  },
+                  "text": "@capgo/capacitor-updater"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 26,
+                    "column": 32
+                  },
+                  "text": "CapgoCapacitorUpdater"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 27,
+                    "column": 3
+                  },
+                  "text": "capacitor-my-plugin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 27,
+                    "column": 27
+                  },
+                  "text": "CapacitorMyPlugin"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 28,
+                    "column": 3
+                  },
+                  "text": "@acme/capacitor-scanner"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 28,
+                    "column": 31
+                  },
+                  "text": "AcmeCapacitorScanner"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "text": "If your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 30,
+            "column": 9
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 24
+          },
+          "text": " uses another name or product name, the app fails to resolve packages with an error like "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 30,
+            "column": 113
+          },
+          "text": "product 'X' required by package 'capapp-spm' target 'CapApp-SPM' not found"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 189
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 4
+          },
+          "text": "Step 1: write Package.swift"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "text": "This is the layout the official plugins use. Here is the real manifest from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 34,
+            "column": 77
+          },
+          "text": "@capacitor/haptics"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 97
+          },
+          "text": " 8:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "// swift-tools-version: 5.9\nimport PackageDescription\n\nlet package = Package(\n    name: \"CapacitorHaptics\",\n    platforms: [.iOS(.v15)],\n    products: [\n        .library(\n            name: \"CapacitorHaptics\",\n            targets: [\"HapticsPlugin\"])\n    ],\n    dependencies: [\n        .package(url: \"https://github.com/ionic-team/capacitor-swift-pm.git\", from: \"8.0.0\")\n    ],\n    targets: [\n        .target(\n            name: \"HapticsPlugin\",\n            dependencies: [\n                .product(name: \"Capacitor\", package: \"capacitor-swift-pm\"),\n                .product(name: \"Cordova\", package: \"capacitor-swift-pm\")\n            ],\n            path: \"ios/Sources/HapticsPlugin\"),\n        .testTarget(\n            name: \"HapticsPluginTests\",\n            dependencies: [\"HapticsPlugin\"],\n            path: \"ios/Tests/HapticsPluginTests\")\n    ]\n)"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 67,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 1
+          },
+          "text": "Notes:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 69,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 69,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 69,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 3
+                  },
+                  "text": "Keep "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 69,
+                    "column": 8
+                  },
+                  "text": "swift-tools-version: 5.9"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 34
+                  },
+                  "text": " unless you need a newer feature. The app's generated package also uses 5.9 by default, and Capacitor 8 doesn't officially support Swift 6 yet."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 70,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 70,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 3
+                  },
+                  "text": "Use "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 70,
+                    "column": 7
+                  },
+                  "text": "from: \"8.0.0\""
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 22
+                  },
+                  "text": " for "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 70,
+                    "column": 27
+                  },
+                  "text": "capacitor-swift-pm"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 47
+                  },
+                  "text": ". The app pins an exact version that matches its installed "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 70,
+                    "column": 106
+                  },
+                  "text": "@capacitor/ios"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 122
+                  },
+                  "text": ", and a range lets SPM resolve both. "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 70,
+                    "column": 159
+                  },
+                  "text": "branch:"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 168
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 70,
+                    "column": 172
+                  },
+                  "text": "exact:"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 180
+                  },
+                  "text": " will cause resolution conflicts."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 71,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 71,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 3
+                  },
+                  "text": "The target name can be anything, but it becomes the Swift module name. Avoid generic names like "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 71,
+                    "column": 99
+                  },
+                  "text": "Plugin"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 107
+                  },
+                  "text": " that collide with other plugins."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 4
+          },
+          "text": "Step 2: move the sources"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 75,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "text": "SPM expects one folder per target. The converter and the official template use:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 77,
+        "column": 1
+      },
+      "lang": "text",
+      "meta": null,
+      "text": "my-plugin/\n├── Package.swift\n├── MyPlugin.podspec\n├── ios/\n│   ├── Sources/\n│   │   └── MyPlugin/\n│   │       ├── MyPlugin.swift\n│   │       └── MyPluginImplementation.swift\n│   └── Tests/\n│       └── MyPluginTests/\n│           └── MyPluginTests.swift\n└── package.json"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "text": "Then remove what SPM doesn't need: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 92,
+            "column": 36
+          },
+          "text": "ios/Plugin.xcodeproj"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 58
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 92,
+            "column": 60
+          },
+          "text": "ios/Plugin.xcworkspace"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 84
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 92,
+            "column": 86
+          },
+          "text": "ios/Podfile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 99
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 92,
+            "column": 101
+          },
+          "text": "ios/Plugin/Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 124
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 92,
+            "column": 129
+          },
+          "text": "ios/PluginTests/Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 157
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 94,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 94,
+            "column": 1
+          },
+          "text": "Update the podspec so CocoaPods compiles the same files:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 96,
+        "column": 1
+      },
+      "lang": "ruby",
+      "meta": null,
+      "text": "s.source_files = 'ios/Sources/**/*.{swift,h,m,c,cc,mm,cpp}'\ns.ios.deployment_target = '15.0'\ns.dependency 'Capacitor'\ns.swift_version = '5.1'"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 4
+          },
+          "text": "Step 3: replace the Objective-C bridge with CAPBridgedPlugin"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 1
+          },
+          "text": "Old plugins register methods in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 105,
+            "column": 33
+          },
+          "text": "Plugin.m"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 43
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "lang": "objc",
+      "meta": null,
+      "text": "#import <Capacitor/Capacitor.h>\n\nCAP_PLUGIN(MyPlugin, \"MyPlugin\",\n    CAP_PLUGIN_METHOD(echo, CAPPluginReturnPromise);\n    CAP_PLUGIN_METHOD(startScan, CAPPluginReturnCallback);\n)"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 116,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 116,
+            "column": 1
+          },
+          "text": "SwiftPM can't mix Objective-C and Swift in one target, so this moves into the Swift class:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 118,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "import Foundation\nimport Capacitor\n\n@objc(MyPlugin)\npublic class MyPlugin: CAPPlugin, CAPBridgedPlugin {\n    public let identifier = \"MyPlugin\"\n    public let jsName = \"MyPlugin\"\n    public let pluginMethods: [CAPPluginMethod] = [\n        CAPPluginMethod(name: \"echo\", returnType: CAPPluginReturnPromise),\n        CAPPluginMethod(name: \"startScan\", returnType: CAPPluginReturnCallback)\n    ]\n\n    @objc func echo(_ call: CAPPluginCall) {\n        call.resolve([\"value\": call.getString(\"value\") ?? \"\"])\n    }\n\n    @objc func startScan(_ call: CAPPluginCall) {\n        call.keepAlive = true\n        // ...\n    }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 142,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 1
+          },
+          "text": "Mapping rules:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 144,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 144,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 144,
+                    "column": 3
+                  },
+                  "text": "identifier"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 144,
+                    "column": 15
+                  },
+                  "text": " is the first argument of "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 144,
+                    "column": 41
+                  },
+                  "text": "CAP_PLUGIN"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 144,
+                    "column": 53
+                  },
+                  "text": " (the class name)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 145,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 145,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 145,
+                    "column": 3
+                  },
+                  "text": "jsName"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 145,
+                    "column": 11
+                  },
+                  "text": " is the second argument, the name used in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 145,
+                    "column": 53
+                  },
+                  "text": "registerPlugin('MyPlugin')"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 145,
+                    "column": 81
+                  },
+                  "text": " in your TypeScript."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 146,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 146,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 146,
+                    "column": 3
+                  },
+                  "text": "Each "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 146,
+                    "column": 8
+                  },
+                  "text": "CAP_PLUGIN_METHOD"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 146,
+                    "column": 27
+                  },
+                  "text": " becomes one "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 146,
+                    "column": 40
+                  },
+                  "text": "CAPPluginMethod"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 146,
+                    "column": 57
+                  },
+                  "text": ", keeping the same return type ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 146,
+                    "column": 89
+                  },
+                  "text": "CAPPluginReturnPromise"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 146,
+                    "column": 113
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 146,
+                    "column": 115
+                  },
+                  "text": "CAPPluginReturnCallback"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 146,
+                    "column": 140
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 146,
+                    "column": 144
+                  },
+                  "text": "CAPPluginReturnNone"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 146,
+                    "column": 165
+                  },
+                  "text": ")."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 1
+          },
+          "text": "A method missing from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 148,
+            "column": 23
+          },
+          "text": "pluginMethods"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 38
+          },
+          "text": " compiles fine and fails only when JavaScript calls it. Grep for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 148,
+            "column": 103
+          },
+          "text": "@objc func"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 115
+          },
+          "text": " with a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 148,
+            "column": 123
+          },
+          "text": "CAPPluginCall"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 138
+          },
+          "text": " parameter and count them against the array. Then delete "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 148,
+            "column": 195
+          },
+          "text": "Plugin.h"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 205
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 148,
+            "column": 210
+          },
+          "text": "Plugin.m"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 220
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 150,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 150,
+            "column": 1
+          },
+          "text": "CAPBridgedPlugin"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 150,
+            "column": 19
+          },
+          "text": " works with CocoaPods too, so the same Swift file serves both package managers."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 152,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 4
+          },
+          "text": "Step 4: update package.json and .gitignore"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "lang": "json",
+      "meta": null,
+      "text": "{\n  \"files\": [\n    \"android/src/main/\",\n    \"android/build.gradle\",\n    \"dist/\",\n    \"ios/Sources\",\n    \"ios/Tests\",\n    \"Package.swift\",\n    \"MyPlugin.podspec\"\n  ],\n  \"scripts\": {\n    \"verify:ios\": \"xcodebuild -scheme CapacitorMyPlugin -destination generic/platform=iOS\"\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 171,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 171,
+            "column": 5
+          },
+          "text": "-scheme"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 14
+          },
+          "text": " value is your package name. Forgetting "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 171,
+            "column": 54
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 69
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 171,
+            "column": 73
+          },
+          "text": "ios/Sources"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 86
+          },
+          "text": " in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 171,
+            "column": 90
+          },
+          "text": "files"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 97
+          },
+          "text": " is the most common reason a plugin works from a git checkout and breaks after "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 171,
+            "column": 176
+          },
+          "text": "npm publish"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 189
+          },
+          "text": ". Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 171,
+            "column": 195
+          },
+          "text": "bun pm pack --dry-run"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 218
+          },
+          "text": " and check the file list."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 173,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 1
+          },
+          "text": "Add SPM build output to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 173,
+            "column": 25
+          },
+          "text": ".gitignore"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 37
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 175,
+        "column": 1
+      },
+      "lang": "gitignore",
+      "meta": null,
+      "text": ".build/\nPackage.resolved\n/Packages\n.swiftpm/"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 4
+          },
+          "text": "Step 5: handle what the converter won't"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 5
+          },
+          "text": "Third-party dependencies"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 1
+          },
+          "text": "A podspec line like "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 186,
+            "column": 21
+          },
+          "text": "s.dependency 'Alamofire', '~> 5.9'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 57
+          },
+          "text": " becomes a package dependency and a product on your target:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 188,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "dependencies: [\n    .package(url: \"https://github.com/ionic-team/capacitor-swift-pm.git\", from: \"8.0.0\"),\n    .package(url: \"https://github.com/Alamofire/Alamofire.git\", from: \"5.9.0\")\n],\ntargets: [\n    .target(\n        name: \"MyPlugin\",\n        dependencies: [\n            .product(name: \"Capacitor\", package: \"capacitor-swift-pm\"),\n            .product(name: \"Cordova\", package: \"capacitor-swift-pm\"),\n            .product(name: \"Alamofire\", package: \"Alamofire\")\n        ],\n        path: \"ios/Sources/MyPlugin\")\n]"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 205,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 205,
+            "column": 1
+          },
+          "text": "If the SDK only ships an "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 205,
+            "column": 26
+          },
+          "text": ".xcframework"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 205,
+            "column": 40
+          },
+          "text": ", ship it inside the npm package and use a binary target:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 207,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": ".binaryTarget(name: \"VendorSDK\", path: \"ios/Frameworks/VendorSDK.xcframework\")"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 211,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 211,
+            "column": 1
+          },
+          "text": "If a vendor offers no SPM package and no xcframework, you can't add SPM support yet. Keep the plugin CocoaPods-only and say so in the README."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 213,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 213,
+            "column": 1
+          },
+          "text": "Keep version ranges in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 213,
+            "column": 24
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 213,
+            "column": 39
+          },
+          "text": " and the podspec aligned. Two plugins in the same app that require incompatible versions of one SDK will fail resolution in either package manager."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 215,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 215,
+            "column": 5
+          },
+          "text": "Resources and privacy manifests"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 217,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 217,
+            "column": 1
+          },
+          "text": "Images, JSON, storyboards and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 217,
+            "column": 31
+          },
+          "text": "PrivacyInfo.xcprivacy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 217,
+            "column": 54
+          },
+          "text": " must be declared:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 219,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": ".target(\n    name: \"MyPlugin\",\n    dependencies: [/* ... */],\n    path: \"ios/Sources/MyPlugin\",\n    resources: [\n        .process(\"Resources\"),\n        .copy(\"PrivacyInfo.xcprivacy\")\n    ])"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 230,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 230,
+            "column": 1
+          },
+          "text": "CocoaPods needs the same files declared in the podspec. Put them in a named resource bundle:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 232,
+        "column": 1
+      },
+      "lang": "ruby",
+      "meta": null,
+      "text": "s.resource_bundles = {\n  'MyPluginResources' => [\n    'ios/Sources/MyPlugin/Resources/**/*',\n    'ios/Sources/MyPlugin/PrivacyInfo.xcprivacy'\n  ]\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 241,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 1
+          },
+          "text": "In code, SPM resources live in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 241,
+            "column": 32
+          },
+          "text": "Bundle.module"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 47
+          },
+          "text": ", while CocoaPods puts them in that "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 241,
+            "column": 83
+          },
+          "text": "MyPluginResources.bundle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 109
+          },
+          "text": ", next to the plugin class. Switch with the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 241,
+            "column": 153
+          },
+          "text": "SWIFT_PACKAGE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 168
+          },
+          "text": " flag, which SwiftPM defines automatically:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "#if SWIFT_PACKAGE\nlet resourceBundle = Bundle.module\n#else\nlet resourceBundle: Bundle = {\n    let classBundle = Bundle(for: MyPlugin.self)\n    guard let url = classBundle.url(forResource: \"MyPluginResources\", withExtension: \"bundle\"),\n          let bundle = Bundle(url: url) else {\n        return classBundle\n    }\n    return bundle\n}()\n#endif"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 258,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 258,
+            "column": 5
+          },
+          "text": "Real Objective-C code"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 260,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 260,
+            "column": 1
+          },
+          "text": "If part of the plugin is Objective-C (not just the bridge), put it in its own target with public headers in an "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 260,
+            "column": 112
+          },
+          "text": "include"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 260,
+            "column": 121
+          },
+          "text": " folder, and make the Swift target depend on it:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 262,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": ".target(\n    name: \"MyPluginObjC\",\n    path: \"ios/Sources/MyPluginObjC\",\n    publicHeadersPath: \"include\"),\n.target(\n    name: \"MyPlugin\",\n    dependencies: [\n        \"MyPluginObjC\",\n        .product(name: \"Capacitor\", package: \"capacitor-swift-pm\")\n    ],\n    path: \"ios/Sources/MyPlugin\")"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 276,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 276,
+            "column": 1
+          },
+          "text": "The Swift code then does "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 276,
+            "column": 26
+          },
+          "text": "import MyPluginObjC"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 276,
+            "column": 47
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 278,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 278,
+            "column": 4
+          },
+          "text": "The automated route: cap2spm"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 280,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 1
+          },
+          "text": "The Ionic team's "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 280,
+            "column": 18
+          },
+          "url": "https://github.com/ionic-team/capacitor-plugin-converter",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 280,
+                "column": 19
+              },
+              "text": "capacitor-plugin-converter"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 104
+          },
+          "text": " builds a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 280,
+            "column": 114
+          },
+          "text": "cap2spm"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 123
+          },
+          "text": " binary that reads "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 280,
+            "column": 142
+          },
+          "text": "Plugin.m"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 152
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 280,
+            "column": 157
+          },
+          "text": "Plugin.h"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 167
+          },
+          "text": ", adds "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 280,
+            "column": 174
+          },
+          "text": "CAPBridgedPlugin"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 192
+          },
+          "text": " conformance to your Swift class, generates "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 280,
+            "column": 236
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 251
+          },
+          "text": ", moves files to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 280,
+            "column": 268
+          },
+          "text": "Sources"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 277
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 280,
+            "column": 282
+          },
+          "text": "Tests"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 289
+          },
+          "text": ", updates the podspec and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 280,
+            "column": 315
+          },
+          "text": "package.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 329
+          },
+          "text": ", and removes the old Xcode project files."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 282,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "curl -OL https://github.com/ionic-team/capacitor-plugin-converter/releases/latest/download/cap2spm.zip\nunzip cap2spm.zip\nxattr -d com.apple.quarantine ./cap2spm   # binary is unsigned\n./cap2spm --backup /path/to/my-plugin"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 289,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 289,
+            "column": 1
+          },
+          "text": "It's designed for plugins that are Swift-only apart from the bridge files. Run it on a clean git tree and then do Step 5 by hand."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 291,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 291,
+            "column": 1
+          },
+          "text": "Other options:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 293,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 293,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 293,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 293,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 293,
+                        "column": 5
+                      },
+                      "text": "Scaffold a fresh plugin"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 293,
+                    "column": 30
+                  },
+                  "text": " with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 293,
+                    "column": 36
+                  },
+                  "text": "bun create @capacitor/plugin"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 293,
+                    "column": 66
+                  },
+                  "text": " and copy your implementation in. The template already supports SPM and CocoaPods. This is often faster for small plugins."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 294,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 294,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 294,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 294,
+                        "column": 5
+                      },
+                      "text": "Use an agent."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 20
+                  },
+                  "text": " The "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 294,
+                    "column": 25
+                  },
+                  "text": "capacitor-plugin-spm-support"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 55
+                  },
+                  "text": " skill in "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 294,
+                    "column": 65
+                  },
+                  "url": "/skills/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 294,
+                        "column": 66
+                      },
+                      "text": "Capgo Skills"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 89
+                  },
+                  "text": " walks through Package.swift, bridge cleanup, resources and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 294,
+                    "column": 149
+                  },
+                  "text": "package.json"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 163
+                  },
+                  "text": ". Install with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 294,
+                    "column": 178
+                  },
+                  "text": "bunx skills add Cap-go/capgo-skills"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 215
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 296,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 296,
+            "column": 4
+          },
+          "text": "Test in a real SPM app"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 298,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun create @capacitor/app spm-test\ncd spm-test\nbun add @capacitor/ios\nbun add ../my-plugin\nbun run build\nbunx cap add ios          # SPM is the default in Capacitor 8\nbunx cap sync ios"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 308,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 308,
+            "column": 1
+          },
+          "text": "Check that "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 308,
+            "column": 12
+          },
+          "text": "ios/App/CapApp-SPM/Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 308,
+            "column": 46
+          },
+          "text": " lists your package, and that sync printed \"All Capacitor plugins have a Package.swift file\". Then build on a device and call each method. Repeat in an app created with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 308,
+            "column": 215
+          },
+          "text": "bunx cap add ios --packagemanager CocoaPods"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 308,
+            "column": 260
+          },
+          "text": " to confirm the podspec still works."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 310,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 310,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 312,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 312,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 312,
+                "column": 3
+              },
+              "text": "product 'X' required by package 'capapp-spm' ... not found"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 312,
+                "column": 63
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 312,
+            "column": 66
+          },
+          "text": " Package or product name doesn't match the name derived from your npm name. See the table above."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 314,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 314,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 314,
+                "column": 3
+              },
+              "text": "\"MyPlugin\" plugin is not implemented on ios"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 314,
+                "column": 48
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 314,
+            "column": 51
+          },
+          "text": " Either "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 314,
+            "column": 59
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 314,
+            "column": 74
+          },
+          "text": " wasn't published, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 314,
+            "column": 93
+          },
+          "text": "jsName"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 314,
+            "column": 101
+          },
+          "text": " doesn't match "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 314,
+            "column": 116
+          },
+          "text": "registerPlugin"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 314,
+            "column": 132
+          },
+          "text": ", or the class lacks "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 314,
+            "column": 153
+          },
+          "text": "CAPBridgedPlugin"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 314,
+            "column": 171
+          },
+          "text": ". Inspect the plugin folder in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 314,
+            "column": 202
+          },
+          "text": "node_modules"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 314,
+            "column": 216
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 316,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 316,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 316,
+                "column": 3
+              },
+              "text": "Multiple targets named 'Plugin'"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 316,
+                "column": 36
+              },
+              "text": " or duplicate module errors."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 316,
+            "column": 66
+          },
+          "text": " Two plugins use the same target name. Rename yours to something unique. App teams can also work around it with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 316,
+            "column": 178
+          },
+          "text": "experimental.ios.spm.packageOptions"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 316,
+            "column": 215
+          },
+          "text": " ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 316,
+            "column": 217
+          },
+          "text": "moduleAliases"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 316,
+            "column": 232
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 316,
+            "column": 236
+          },
+          "text": "symlink"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 316,
+            "column": 245
+          },
+          "text": ") in the Capacitor config, available since CLI 8.4."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 318,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 318,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 318,
+                "column": 3
+              },
+              "text": "target 'X' contains mixed language source files"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 318,
+                "column": 52
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 318,
+            "column": 55
+          },
+          "text": " Objective-C and Swift files share a folder. Split them into two targets."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 320,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 320,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 320,
+                "column": 3
+              },
+              "text": "Xcode shows stale package errors after fixes."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 320,
+            "column": 50
+          },
+          "text": " Use "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 320,
+            "column": 55
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 320,
+                "column": 57
+              },
+              "text": "File > Packages > Reset Package Caches"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 320,
+            "column": 97
+          },
+          "text": ", then build again."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 322,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 1
+          },
+          "text": "If you also need optional features toggled per app, read "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 322,
+            "column": 58
+          },
+          "url": "/blog/spm-package-traits-in-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 322,
+                "column": 59
+              },
+              "text": "how to use SPM package traits in Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 142
+          },
+          "text": ". For apps that must stay on CocoaPods for now, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 322,
+            "column": 194
+          },
+          "url": "/blog/use-cocoapods-with-capacitor-8/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 322,
+                "column": 195
+              },
+              "text": "how to use CocoaPods with Capacitor 8"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 272
+          },
+          "text": ", and for the bigger picture, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 322,
+            "column": 302
+          },
+          "url": "/blog/ios-spm-vs-cocoapods-capacitor-migration-guide/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 322,
+                "column": 303
+              },
+              "text": "SPM vs CocoaPods for Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 389
+          },
+          "text": "."
+        }
+      ]
+    }
+  ]
+}

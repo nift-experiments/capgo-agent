@@ -1,0 +1,5551 @@
+{
+  "version": 1,
+  "route": "/blog/app-infrastructure/",
+  "source": "corpus/source/apps/web/src/content/blog/en/app-infrastructure.md",
+  "sourceSha256": "85eaded42ecc92289dfddf12130c6162b33d876f1141e0f0b4f499a9c96ba24c",
+  "metadata": {
+    "slug": "app-infrastructure",
+    "title": "App Infrastructure Explained for Cross-Platform JS Teams",
+    "description": "Learn what app infrastructure means for cross-platform JavaScript apps. Explore core components, patterns, and live-update delivery for Capacitor and Electron.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-08-26 09:23:20.135000+00:00",
+    "updated_at": "2026-08-27 16:41:24+00:00",
+    "head_image": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/a3f6651d-24e2-4f74-a2b7-a0d0623c2b39/app-infrastructure-js-teams.jpg",
+    "head_image_alt": "App Infrastructure Explained for Cross-Platform JS Teams",
+    "keywords": "app infrastructure, capacitor, live updates, electron, ci/cd",
+    "tag": "Mobile, Updates, CI/CD",
+    "published": true,
+    "locale": "en",
+    "origin": "ai",
+    "next_blog": ""
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 1,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 1,
+            "column": 1
+          },
+          "text": "You've shipped a polished Capacitor app. The React screens are stable, the Electron desktop build works, and early adoption is climbing. Then the first serious incident arrives. It isn't a problem in the component code. Users are loading a stale JavaScript bundle, an Electron update has left some installations unusable, or a critical fix is waiting through an App Store review process while support handles the fallout."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 3,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 1
+          },
+          "text": "That's the point where teams discover that the codebase is only one part of a shipped application. "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 3,
+            "column": 100
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 3,
+                "column": 102
+              },
+              "text": "App infrastructure"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 122
+          },
+          "text": " determines which build reaches each user, how the client receives changes, where data is stored, how failures are detected, and whether the team can recover without making the incident worse. The scale of mobile distribution makes those decisions operationally important. The Apple App Store was reported to host "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 3,
+            "column": 436
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 3,
+                "column": 438
+              },
+              "text": "2.42 million apps and 304,000 games in 2026"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 483
+          },
+          "text": ", while Google Play had about "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 3,
+            "column": 513
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 3,
+                "column": 515
+              },
+              "text": "2.3 million apps as of August 2024"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 551
+          },
+          "text": ", according to "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 3,
+            "column": 566
+          },
+          "url": "https://www.businessofapps.com/data/app-stores/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 3,
+                "column": 567
+              },
+              "text": "App Store marketplace data from Business of Apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 665
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 5,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 5,
+            "column": 1
+          },
+          "text": "For cross-platform JavaScript teams, the difficult part is the boundary between web code, native shells, stores, runtime updates, and backend services. This "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 5,
+            "column": 158
+          },
+          "url": "https://capgo.app/blog/infrastructure-planning/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 5,
+                "column": 159
+              },
+              "text": "infrastructure planning guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 5,
+            "column": 238
+          },
+          "text": " provides useful context, but the practical question is how those pieces connect in a Capacitor or Electron project. The map below starts with the definition, then moves through the layers, architecture choices, release mechanics, live updates, and an audit you can run against your own stack."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 7,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 7,
+            "column": 4
+          },
+          "text": "Table of Contents"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "url": "#why-app-infrastructure-matters-more-than-the-code",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 8,
+                        "column": 4
+                      },
+                      "text": "Why App Infrastructure Matters More Than the Code"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 9,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 9,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 9,
+                            "column": 5
+                          },
+                          "url": "#the-installed-copy-is-the-real-product",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 9,
+                                "column": 6
+                              },
+                              "text": "The installed copy is the real product"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "url": "#what-app-infrastructure-actually-means",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 10,
+                        "column": 4
+                      },
+                      "text": "What App Infrastructure Actually Means"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 11,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 11,
+                            "column": 5
+                          },
+                          "url": "#why-cross-platform-teams-see-the-seams",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 11,
+                                "column": 6
+                              },
+                              "text": "Why cross-platform teams see the seams"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 12,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "url": "#the-core-components-of-a-modern-app-stack",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 12,
+                        "column": 4
+                      },
+                      "text": "The Core Components of a Modern App Stack"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 13,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "url": "#architecture-patterns-and-their-trade-offs",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 13,
+                        "column": 4
+                      },
+                      "text": "Architecture Patterns and Their Trade-Offs"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 14,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 14,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 14,
+                            "column": 5
+                          },
+                          "url": "#why-the-native-shell-pattern-dominates",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 14,
+                                "column": 6
+                              },
+                              "text": "Why the native shell pattern dominates"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 15,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "url": "#building-the-stack-for-capacitor-and-electron-apps",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 15,
+                        "column": 4
+                      },
+                      "text": "Building the Stack for Capacitor and Electron Apps"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 16,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 16,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 16,
+                            "column": 5
+                          },
+                          "url": "#from-source-to-signed-artifact",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 16,
+                                "column": 6
+                              },
+                              "text": "From source to signed artifact"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 17,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 17,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 17,
+                            "column": 5
+                          },
+                          "url": "#separate-store-releases-from-runtime-releases",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 17,
+                                "column": 6
+                              },
+                              "text": "Separate store releases from runtime releases"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 18,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 18,
+                            "column": 5
+                          },
+                          "url": "#keep-data-independent-from-ui-timing",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 18,
+                                "column": 6
+                              },
+                              "text": "Keep data independent from UI timing"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 19,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 19,
+                    "column": 3
+                  },
+                  "url": "#where-live-update-platforms-fit-in",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 19,
+                        "column": 4
+                      },
+                      "text": "Where Live Update Platforms Fit In"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 20,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 20,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 20,
+                            "column": 5
+                          },
+                          "url": "#what-live-updates-dont-replace",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 20,
+                                "column": 6
+                              },
+                              "text": "What live updates don't replace"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 21,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 21,
+                    "column": 3
+                  },
+                  "url": "#common-misconceptions-that-bite-teams-later",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 21,
+                        "column": 4
+                      },
+                      "text": "Common Misconceptions That Bite Teams Later"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 22,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 22,
+                    "column": 3
+                  },
+                  "url": "#a-practical-checklist-to-audit-your-own-stack",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 22,
+                        "column": 4
+                      },
+                      "text": "A Practical Checklist to Audit Your Own Stack"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 23,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 23,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 23,
+                            "column": 5
+                          },
+                          "url": "#build-and-delivery",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 23,
+                                "column": 6
+                              },
+                              "text": "Build and delivery"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 24,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 24,
+                            "column": 5
+                          },
+                          "url": "#updates-and-runtime-compatibility",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 24,
+                                "column": 6
+                              },
+                              "text": "Updates and runtime compatibility"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 25,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 25,
+                            "column": 5
+                          },
+                          "url": "#services-and-data",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 25,
+                                "column": 6
+                              },
+                              "text": "Services and data"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 26,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 26,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 26,
+                            "column": 5
+                          },
+                          "url": "#observability-security-and-recovery",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 26,
+                                "column": 6
+                              },
+                              "text": "Observability, security, and recovery"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "text": "<a id=\"why-app-infrastructure-matters-more-than-the-code\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 28,
+            "column": 59
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 4
+          },
+          "text": "Why App Infrastructure Matters More Than the Code"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 31,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 31,
+            "column": 1
+          },
+          "text": "A local build can pass every test and still fail after release. A signing mistake can block installation, the wrong channel can deliver an incompatible JavaScript bundle, a native plugin can expect a different interface, or a cache can keep serving stale assets. Users see one message, “the app is broken,” while the repository appears healthy."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 33,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 33,
+            "column": 1
+          },
+          "text": "For a cross-platform JavaScript app, infrastructure is the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 33,
+            "column": 60
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 33,
+                "column": 62
+              },
+              "text": "full delivery system for an installed application"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 33,
+            "column": 113
+          },
+          "text": ". It connects the commit to a signed artifact, selects which release each user receives, supports the running client, and gives engineers a way to observe, pause, or reverse a change. Cloud hosting is only one layer of that system."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 35,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "text": "<a id=\"the-installed-copy-is-the-real-product\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 35,
+            "column": 48
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 5
+          },
+          "text": "The installed copy is the real product"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "text": "Users do not run a Git branch. They run a particular combination of:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 40,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 40,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 40,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 40,
+                        "column": 5
+                      },
+                      "text": "Native shell:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 40,
+                    "column": 20
+                  },
+                  "text": " The iOS, Android, macOS, or Windows container, including compiled plugins."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 41,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 41,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 41,
+                        "column": 5
+                      },
+                      "text": "JavaScript bundle:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 25
+                  },
+                  "text": " The web assets loaded by the Capacitor or Electron runtime."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 42,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 42,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 42,
+                        "column": 5
+                      },
+                      "text": "Configuration:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 21
+                  },
+                  "text": " Environment values, feature flags, API endpoints, and release-channel assignments."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 43,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 43,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 43,
+                        "column": 5
+                      },
+                      "text": "Remote dependencies:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 27
+                  },
+                  "text": " APIs, authentication providers, databases, object storage, and third-party SDKs."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 44,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 44,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 44,
+                        "column": 5
+                      },
+                      "text": "Local state:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 19
+                  },
+                  "text": " Cached data, credentials, queued writes, and offline records."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 46,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "text": "Those parts form a contract. A JavaScript change may work with one native shell and fail with another. A backend migration may support a new client while breaking an older installed copy. An Electron package may be valid while its update path leaves some users unable to start the app. A completed build therefore proves only that an artifact was produced, not that the intended users received and could run it."
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "location": {
+        "line": 48,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 48,
+            "column": 3
+          },
+          "blocks": [
+            {
+              "type": "strong",
+              "location": {
+                "line": 48,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 48,
+                    "column": 5
+                  },
+                  "text": "Practical rule:"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 48,
+                "column": 22
+              },
+              "text": " Design recovery before release. The team should be able to identify affected versions, stop a channel, and restore a known-good bundle. Live-update services such as Capgo can change how quickly JavaScript fixes reach compatible installations, but they do not remove native compatibility, signing, or store constraints."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 1
+          },
+          "text": "App stores still shape the release path, particularly for native binaries. Their scale, noted earlier in the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 50,
+            "column": 110
+          },
+          "url": "https://www.businessofapps.com/data/app-stores/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 50,
+                "column": 111
+              },
+              "text": "Business of Apps app store overview"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 196
+          },
+          "text": ", explains why one release-control error can spread widely. A platform such as "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 50,
+            "column": 275
+          },
+          "url": "https://capgo.app/blog/infrastructure-planning/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 50,
+                "column": 276
+              },
+              "text": "this infrastructure planning guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 360
+          },
+          "text": " helps map the handoffs between build artifacts, runtime updates, stores, and supporting services. The useful question is not whether the code works in isolation, but whether this entire chain can deliver, observe, and recover the installed app."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 52,
+            "column": 1
+          },
+          "text": "<a id=\"what-app-infrastructure-actually-means\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 52,
+            "column": 48
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 53,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 53,
+            "column": 4
+          },
+          "text": "What App Infrastructure Actually Means"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 55,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 55,
+            "column": 1
+          },
+          "text": "An app can pass its tests and still fail users at delivery, startup, update, or recovery. "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 55,
+            "column": 91
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 55,
+                "column": 93
+              },
+              "text": "App infrastructure is the set of pipelines, services, policies, and recovery mechanisms behind a shipped app."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 55,
+            "column": 204
+          },
+          "text": " It determines which code reaches users, how that code changes, where application data is maintained, which dependencies are available, and how the team finds and repairs failures."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 57,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 57,
+            "column": 1
+          },
+          "text": "Backend infrastructure usually describes servers, APIs, queues, databases, networking, and access controls. App infrastructure includes those systems, then extends into the installed client and its distribution channels. In a Capacitor project, the native binary, packaged web directory, updater, store listing, and remote services belong to one operational picture. An Electron project follows a comparable model, with desktop packages and their update paths added to the chain."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 59,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 1
+          },
+          "text": "A building makes the relationship easier to see. Application code is the furniture and fixtures people notice. Infrastructure is the wiring, plumbing, ventilation, doors, alarms, and maintenance access. Good furniture cannot compensate for a tripped electrical system or a locked door that prevents repairs."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 61,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/f08facb4-d182-4058-883d-35581d015efc/app-infrastructure-comparison.jpg",
+          "title": null,
+          "alt": "A comparison graphic showing the differences between traditional manual infrastructure and automated app infrastructure processes."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 63,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 63,
+            "column": 1
+          },
+          "text": "<a id=\"why-cross-platform-teams-see-the-seams\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 63,
+            "column": 48
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 5
+          },
+          "text": "Why cross-platform teams see the seams"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "text": "A cross-platform JavaScript app has several delivery paths. One shared web bundle may travel through different mechanisms:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 68,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 68,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 68,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 68,
+                        "column": 5
+                      },
+                      "text": "iOS and Android stores"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 68,
+                    "column": 29
+                  },
+                  "text": " distribute signed native packages and enforce platform policies."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 69,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 69,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 69,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 69,
+                        "column": 5
+                      },
+                      "text": "Electron channels"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 24
+                  },
+                  "text": " may use installers, signed packages, and desktop auto-update systems."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 70,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 70,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 70,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 70,
+                        "column": 5
+                      },
+                      "text": "Runtime delivery"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 23
+                  },
+                  "text": " can replace JavaScript, HTML, CSS, and assets without replacing the native shell, subject to platform rules and the team's security controls."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 71,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 71,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 71,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 71,
+                        "column": 5
+                      },
+                      "text": "Backend deployment"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 25
+                  },
+                  "text": " changes behavior for every compatible client, including versions the team can no longer rebuild."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 1
+          },
+          "text": "Each path has its own failure mode. Store distribution can delay a native fix. A desktop update can fail because of permissions or an interrupted download. A runtime update can conflict with an older plugin. A backend change can break a client that has been offline for a long time."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 75,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "text": "“The app is deployed” can therefore describe several different states. A binary may be available in a store, a bundle may be assigned to a channel, and the API may be running in production, while a user's installed copy remains stale or cannot migrate local data. Infrastructure connects those states so the team can control releases, observe outcomes, and recover when a path fails. Live-update platforms such as Capgo can shorten JavaScript release paths for compatible installations, while native compatibility, signing, and store constraints still apply."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 77,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 77,
+            "column": 1
+          },
+          "text": "<a id=\"the-core-components-of-a-modern-app-stack\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 77,
+            "column": 51
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 78,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 4
+          },
+          "text": "The Core Components of a Modern App Stack"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 1
+          },
+          "text": "A practical stack has "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 80,
+            "column": 23
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 80,
+                "column": 25
+              },
+              "text": "nine related layers"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 46
+          },
+          "text": ", although teams may implement several of them with the same service. Define the job of each layer before choosing products. Otherwise, tool selection hides missing responsibilities."
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": true,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 82,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 82,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 82,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 82,
+                        "column": 6
+                      },
+                      "text": "Build and CI/CD"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 82,
+                    "column": 23
+                  },
+                  "text": " turns source code into reproducible artifacts. It installs dependencies, runs tests, bundles JavaScript, compiles native shells, signs packages, and records the exact inputs used for a release. A dependable "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 82,
+                    "column": 231
+                  },
+                  "url": "https://capgo.app/blog/deployment-automation/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 82,
+                        "column": 232
+                      },
+                      "text": "deployment automation workflow"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 82,
+                    "column": 310
+                  },
+                  "text": " should make the same steps repeatable for every target platform."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 84,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 84,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 84,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 84,
+                        "column": 6
+                      },
+                      "text": "Release and update delivery"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 84,
+                    "column": 35
+                  },
+                  "text": " decides how an artifact reaches users. Store submission, enterprise distribution, sideloading, desktop installers, and runtime bundle delivery each have different controls. The release layer needs versioning, audience targeting, approvals, and a clear distinction between mandatory and optional updates."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 86,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 86,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 86,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 86,
+                        "column": 6
+                      },
+                      "text": "Runtime update strategy"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 86,
+                    "column": 31
+                  },
+                  "text": " determines what can change without replacing the binary. A JavaScript bundle can often be replaced independently from native code, but the updated bundle still has to match the native APIs and plugin contracts available in the installed shell."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 88,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 88,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 88,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 88,
+                        "column": 6
+                      },
+                      "text": "Backend services"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 88,
+                    "column": 24
+                  },
+                  "text": " provide HTTP endpoints, authentication, business rules, webhooks, and integrations. The client should treat these services as versioned dependencies, not as an invisible extension of the frontend."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 90,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 90,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 90,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 90,
+                        "column": 6
+                      },
+                      "text": "Data sync"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 90,
+                    "column": 17
+                  },
+                  "text": " handles local persistence, offline work, queued writes, conflict resolution, and state propagation. A note-taking app and a payment workflow may both use an API, but their synchronization guarantees and repair procedures differ sharply."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 92,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 92,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 92,
+                        "column": 6
+                      },
+                      "text": "Observability"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 92,
+                    "column": 21
+                  },
+                  "text": " combines crash reports, logs, performance telemetry, release markers, and user diagnostics. Logs alone may show that an exception occurred. Observability connects that exception to a device, app version, bundle, request, and rollout group."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 94,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 94,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 94,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 94,
+                        "column": 6
+                      },
+                      "text": "Security and compliance"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 94,
+                    "column": 31
+                  },
+                  "text": " protects secrets, identity, data, update packages, and platform permissions. It also covers code hardening, dependency review, retention policies, regional requirements, and the handling of sensitive information in diagnostic systems."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 96,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 96,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 96,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 96,
+                        "column": 6
+                      },
+                      "text": "Rollback and repair"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 96,
+                    "column": 27
+                  },
+                  "text": " gives the team a way to stop a rollout, restore a previous bundle, invalidate a bad configuration, migrate damaged local state, or direct users to a safe binary release. Rollback isn't the same as deleting a deployment. It must account for clients that are offline or only partially updated."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 98,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 98,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 98,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 98,
+                        "column": 6
+                      },
+                      "text": "Infrastructure hosting"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 98,
+                    "column": 30
+                  },
+                  "text": " runs the services that support the application, including compute, storage, networking, queues, and content delivery. The hosting layer matters, but it doesn't replace the client release controls above."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 100,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 100,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/0590d6ec-ca94-46ae-a1f4-fe54c9bc79e3/app-infrastructure-modern-stack.jpg",
+          "title": null,
+          "alt": "A diagram illustrating the nine essential layers and core components of a modern application infrastructure stack."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 102,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 102,
+            "column": 1
+          },
+          "text": "These layers interact rather than operate as a checklist. A build pipeline creates a bundle, the release system assigns it to a channel, the runtime checks for it, the backend serves compatible data, and observability confirms whether the change worked. A gap in any one layer can make the others difficult to trust."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 104,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 104,
+            "column": 1
+          },
+          "text": "<a id=\"architecture-patterns-and-their-trade-offs\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 104,
+            "column": 52
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 4
+          },
+          "text": "Architecture Patterns and Their Trade-Offs"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 107,
+            "column": 1
+          },
+          "text": "Architecture decisions become clearer when you compare the shape of the shipped app instead of debating labels. A team can keep most code together, split it by feature, package it inside a native shell, or move more behaviour into remotely controlled services."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 109,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 109,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 109,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 109,
+                    "column": 3
+                  },
+                  "text": "Pattern"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 109,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 109,
+                    "column": 13
+                  },
+                  "text": "Update Granularity"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 109,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 109,
+                    "column": 34
+                  },
+                  "text": "Build and Binary Size"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 109,
+                "column": 56
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 109,
+                    "column": 58
+                  },
+                  "text": "Team Scaling"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 109,
+                "column": 71
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 109,
+                    "column": 73
+                  },
+                  "text": "Best Fit"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 111,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 111,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 111,
+                    "column": 3
+                  },
+                  "text": "Single JavaScript monolith"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 111,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 111,
+                    "column": 32
+                  },
+                  "text": "Broad bundle replacement"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 111,
+                "column": 57
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 111,
+                    "column": 59
+                  },
+                  "text": "Simple build, potentially large bundle"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 111,
+                "column": 98
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 111,
+                    "column": 100
+                  },
+                  "text": "Easy for a small team, harder as ownership expands"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 111,
+                "column": 151
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 111,
+                    "column": 153
+                  },
+                  "text": "Early products with tightly coupled features"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 112,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 112,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 112,
+                    "column": 3
+                  },
+                  "text": "Modular monolith"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 112,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 112,
+                    "column": 22
+                  },
+                  "text": "Feature-level code organization, usually released together"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 112,
+                "column": 81
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 112,
+                    "column": 83
+                  },
+                  "text": "Manageable with deliberate bundling"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 112,
+                "column": 119
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 112,
+                    "column": 121
+                  },
+                  "text": "Clearer ownership without distributed operations"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 112,
+                "column": 170
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 112,
+                    "column": 172
+                  },
+                  "text": "Growing teams that want boundaries without service sprawl"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 113,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 113,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 113,
+                    "column": 3
+                  },
+                  "text": "Native shell plus JavaScript bundle"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 113,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 113,
+                    "column": 41
+                  },
+                  "text": "Native and JavaScript changes follow separate paths"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 113,
+                "column": 93
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 113,
+                    "column": 95
+                  },
+                  "text": "Native capabilities stay in the shell, web code remains replaceable"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 113,
+                "column": 163
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 113,
+                    "column": 165
+                  },
+                  "text": "Strong fit for shared platform teams"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 113,
+                "column": 202
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 113,
+                    "column": 204
+                  },
+                  "text": "Capacitor and Electron applications"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 114,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 114,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 114,
+                    "column": 3
+                  },
+                  "text": "Decoupled services with remote feature delivery"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 114,
+                "column": 51
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 114,
+                    "column": 53
+                  },
+                  "text": "Fine-grained service or feature changes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 114,
+                "column": 93
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 114,
+                    "column": 95
+                  },
+                  "text": "Smaller clients can mean more runtime dependencies"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 114,
+                "column": 146
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 114,
+                    "column": 148
+                  },
+                  "text": "Supports independent teams, but adds operational coordination"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 114,
+                "column": 210
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 114,
+                    "column": 212
+                  },
+                  "text": "Large products with mature release governance"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 116,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 116,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 116,
+            "column": 5
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 116,
+                "column": 7
+              },
+              "text": "single JavaScript monolith"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 116,
+            "column": 35
+          },
+          "text": " is easy to understand. One repository produces one main bundle, and developers can trace a feature from screen to API call. The cost appears when a small change forces a broad release, startup work grows, or unrelated teams collide in the same code paths."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 118,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 1
+          },
+          "text": "A "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 118,
+            "column": 3
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 118,
+                "column": 5
+              },
+              "text": "modular monolith"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 23
+          },
+          "text": " keeps deployment simple while separating features into packages or domains. It can improve ownership and testing, but the boundaries are conventions unless the build system enforces them. Teams still need to coordinate a shared runtime and shared release."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 120,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 120,
+            "column": 1
+          },
+          "text": "<a id=\"why-the-native-shell-pattern-dominates\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 120,
+            "column": 48
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 121,
+            "column": 5
+          },
+          "text": "Why the native shell pattern dominates"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 123,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 123,
+            "column": 1
+          },
+          "text": "Capacitor and Electron both make the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 123,
+            "column": 38
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 123,
+                "column": 40
+              },
+              "text": "native shell plus JavaScript bundle"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 123,
+            "column": 77
+          },
+          "text": " pattern practical. The shell provides platform integration, permissions, filesystem access, notifications, and native plugins. The JavaScript layer provides the shared interface and much of the product logic. That separation creates a useful release boundary: UI and compatible logic can move faster than native capabilities."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 1
+          },
+          "text": "The trade-off is coupling. A remotely delivered bundle can't call a native method that the installed shell doesn't contain. The team also carries store compliance, signing, permission review, startup performance, and platform-specific debugging."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 127,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 1
+          },
+          "text": "For a broader discussion of how these boundaries shape product decisions, the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 127,
+            "column": 79
+          },
+          "url": "https://londonappdevelopment.co.uk/blog/role-of-technical-architecture-in-mobile-app-development",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 127,
+                "column": 80
+              },
+              "text": "technical architecture in mobile apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 216
+          },
+          "text": " is a useful complementary resource. The choice isn't “monolith good, services bad.” It's a question of which failure modes the team can operate."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 1
+          },
+          "text": "A fully decoupled design can let teams release independently, but every remote dependency adds version negotiation, failure handling, and observability work. Use it when the operational maturity justifies the flexibility, not because distribution speed alone sounds attractive. The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 129,
+            "column": 283
+          },
+          "url": "https://capgo.app/blog/monolithic-vs-microservice-architecture/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 129,
+                "column": 284
+              },
+              "text": "monolithic versus microservice architecture comparison"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 404
+          },
+          "text": " can help frame that decision around boundaries and ownership rather than fashion."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 131,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 131,
+            "column": 1
+          },
+          "text": "<a id=\"building-the-stack-for-capacitor-and-electron-apps\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 131,
+            "column": 60
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 132,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 132,
+            "column": 4
+          },
+          "text": "Building the Stack for Capacitor and Electron Apps"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 134,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 134,
+            "column": 1
+          },
+          "text": "Trace one change from commit to user device. The path exposes responsibilities that a static architecture diagram often hides, especially when the same JavaScript code serves a mobile shell and a desktop runtime."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 136,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 136,
+            "column": 1
+          },
+          "text": "<a id=\"from-source-to-signed-artifact\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 136,
+            "column": 40
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 137,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 137,
+            "column": 5
+          },
+          "text": "From source to signed artifact"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 1
+          },
+          "text": "A CI job installs locked dependencies, runs unit and integration tests, and bundles the JavaScript with Vite, Webpack, or another build tool. Capacitor copies that web output into the native project before Xcode or Gradle creates platform artifacts. Electron packages its main process and renderer bundle into installers for the desktop targets you support."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 141,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 1
+          },
+          "text": "Signing belongs in the pipeline rather than a developer's manual checklist. iOS and macOS builds use Apple signing identities and provisioning controls. Electron distributions need platform-appropriate signing and a trustworthy update path. Save metadata that identifies the commit, dependency set, native shell version, bundle version, and signing result."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 143,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 143,
+            "column": 1
+          },
+          "text": "The artifact repository acts like a warehouse with labeled boxes. Store signed packages and runtime bundles under immutable version identifiers. Release systems can then promote a known artifact instead of rebuilding it differently for each environment."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 145,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 145,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/10e701c9-d0bb-490c-b082-9173b43a67e8/app-infrastructure-deployment-process.jpg",
+          "title": null,
+          "alt": "A six-step infographic illustrating the workflow for building and distributing Capacitor and Electron applications."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 147,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 147,
+            "column": 1
+          },
+          "text": "<a id=\"separate-store-releases-from-runtime-releases\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 147,
+            "column": 55
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 5
+          },
+          "text": "Separate store releases from runtime releases"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 150,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 150,
+            "column": 1
+          },
+          "text": "For Capacitor, the web directory inside the binary is the initial runtime surface. Electron's renderer bundle serves a similar role. Keep that bundle inside the signed package, or add a controlled runtime update mechanism that checks for a compatible replacement after launch."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 152,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 1
+          },
+          "text": "The release types have different consequences:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 154,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 154,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 154,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 154,
+                        "column": 5
+                      },
+                      "text": "Binary release:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 154,
+                    "column": 22
+                  },
+                  "text": " Changes native plugins, permissions, entitlements, embedded frameworks, or platform configuration. It normally follows the relevant store or installer process."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 155,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 155,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 155,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 155,
+                        "column": 5
+                      },
+                      "text": "JavaScript release:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 155,
+                    "column": 26
+                  },
+                  "text": " Changes compatible web code, styles, copy, configuration, and assets. A separate delivery path can handle it when platform policies and the team's security model allow that approach."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 156,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 156,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 156,
+                        "column": 5
+                      },
+                      "text": "Backend release:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 156,
+                    "column": 23
+                  },
+                  "text": " Changes server behaviour for every reachable client. Compatibility and migration planning must account for older app versions."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "text": "Electron auto-update libraries can deliver new signed desktop packages, but that remains a binary workflow. Capacitor teams can pair store submissions for native changes with runtime bundle delivery for compatible web changes. A practical "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 158,
+            "column": 240
+          },
+          "url": "https://wistec.com.au/cross-platform-app-development-australia/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 158,
+                "column": 241
+              },
+              "text": "guide to cross platform development"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 342
+          },
+          "text": " also helps frame which responsibilities belong in the shared layer and which remain platform-specific."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "text": "<a id=\"keep-data-independent-from-ui-timing\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 160,
+            "column": 46
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 161,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 5
+          },
+          "text": "Keep data independent from UI timing"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 1
+          },
+          "text": "An API gateway can centralize authentication, routing, rate controls, and service boundaries. On the device, SQLite suits structured offline data and transactional workflows, while IndexedDB can suit browser-like local storage. The library matters less than the answer to one question: what happens when the same record changes locally and remotely?"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 165,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 165,
+            "column": 1
+          },
+          "text": "Define conflict rules before enabling offline writes. A queue may retry safely for one operation and duplicate a financial action for another. Store metadata that explains pending, accepted, rejected, and reconciled states, then expose those states to support and diagnostics."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 167,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "text": "A repeatable "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 167,
+            "column": 14
+          },
+          "url": "https://capgo.app/blog/continuous-integration-setup/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 167,
+                "column": 15
+              },
+              "text": "continuous integration setup for Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 112
+          },
+          "text": " should test these paths instead of stopping at a successful JavaScript build. The stack is ready when it can produce, distribute, observe, and repair a release without relying on tribal knowledge."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 169,
+            "column": 1
+          },
+          "text": "<a id=\"where-live-update-platforms-fit-in\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 169,
+            "column": 44
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 4
+          },
+          "text": "Where Live Update Platforms Fit In"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 1
+          },
+          "text": "A live-update platform sits between the build pipeline and the application runtime. The CI job creates a JavaScript bundle, assigns it to a release channel, and uploads it. The installed app checks that channel at runtime, downloads a signed compatible bundle, verifies it, and applies it according to the update policy. A phased rollout then limits exposure while telemetry shows whether the change behaves as expected."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/c04b447e-4b9f-43a0-a29f-0b7242870369/app-infrastructure-live-update.jpg",
+          "title": null,
+          "alt": "A diagram illustrating how the Capgo live update platform integrates into the mobile app infrastructure process."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 1
+          },
+          "text": "The release calculus changes because a compatible JavaScript fix doesn't necessarily need to wait for a full store resubmission. That can matter when a team needs to correct a UI regression, update copy, adjust a configuration value, or repair web-layer logic. A channel model also lets teams separate development, staging, beta, production, or customer-specific audiences without creating a different native binary for every group."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 178,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 1
+          },
+          "text": "Capgo is one option in this layer. It provides signed JavaScript, CSS, copy, configuration, and asset bundles for CapacitorJS and Electron apps, with channel targeting, CI/CD integrations, differential delivery, per-device logs, adoption and failure metrics, version history, and rollback protection. Teams can assess those capabilities alongside self-hosted update servers, Electron auto-update tooling, or a store-only process. A broader comparison of available approaches appears in this guide to "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 178,
+            "column": 501
+          },
+          "url": "https://capgo.app/blog/best-live-update-tools-for-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 178,
+                "column": 502
+              },
+              "text": "live update tools for Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 606
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 180,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 180,
+            "column": 1
+          },
+          "text": "<a id=\"what-live-updates-dont-replace\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 180,
+            "column": 40
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 181,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 5
+          },
+          "text": "What live updates don't replace"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 183,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 183,
+            "column": 1
+          },
+          "text": "Runtime delivery doesn't replace the native release path. You still need store submission and signing when you change native code, permissions, entitlements, embedded SDKs, or platform behaviour. You also need to follow store policies and perform security review on the content you deliver."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 185,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 185,
+            "column": 1
+          },
+          "text": "The compatibility boundary must be explicit. A bundle built against a new native plugin API can't safely target shells that don't include it. Use native capability manifests, minimum shell versions, staged channels, and a fallback bundle to prevent a fast delivery mechanism from becoming a fast way to distribute incompatibility."
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "location": {
+        "line": 187,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 187,
+            "column": 3
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 187,
+                "column": 3
+              },
+              "text": "A live update shortens the path for eligible code. It doesn't remove the need for release governance."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 189,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 189,
+            "column": 1
+          },
+          "text": "The right question is therefore not whether live updates are “better” than App Store workflows. Ask which changes belong in which path. Keep platform capability changes in signed binaries. Put compatible web-layer changes through a controlled runtime channel. Use observability and rollback to make either path reversible."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 191,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "text": "<a id=\"common-misconceptions-that-bite-teams-later\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 191,
+            "column": 53
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 192,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 192,
+            "column": 4
+          },
+          "text": "Common Misconceptions That Bite Teams Later"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 194,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 194,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 194,
+                "column": 3
+              },
+              "text": "Myth one, store submission finishes the job."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 194,
+            "column": 49
+          },
+          "text": " It doesn't. The store can distribute a package, but the team still has to monitor startup failures, API compatibility, update adoption, local migrations, and support reports. A Capacitor app can pass review and still load stale assets or fail when a native plugin receives an unexpected payload."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 196,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 196,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 196,
+                "column": 3
+              },
+              "text": "Myth two, OTA updates bypass review entirely."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 196,
+            "column": 50
+          },
+          "text": " Runtime delivery may avoid a full store resubmission for eligible JavaScript changes, but it doesn't erase platform policy, security, or compatibility obligations. A bundle that changes the app's fundamental purpose, adds unapproved capabilities, or introduces unsafe behaviour can still create compliance and trust problems."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 198,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 198,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 198,
+                "column": 3
+              },
+              "text": "Myth three, logging equals observability."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 46
+          },
+          "text": " A raw error line rarely answers which release caused the problem, which users received it, whether the failure is limited to one platform, or whether rollback worked. Observability joins logs, crashes, performance, release metadata, and user context into a decision system. The gap remains common. One 2026 survey found that "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 198,
+            "column": 372
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 198,
+                "column": 374
+              },
+              "text": "85% of organizations used observability in some form, but only 46% ran unified infrastructure and application observability in production"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 513
+          },
+          "text": ", according to "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 198,
+            "column": 528
+          },
+          "url": "https://www.tierpoint.com/blog/cloud/digital-infrastructure-trends/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 198,
+                "column": 529
+              },
+              "text": "TierPoint's digital infrastructure trends report"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 647
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 200,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 200,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 200,
+                "column": 3
+              },
+              "text": "Myth four, JavaScript is automatically safer than native code."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 200,
+            "column": 67
+          },
+          "text": " JavaScript can expose API keys, mishandle tokens, leak personal data through diagnostics, or trust an unverified bundle. The runtime choice changes the attack surface, not the need for signed artifacts, secret management, dependency review, least privilege, and careful data handling."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 202,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 202,
+            "column": 1
+          },
+          "text": "Treat release hygiene as daily operations. The most expensive failure is often the one a team can't identify or reverse."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 204,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 204,
+            "column": 1
+          },
+          "text": "<a id=\"a-practical-checklist-to-audit-your-own-stack\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 204,
+            "column": 55
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 205,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 205,
+            "column": 4
+          },
+          "text": "A Practical Checklist to Audit Your Own Stack"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 207,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 1
+          },
+          "text": "Run this audit against a real Capacitor or Electron project. Answer yes or no, and record the artifact, dashboard, policy, or runbook that proves each yes."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 209,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 209,
+            "column": 1
+          },
+          "text": "<a id=\"build-and-delivery\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 209,
+            "column": 28
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 210,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 210,
+            "column": 5
+          },
+          "text": "Build and delivery"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 212,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 212,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 212,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 212,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 212,
+                        "column": 5
+                      },
+                      "text": "Reproducible builds:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 212,
+                    "column": 27
+                  },
+                  "text": " Can CI recreate a release from a commit and locked dependency set?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 213,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 213,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 213,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 213,
+                        "column": 5
+                      },
+                      "text": "Signing controls:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 213,
+                    "column": 24
+                  },
+                  "text": " Are platform signing credentials protected and used through an auditable pipeline?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 214,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 214,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 214,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 214,
+                        "column": 5
+                      },
+                      "text": "Artifact identity:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 214,
+                    "column": 25
+                  },
+                  "text": " Can you connect each binary and JavaScript bundle to its source revision and native shell version?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 215,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 215,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 215,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 215,
+                        "column": 5
+                      },
+                      "text": "Release promotion:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 215,
+                    "column": 25
+                  },
+                  "text": " Do production deployments promote tested artifacts instead of rebuilding them?"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 217,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 217,
+            "column": 1
+          },
+          "text": "<a id=\"updates-and-runtime-compatibility\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 217,
+            "column": 43
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 218,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 5
+          },
+          "text": "Updates and runtime compatibility"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 220,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 220,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 220,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 220,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 220,
+                        "column": 5
+                      },
+                      "text": "Channel ownership:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 220,
+                    "column": 25
+                  },
+                  "text": " Does every update channel have an owner, audience, and promotion rule?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 221,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 221,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 221,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 221,
+                        "column": 5
+                      },
+                      "text": "Compatibility boundary:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 221,
+                    "column": 30
+                  },
+                  "text": " Can the app reject a bundle that requires unavailable native capabilities?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 222,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 222,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 222,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 222,
+                        "column": 5
+                      },
+                      "text": "Rollback speed:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 222,
+                    "column": 22
+                  },
+                  "text": " Can you roll back a JavaScript bundle without a store release within one hour?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 223,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 223,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 223,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 223,
+                        "column": 5
+                      },
+                      "text": "Binary fallback:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 223,
+                    "column": 23
+                  },
+                  "text": " Does the app still have a safe path when a runtime update fails or the device is offline?"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 225,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 225,
+            "column": 1
+          },
+          "text": "<a id=\"services-and-data\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 225,
+            "column": 27
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 226,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 5
+          },
+          "text": "Services and data"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 228,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 228,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 228,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 228,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 228,
+                        "column": 5
+                      },
+                      "text": "API compatibility:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 228,
+                    "column": 25
+                  },
+                  "text": " Can older installed clients continue to use the backend during a rollout?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 229,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 229,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 229,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 229,
+                        "column": 5
+                      },
+                      "text": "Offline behaviour:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 229,
+                    "column": 25
+                  },
+                  "text": " Does the app explain queued, failed, and synchronized changes?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 230,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 230,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 230,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 230,
+                        "column": 5
+                      },
+                      "text": "Conflict handling:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 230,
+                    "column": 25
+                  },
+                  "text": " Are merge and rejection rules defined for every offline-write workflow?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 231,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 231,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 231,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 231,
+                        "column": 5
+                      },
+                      "text": "Migration repair:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 231,
+                    "column": 24
+                  },
+                  "text": " Can support recover local state without asking users to reinstall blindly?"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 233,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 233,
+            "column": 1
+          },
+          "text": "<a id=\"observability-security-and-recovery\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 233,
+            "column": 45
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 234,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 234,
+            "column": 5
+          },
+          "text": "Observability, security, and recovery"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 236,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 236,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 236,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 236,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 236,
+                        "column": 5
+                      },
+                      "text": "Release visibility:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 236,
+                    "column": 26
+                  },
+                  "text": " Can you filter crashes and logs by binary, bundle, platform, and channel?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 237,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 237,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 237,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 237,
+                        "column": 5
+                      },
+                      "text": "User diagnostics:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 237,
+                    "column": 24
+                  },
+                  "text": " Can support identify an affected installation without collecting unnecessary personal data?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 238,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 238,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 238,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 238,
+                        "column": 5
+                      },
+                      "text": "Secret protection:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 238,
+                    "column": 25
+                  },
+                  "text": " Are credentials excluded from the client bundle and diagnostic output?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 239,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 239,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 239,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 239,
+                        "column": 5
+                      },
+                      "text": "Incident rehearsal:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 239,
+                    "column": 26
+                  },
+                  "text": " Has the team practiced stopping delivery, rolling back, and communicating a broken release?"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 241,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 1
+          },
+          "text": "The mental model is simple: "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 241,
+            "column": 29
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 241,
+                "column": 31
+              },
+              "text": "build the artifact, control its route, observe its behaviour, and keep a repair path open"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 122
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "thematicBreak",
+      "location": {
+        "line": 243,
+        "column": 1
+      }
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 1
+          },
+          "text": "Capgo provides a live-update layer for CapacitorJS and Electron teams, connecting CI uploads with signed bundles, targeted channels, runtime delivery, rollout visibility, and rollback controls. If you're auditing your app infrastructure and want a concrete way to manage compatible JavaScript releases outside the full binary workflow, visit "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 245,
+            "column": 343
+          },
+          "url": "https://capgo.app",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 245,
+                "column": 344
+              },
+              "text": "Capgo"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 369
+          },
+          "text": " and evaluate it against your release and recovery requirements."
+        }
+      ]
+    }
+  ]
+}

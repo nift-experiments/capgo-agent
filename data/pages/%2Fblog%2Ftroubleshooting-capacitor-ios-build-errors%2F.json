@@ -1,0 +1,4113 @@
+{
+  "version": 1,
+  "route": "/blog/troubleshooting-capacitor-ios-build-errors/",
+  "source": "corpus/source/apps/web/src/content/blog/en/troubleshooting-capacitor-ios-build-errors.md",
+  "sourceSha256": "3fe1c96f0ab4c749c1544ca390beb174a105efc5bfd83eed72f5fa61fb462fe0",
+  "metadata": {
+    "slug": "troubleshooting-capacitor-ios-build-errors",
+    "title": "Capacitor iOS Troubleshooting: Common Errors and Fixes",
+    "description": "Fix common Capacitor iOS issues: No such module Capacitor, plugin not implemented, SPM and CocoaPods errors, signing, blank screens and upload errors.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/xcode-run.webp",
+    "head_image_alt": "Xcode Signing and Capabilities tab for a Capacitor App target with team and run button highlighted",
+    "keywords": "Capacitor iOS troubleshooting, Capacitor iOS build error, No such module Capacitor, plugin is not implemented iOS, Capacitor blank screen iOS, CocoaPods error Capacitor, SPM error Capacitor, Xcode 26 Capacitor",
+    "tag": "Capacitor, iOS, Guides",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "How do I do a full clean rebuild of a Capacitor iOS app?",
+        "answer": "Rebuild the web app, run bunx cap sync ios, then in Xcode use Product > Clean Build Folder. For SPM projects also use File > Packages > Reset Package Caches. For CocoaPods delete ios/App/Pods and run bunx cap sync ios again. If errors persist, quit Xcode and delete ~/Library/Developer/Xcode/DerivedData."
+      },
+      {
+        "question": "Which Xcode version do I need for Capacitor 8?",
+        "answer": "Capacitor 8 requires Xcode 26 or later. Since April 28, 2026, App Store Connect also rejects uploads built with older Xcode versions, so Xcode 26 is required for releases regardless of Capacitor version."
+      },
+      {
+        "question": "How do I see console logs from my Capacitor app on iOS?",
+        "answer": "Enable the Develop menu in Safari settings, connect the device or start the simulator, then pick the app under Safari > Develop. Debug builds are inspectable by default on iOS 16.4+. For release builds, set ios.webContentsDebuggingEnabled to true in the Capacitor config. Native logs show in the Xcode console."
+      },
+      {
+        "question": "Why do my web changes not appear in the iOS app?",
+        "answer": "Capacitor copies built web assets into the native project. Run your web build, then bunx cap sync ios or bunx cap copy ios, and run the app again. If you use live updates, the app may also be running a downloaded bundle instead of the built-in one."
+      },
+      {
+        "question": "Should I fix CocoaPods errors or migrate to SPM?",
+        "answer": "If the error comes from version conflicts or Ruby tooling and all your plugins support SPM, migrating usually removes that whole class of errors. If a plugin you need is CocoaPods-only, fix the CocoaPods issue for now and plan the migration later."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "Most Capacitor iOS problems fall into five groups: wrong toolchain, dependency resolution (SPM or CocoaPods), compile errors from plugins, code signing, and runtime issues such as \"plugin is not implemented\" or a blank WebView. Start with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 240
+          },
+          "text": "bunx cap doctor"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 257
+          },
+          "text": ", confirm you have Xcode 26 selected, run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 299
+          },
+          "text": "bunx cap sync ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 318
+          },
+          "text": ", and read the first error in the Xcode build log, not the last."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide lists the errors we see most in Capacitor 8 projects, what causes each one, and the fix. For Android, see the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 4,
+            "column": 122
+          },
+          "url": "/blog/troubleshooting-capacitor-android-build-errors/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 4,
+                "column": 123
+              },
+              "text": "Capacitor Android troubleshooting guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 218
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "Quick triage checklist"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "Run these before chasing a specific error:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx cap doctor            # Capacitor, CLI and plugin versions should match\nnode -v                    # 22 or later for Capacitor 8\nxcodebuild -version        # 26.x\nxcode-select -p            # should point to the Xcode you expect\nbun run build && bunx cap sync ios"
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 18,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 18,
+                        "column": 5
+                      },
+                      "text": "Versions"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 15
+                  },
+                  "text": ": "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 18,
+                    "column": 17
+                  },
+                  "text": "@capacitor/core"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 34
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 18,
+                    "column": 36
+                  },
+                  "text": "@capacitor/ios"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 52
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 18,
+                    "column": 57
+                  },
+                  "text": "@capacitor/cli"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 73
+                  },
+                  "text": " must share the same major. Mismatches cause odd compile and runtime errors. See "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 18,
+                    "column": 154
+                  },
+                  "url": "/blog/fix-capacitor-version-mismatch-errors/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 18,
+                        "column": 155
+                      },
+                      "text": "fix Capacitor version mismatch errors"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 239
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 19,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 19,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 19,
+                        "column": 5
+                      },
+                      "text": "One Xcode"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 16
+                  },
+                  "text": ": if you have several Xcode versions, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 19,
+                    "column": 54
+                  },
+                  "text": "xcode-select -p"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 71
+                  },
+                  "text": " decides which one the CLI uses. Fix it with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 19,
+                    "column": 116
+                  },
+                  "text": "sudo xcode-select -s /Applications/Xcode.app"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 162
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 20,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 20,
+                        "column": 5
+                      },
+                      "text": "Which package manager"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 28
+                  },
+                  "text": ": if "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 20,
+                    "column": 33
+                  },
+                  "text": "ios/App/CapApp-SPM"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 53
+                  },
+                  "text": " exists, the project uses SPM. If "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 20,
+                    "column": 87
+                  },
+                  "text": "ios/App/Podfile"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 104
+                  },
+                  "text": " exists, it uses CocoaPods."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 22,
+            "column": 4
+          },
+          "text": "Toolchain errors"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 5
+          },
+          "text": "Xcode or SDK too old"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "text": "Symptoms: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 26,
+            "column": 11
+          },
+          "text": "value of type 'WKWebView' has no member 'isInspectable'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 68
+          },
+          "text": ", Swift syntax errors inside "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 26,
+            "column": 97
+          },
+          "text": "Capacitor"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 108
+          },
+          "text": ", or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 26,
+            "column": 113
+          },
+          "text": "compiling for iOS 15.0, but module 'X' has a minimum deployment target of iOS 16.0"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 197
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "text": "Capacitor 8 requires Xcode 26. In GitHub Actions, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 28,
+            "column": 51
+          },
+          "text": "macos-latest"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 65
+          },
+          "text": " doesn't always point to the image with the newest Xcode. Pin an image that includes Xcode 26 and select it explicitly:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "- run: sudo xcode-select -s /Applications/Xcode_26.0.app"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "text": "Check the runner image docs for the exact path. For the module-minimum error, raise your app's deployment target to the plugin's minimum, or use an older plugin version."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 36,
+            "column": 5
+          },
+          "text": "ITMS-90725: SDK version issue"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 36
+          },
+          "text": " on upload"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "text": "The build was made with an SDK older than Apple currently accepts. Since April 28, 2026, uploads must be built with Xcode 26 and the iOS 26 SDK. See "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 38,
+            "column": 150
+          },
+          "url": "/blog/xcode-26-requirement-for-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 38,
+                "column": 151
+              },
+              "text": "Apple's Xcode 26 requirement for Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 247
+          },
+          "text": ". "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 38,
+            "column": 249
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 38,
+                "column": 250
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 278
+          },
+          "text": " already builds on Xcode 26 if you don't want to maintain Mac runners."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 4
+          },
+          "text": "Swift Package Manager errors"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 42,
+            "column": 5
+          },
+          "text": "Missing package product 'CapApp-SPM'"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 44,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "text": "Xcode hasn't resolved the local package, or its cache is stale."
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 46,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 46,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 46,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 46,
+                        "column": 6
+                      },
+                      "text": "File > Packages > Reset Package Caches"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 46
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 47,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 47,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 47,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 47,
+                        "column": 6
+                      },
+                      "text": "File > Packages > Resolve Package Versions"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 50
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 48,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 48,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 48,
+                    "column": 4
+                  },
+                  "text": "If the app was migrated from CocoaPods, check that "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 48,
+                    "column": 55
+                  },
+                  "text": "CapApp-SPM"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 48,
+                    "column": 67
+                  },
+                  "text": " is added under the project's "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 48,
+                    "column": 97
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 48,
+                        "column": 99
+                      },
+                      "text": "Package Dependencies"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 48,
+                    "column": 121
+                  },
+                  "text": " tab and linked to the App target."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 50,
+            "column": 5
+          },
+          "text": "product 'X' required by package 'capapp-spm' target 'CapApp-SPM' not found"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 1
+          },
+          "text": "A plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 12
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 27
+          },
+          "text": " uses a package or product name that doesn't match what the Capacitor CLI generated from its npm name. This is a plugin bug. Update the plugin, or "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 52,
+            "column": 174
+          },
+          "url": "/blog/how-to-patch-a-capacitor-plugin/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 52,
+                "column": 175
+              },
+              "text": "patch it"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 224
+          },
+          "text": ". Plugin authors can find the naming rule in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 52,
+            "column": 269
+          },
+          "url": "/blog/migrate-capacitor-plugin-to-swift-package-manager/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 52,
+                "column": 270
+              },
+              "text": "migrate a Capacitor plugin to SPM"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 362
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 5
+          },
+          "text": "\"Some installed Capacitor plugins are not compatible with SPM\""
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 1
+          },
+          "text": "This warning during "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 56,
+            "column": 21
+          },
+          "text": "cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 31
+          },
+          "text": " means at least one plugin has no "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 56,
+            "column": 65
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 80
+          },
+          "text": ". It's left out of the app, so calls to it fail with \"not implemented\". Upgrade the plugin, replace it with one that supports SPM, or "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 56,
+            "column": 214
+          },
+          "url": "/blog/use-cocoapods-with-capacitor-8/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 56,
+                "column": 215
+              },
+              "text": "use CocoaPods for now"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 276
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 5
+          },
+          "text": "Duplicate package identity or target name"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 1
+          },
+          "text": "Two plugins share a package identity or a target name (often a generic name like "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 82
+          },
+          "text": "Plugin"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 90
+          },
+          "text": "). Since CLI 8.4 you can fix it from the Capacitor config:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "const config: CapacitorConfig = {\n  // ...\n  experimental: {\n    ios: {\n      spm: {\n        packageOptions: {\n          '@acme/capacitor-foo': { symlink: true },\n          '@acme/capacitor-bar': { moduleAliases: { Plugin: 'AcmeBarPlugin' } },\n        },\n      },\n    },\n  },\n};"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 78,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 78,
+            "column": 1
+          },
+          "text": "symlink"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 10
+          },
+          "text": " makes the CLI reference the plugin through a symlink folder with a unique path. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 78,
+            "column": 91
+          },
+          "text": "moduleAliases"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 106
+          },
+          "text": " renames a conflicting module for that dependency. Report the conflict upstream too."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 5
+          },
+          "text": "Don't edit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 80,
+            "column": 16
+          },
+          "text": "CapApp-SPM/Package.swift"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 1
+          },
+          "text": "The CLI rewrites it on every sync. Local edits disappear. Use the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 82,
+            "column": 67
+          },
+          "text": "experimental.ios.spm"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 89
+          },
+          "text": " config options instead."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 84,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 84,
+            "column": 4
+          },
+          "text": "CocoaPods errors"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 86,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 86,
+            "column": 5
+          },
+          "text": "No such module 'Capacitor'"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 88,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 1
+          },
+          "text": "You opened "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 88,
+            "column": 12
+          },
+          "text": "App.xcodeproj"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 27
+          },
+          "text": " instead of "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 88,
+            "column": 39
+          },
+          "text": "App.xcworkspace"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 56
+          },
+          "text": ". Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 88,
+            "column": 62
+          },
+          "text": "bunx cap open ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 81
+          },
+          "text": ". If the workspace is open and the error persists, run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 88,
+            "column": 136
+          },
+          "text": "bunx cap sync ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 155
+          },
+          "text": " to reinstall pods."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 90,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 90,
+            "column": 5
+          },
+          "text": "CocoaPods could not find compatible versions for pod \"X\""
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "text": "Two causes:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 94,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 94,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 94,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 94,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 94,
+                        "column": 6
+                      },
+                      "text": "Stale spec repo"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 94,
+                    "column": 23
+                  },
+                  "text": ": run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 94,
+                    "column": 29
+                  },
+                  "text": "cd ios/App && pod install --repo-update"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 94,
+                    "column": 70
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 95,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 95,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 95,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 95,
+                        "column": 6
+                      },
+                      "text": "Conflicting pins"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 95,
+                    "column": 24
+                  },
+                  "text": ": two plugins need incompatible versions of the same pod. The error prints the chain. Upgrade the plugin with the strict pin, align versions (for Firebase, keep all Firebase plugins on the same SDK version), or patch the podspec."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "text": "If it keeps failing, delete "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 29
+          },
+          "text": "ios/App/Podfile.lock"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 51
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 56
+          },
+          "text": "ios/App/Pods"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 70
+          },
+          "text": ", then sync again. This also upgrades every pod, so test afterwards."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 99,
+            "column": 5
+          },
+          "text": "The sandbox is not in sync with the Podfile.lock"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 101,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 1
+          },
+          "text": "Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 101,
+            "column": 5
+          },
+          "text": "bunx cap sync ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 24
+          },
+          "text": ". It happens after branch switches or partial installs."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 103,
+            "column": 5
+          },
+          "text": "Unable to find compatibility version string for object version '70'"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 1
+          },
+          "text": "Your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 105,
+            "column": 6
+          },
+          "text": "project.pbxproj"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 23
+          },
+          "text": " uses a format your CocoaPods version can't read. Update CocoaPods ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 105,
+            "column": 91
+          },
+          "text": "brew upgrade cocoapods"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 115
+          },
+          "text": " or bump it in your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 105,
+            "column": 135
+          },
+          "text": "Gemfile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 144
+          },
+          "text": "). As a last resort, back up the file and lower "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 105,
+            "column": 192
+          },
+          "text": "objectVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 207
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 107,
+            "column": 5
+          },
+          "text": "Sandbox: rsync(...) deny(1) file-write-create"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 109,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 109,
+            "column": 1
+          },
+          "text": "Xcode's user script sandboxing blocks the CocoaPods framework embed script. Set "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 109,
+            "column": 81
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 109,
+                "column": 83
+              },
+              "text": "Build Settings > User Script Sandboxing"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 109,
+            "column": 124
+          },
+          "text": " to "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 109,
+            "column": 128
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 109,
+                "column": 130
+              },
+              "text": "No"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 109,
+            "column": 134
+          },
+          "text": " on the App target."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 111,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 111,
+            "column": 5
+          },
+          "text": "could not find module 'Capacitor' for target 'x86_64-apple-ios-simulator'"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 113,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 1
+          },
+          "text": "The simulator build is running for Intel. On Apple Silicon this usually means Xcode runs under Rosetta or an old "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 114
+          },
+          "text": "EXCLUDED_ARCHS[sdk=iphonesimulator*] = arm64"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 160
+          },
+          "text": " setting is left over from a past workaround. Run Xcode natively, remove that setting from the App target and any "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 274
+          },
+          "text": "post_install"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 288
+          },
+          "text": " hook, then clean and rebuild."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 115,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 4
+          },
+          "text": "Compile errors"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 5
+          },
+          "text": "Command PhaseScriptExecution failed with a nonzero exit code"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 119,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 1
+          },
+          "text": "This is a wrapper. Expand the failing build phase in the Report navigator and read the script output. Common causes in Capacitor apps:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 121,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 121,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 3
+                  },
+                  "text": "A Run Script needs "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 121,
+                    "column": 22
+                  },
+                  "text": "node"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 28
+                  },
+                  "text": " and Xcode can't find it, because Xcode doesn't load your shell profile and Node is installed with nvm, fnm or Volta. Use the full path to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 121,
+                    "column": 167
+                  },
+                  "text": "node"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 173
+                  },
+                  "text": " in the script, or export "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 121,
+                    "column": 199
+                  },
+                  "text": "PATH"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 205
+                  },
+                  "text": " at the top of it."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 122,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 122,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 122,
+                    "column": 3
+                  },
+                  "text": "A crash reporting upload script (Sentry, Crashlytics) is missing credentials in CI."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 123,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 123,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 123,
+                    "column": 3
+                  },
+                  "text": "CocoaPods embed script blocked by user script sandboxing (see above)."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 125,
+            "column": 5
+          },
+          "text": "'X' is only available in iOS 16.0 or newer"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 127,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 1
+          },
+          "text": "A plugin uses an API above your deployment target. Raise the target in Xcode, in the Podfile ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 127,
+            "column": 95
+          },
+          "text": "platform :ios, '16.0'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 118
+          },
+          "text": ") if you use CocoaPods, and check the plugin's README for its minimum."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 5
+          },
+          "text": "Swift 6 concurrency errors in a plugin"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 131,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 1
+          },
+          "text": "Messages like "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 131,
+            "column": 15
+          },
+          "text": "Sending 'x' risks causing data races"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 53
+          },
+          "text": " show up when a plugin or your app target uses Swift 6 language mode. Capacitor 8 doesn't officially support Swift 6. Keep the App target on Swift 5 language mode until the plugin is updated."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 133,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 133,
+            "column": 4
+          },
+          "text": "Code signing"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 135,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 135,
+            "column": 5
+          },
+          "text": "Signing for \"App\" requires a development team"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 137,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 137,
+            "column": 1
+          },
+          "text": "Open "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 137,
+            "column": 6
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 137,
+                "column": 8
+              },
+              "text": "App target > Signing & Capabilities"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 137,
+            "column": 45
+          },
+          "text": " and pick a team. In CI, pass "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 137,
+            "column": 75
+          },
+          "text": "DEVELOPMENT_TEAM"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 137,
+            "column": 93
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 137,
+            "column": 97
+          },
+          "text": "xcodebuild"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 137,
+            "column": 109
+          },
+          "text": " or use a signing tool. If the error names a pod resource bundle instead of App, disable signing for bundle targets in the Podfile "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 137,
+            "column": 240
+          },
+          "text": "post_install"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 137,
+            "column": 254
+          },
+          "text": " hook."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 139,
+            "column": 5
+          },
+          "text": "Provisioning profile \"X\" doesn't include the ... entitlement"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 141,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 1
+          },
+          "text": "You added a capability (Push Notifications, Associated Domains, Sign in with Apple) without regenerating the profile. Enable it on the App ID in the Apple Developer portal, then refresh profiles. Our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 141,
+            "column": 201
+          },
+          "url": "/tools/ios-certificate-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 141,
+                "column": 202
+              },
+              "text": "iOS certificate generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 263
+          },
+          "text": " helps create certificates without a Mac keychain dance, and the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 141,
+            "column": 328
+          },
+          "url": "/tools/ios-udid-finder/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 141,
+                "column": 329
+              },
+              "text": "UDID finder"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 366
+          },
+          "text": " helps register test devices."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 143,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 143,
+            "column": 5
+          },
+          "text": "Unable to install \"App\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 143,
+            "column": 30
+          },
+          "text": " on device"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 145,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 145,
+            "column": 1
+          },
+          "text": "Enable Developer Mode on the device (Settings > Privacy & Security > Developer Mode), trust the developer certificate, and make sure the device's UDID is in the provisioning profile for development builds."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 147,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 147,
+            "column": 4
+          },
+          "text": "Runtime errors"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 149,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 149,
+            "column": 5
+          },
+          "text": "\"X\" plugin is not implemented on ios"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 151,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 1
+          },
+          "text": "The JavaScript side found no native implementation. Check in this order:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 153,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 153,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 153,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 153,
+                    "column": 4
+                  },
+                  "text": "The plugin is in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 153,
+                    "column": 21
+                  },
+                  "text": "package.json"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 153,
+                    "column": 35
+                  },
+                  "text": " and you ran "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 153,
+                    "column": 48
+                  },
+                  "text": "bunx cap sync ios"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 153,
+                    "column": 67
+                  },
+                  "text": " after installing it."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 154,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 154,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 154,
+                    "column": 4
+                  },
+                  "text": "For SPM: the plugin appears in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 154,
+                    "column": 35
+                  },
+                  "text": "ios/App/CapApp-SPM/Package.swift"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 154,
+                    "column": 69
+                  },
+                  "text": ". If not, it has no "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 154,
+                    "column": 89
+                  },
+                  "text": "Package.swift"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 154,
+                    "column": 104
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 155,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 155,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 155,
+                    "column": 4
+                  },
+                  "text": "For CocoaPods: the plugin appears in the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 155,
+                    "column": 45
+                  },
+                  "text": "capacitor_pods"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 155,
+                    "column": 61
+                  },
+                  "text": " block of the Podfile and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 155,
+                    "column": 87
+                  },
+                  "text": "pod install"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 155,
+                    "column": 100
+                  },
+                  "text": " printed no warnings."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 156,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 156,
+                    "column": 4
+                  },
+                  "text": "You don't have two plugins registering the same JS name (for example two push notification plugins)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 157,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 157,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 157,
+                    "column": 4
+                  },
+                  "text": "WKAppBoundDomains"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 157,
+                    "column": 23
+                  },
+                  "text": " is not in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 157,
+                    "column": 34
+                  },
+                  "text": "Info.plist"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 157,
+                    "column": 46
+                  },
+                  "text": ", or if it is, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 157,
+                    "column": 61
+                  },
+                  "text": "limitsNavigationsToAppBoundDomains"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 157,
+                    "column": 97
+                  },
+                  "text": " is set and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 157,
+                    "column": 109
+                  },
+                  "text": "localhost"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 157,
+                    "column": 120
+                  },
+                  "text": " is listed. App-bound domains block plugin script injection otherwise."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 158,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 158,
+                    "column": 4
+                  },
+                  "text": "Clean build folder and rebuild. Stale builds keep old plugin registrations."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 5
+          },
+          "text": "Blank white screen on launch"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 162,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 162,
+            "column": 1
+          },
+          "text": "Inspect the WebView with Safari Web Inspector first. Most blank screens are a JavaScript error."
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 164,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 164,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 164,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 164,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 164,
+                        "column": 5
+                      },
+                      "text": "Wrong "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 164,
+                        "column": 11
+                      },
+                      "text": "webDir"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 164,
+                    "column": 21
+                  },
+                  "text": ": "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 164,
+                    "column": 23
+                  },
+                  "text": "capacitor.config.ts"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 164,
+                    "column": 44
+                  },
+                  "text": " points to a folder that doesn't contain "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 164,
+                    "column": 85
+                  },
+                  "text": "index.html"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 164,
+                    "column": 97
+                  },
+                  "text": ". Check "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 164,
+                    "column": 105
+                  },
+                  "text": "ios/App/App/public"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 164,
+                    "column": 125
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 165,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 165,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 165,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 165,
+                        "column": 5
+                      },
+                      "text": "Build target too new"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 27
+                  },
+                  "text": ": your bundler emits syntax older WebKit doesn't support. iOS 15 is the minimum for Capacitor 8, so target "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 165,
+                    "column": 134
+                  },
+                  "text": "safari15"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 144
+                  },
+                  "text": " or later in Vite/esbuild and check your "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 165,
+                    "column": 185
+                  },
+                  "text": "browserslist"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 199
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 166,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 166,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 166,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 166,
+                        "column": 5
+                      },
+                      "text": "Absolute asset paths"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 166,
+                    "column": 27
+                  },
+                  "text": ": a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 166,
+                    "column": 31
+                  },
+                  "text": "base"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 166,
+                    "column": 37
+                  },
+                  "text": " set to a CDN or subpath in your bundler config breaks local loading."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 167,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 167,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 167,
+                        "column": 5
+                      },
+                      "text": "Live reload unreachable"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 167,
+                    "column": 30
+                  },
+                  "text": ": the dev server must listen on your LAN IP ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 167,
+                    "column": 75
+                  },
+                  "text": "--host 0.0.0.0"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 167,
+                    "column": 91
+                  },
+                  "text": "), the phone must be on the same network, and the app needs the "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 167,
+                    "column": 155
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 167,
+                        "column": 157
+                      },
+                      "text": "Local Network"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 167,
+                    "column": 172
+                  },
+                  "text": " permission (Settings > Privacy & Security > Local Network). Remove "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 167,
+                    "column": 240
+                  },
+                  "text": "server.url"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 167,
+                    "column": 252
+                  },
+                  "text": " from the config before release builds."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 168,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 168,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 168,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 168,
+                        "column": 5
+                      },
+                      "text": "Live update bundle broken"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 32
+                  },
+                  "text": ": if the app uses OTA updates, a bad bundle can blank the screen. Capgo's updater rolls back automatically when "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 168,
+                    "column": 144
+                  },
+                  "text": "notifyAppReady()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 162
+                  },
+                  "text": " isn't called in time. See the "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 168,
+                    "column": 193
+                  },
+                  "url": "/docs/plugins/updater/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 168,
+                        "column": 194
+                      },
+                      "text": "updater docs"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 231
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 5
+          },
+          "text": "Content under the notch or home indicator"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 1
+          },
+          "text": "Add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 172,
+            "column": 5
+          },
+          "text": "viewport-fit=cover"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 25
+          },
+          "text": " to your viewport meta tag and pad with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 172,
+            "column": 65
+          },
+          "text": "env(safe-area-inset-top)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 91
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 172,
+            "column": 96
+          },
+          "text": "env(safe-area-inset-bottom)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 125
+          },
+          "text": ". Capacitor 8's System Bars plugin controls status bar style and visibility on both platforms."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 5
+          },
+          "text": "Keyboard covers inputs"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 1
+          },
+          "text": "Configure the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 176,
+            "column": 15
+          },
+          "url": "https://capacitorjs.com/docs/apis/keyboard",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 176,
+                "column": 16
+              },
+              "text": "Keyboard plugin"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 76
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 176,
+            "column": 77
+          },
+          "text": "resize"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 85
+          },
+          "text": " mode ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 176,
+            "column": 92
+          },
+          "text": "native"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 100
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 176,
+            "column": 102
+          },
+          "text": "body"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 108
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 176,
+            "column": 110
+          },
+          "text": "ionic"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 117
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 176,
+            "column": 121
+          },
+          "text": "none"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 127
+          },
+          "text": ") and test on a real device. Simulators handle the keyboard differently."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 178,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 4
+          },
+          "text": "App Store Connect errors"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 180,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 180,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 180,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 180,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 180,
+                        "column": 5
+                      },
+                      "text": "ITMS-91053: Missing API declaration"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 44
+                  },
+                  "text": ": your app or a plugin uses a required-reason API without a privacy manifest entry. Add a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 180,
+                    "column": 134
+                  },
+                  "text": "PrivacyInfo.xcprivacy"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 157
+                  },
+                  "text": " to the App target with the reasons, and update plugins that ship their own manifest."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 181,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 181,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 181,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 181,
+                        "column": 5
+                      },
+                      "text": "ITMS-90725: SDK version issue"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 38
+                  },
+                  "text": ": rebuild with Xcode 26."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 182,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 182,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 182,
+                        "column": 5
+                      },
+                      "text": "Invalid Bundle. The bundle ... contains disallowed file 'Frameworks'"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 77
+                  },
+                  "text": ": a framework is embedded inside an extension or another framework. Check "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 182,
+                    "column": 151
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 182,
+                        "column": 153
+                      },
+                      "text": "Embed"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 160
+                  },
+                  "text": " settings for app extensions."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 4
+          },
+          "text": "How to debug when the error isn't listed"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 186,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 186,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 186,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 186,
+                        "column": 6
+                      },
+                      "text": "Safari Web Inspector"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 186,
+                    "column": 28
+                  },
+                  "text": " for JS errors and network calls. Debug builds are inspectable on iOS 16.4+. For release builds set "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 186,
+                    "column": 128
+                  },
+                  "text": "ios.webContentsDebuggingEnabled: true"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 186,
+                    "column": 167
+                  },
+                  "text": " temporarily."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 187,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 187,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 187,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 187,
+                        "column": 6
+                      },
+                      "text": "Xcode console"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 187,
+                    "column": 21
+                  },
+                  "text": " for native logs, including Capacitor's "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 187,
+                    "column": 61
+                  },
+                  "text": "⚡️"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 187,
+                    "column": 65
+                  },
+                  "text": " bridge messages that show each plugin call."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 188,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 188,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 188,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 188,
+                        "column": 6
+                      },
+                      "text": "Console.app"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 188,
+                    "column": 19
+                  },
+                  "text": " with the device selected for crash and system logs."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 189,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 189,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 189,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 189,
+                        "column": 6
+                      },
+                      "text": "Isolate"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 189,
+                    "column": 15
+                  },
+                  "text": ": create a fresh app with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 189,
+                    "column": 41
+                  },
+                  "text": "bun create @capacitor/app"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 189,
+                    "column": 68
+                  },
+                  "text": ", add only the suspect plugin, and see if the error reproduces."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 191,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 191,
+            "column": 5
+          },
+          "url": "/blog/ultimate-guide-to-debugging-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 191,
+                "column": 6
+              },
+              "text": "ultimate guide to debugging Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 100
+          },
+          "text": " goes deeper into each tool. If the root cause is a plugin bug, a "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 191,
+            "column": 166
+          },
+          "url": "/blog/how-to-patch-a-capacitor-plugin/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 191,
+                "column": 167
+              },
+              "text": "patch"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 213
+          },
+          "text": " is usually the quickest unblock while you wait for a release."
+        }
+      ]
+    }
+  ]
+}

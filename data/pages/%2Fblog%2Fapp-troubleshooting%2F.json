@@ -1,0 +1,5165 @@
+{
+  "version": 1,
+  "route": "/blog/app-troubleshooting/",
+  "source": "corpus/source/apps/web/src/content/blog/en/app-troubleshooting.md",
+  "sourceSha256": "580592d4b5ef2478762af942b1d6b0c6b25001c98336e82b09263a3dd1f91911",
+  "metadata": {
+    "slug": "app-troubleshooting",
+    "title": "App Troubleshooting Playbook for CapacitorJS and Electron",
+    "description": "App troubleshooting playbook for CapacitorJS and Electron teams. Reproduce bugs, read logs, debug native layers, and ship hotfixes fast.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-08-25 08:45:22.833000+00:00",
+    "updated_at": "2026-08-27 16:41:24+00:00",
+    "head_image": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/afd318b2-c157-4cd0-ba39-5d5d445cf694/app-troubleshooting-capacitorjs-electron.jpg",
+    "head_image_alt": "App Troubleshooting Playbook for CapacitorJS and Electron",
+    "keywords": "app troubleshooting, CapacitorJS, live updates, mobile debugging, Electron apps",
+    "tag": "Mobile, Updates, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "ai",
+    "next_blog": ""
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 1,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 1,
+            "column": 1
+          },
+          "text": "Thursday evening, your CapacitorJS shopping app starts showing blank dashboards for Android 14 users. iOS customers are browsing normally. Electron desktop users haven't reported anything. The on-call engineer assumes a WebView regression, opens Android Studio, and spends hours comparing rendering behavior across devices. The eventual cause isn't a rendering bug at all. A staging API key reached production after a CDN cache invalidation failed to reach mobile clients."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 3,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 1
+          },
+          "text": "That incident is familiar because mobile failures rarely respect the boundaries in your repository. A fresh JavaScript change may be innocent while a deployment, configuration value, permission state, service dependency, or network path breaks the user journey. A Microsoft incident analysis found that "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 3,
+            "column": 304
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 3,
+                "column": 306
+              },
+              "text": "40% of production incidents came from code or configuration bugs, while 60% came from infrastructure, deployment, and service dependencies"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 446
+          },
+          "text": ". The practical lesson is simple: "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 3,
+            "column": 480
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 3,
+                "column": 482
+              },
+              "text": "app troubleshooting must begin with the whole failure domain, not the stack trace"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 565
+          },
+          "text": ". ("
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 3,
+            "column": 568
+          },
+          "url": "https://www.microsoft.com/en-us/research/wp-content/uploads/2022/09/3542929.3563482.pdf",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 3,
+                "column": 569
+              },
+              "text": "Microsoft's incident analysis"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 688
+          },
+          "text": ")"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 5,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 5,
+            "column": 1
+          },
+          "text": "This playbook follows the workflow I use after shipping CapacitorJS and Electron releases: establish exactly what the user ran, inspect production telemetry before attempting reproduction, verify non-code causes, then debug the narrowest layer that matches the symptom. The seven moves are incident scoping, layered logs, web and native debugging, networking and state checks, CI guardrails, live-update recovery, and a post-incident review that assigns prevention work."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 7,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 7,
+            "column": 4
+          },
+          "text": "Table of Contents"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "url": "#the-night-the-dashboard-went-dark",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 8,
+                        "column": 4
+                      },
+                      "text": "The Night the Dashboard Went Dark"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 9,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 9,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 9,
+                            "column": 5
+                          },
+                          "url": "#establish-the-exact-failure-surface",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 9,
+                                "column": 6
+                              },
+                              "text": "Establish the exact failure surface"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 10,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 10,
+                            "column": 5
+                          },
+                          "url": "#reproduce-by-removing-variables",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 10,
+                                "column": 6
+                              },
+                              "text": "Reproduce by removing variables"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "url": "#reading-logs-from-webview-native-and-the-os",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 11,
+                        "column": 4
+                      },
+                      "text": "Reading Logs from Webview, Native, and the OS"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 12,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 12,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 12,
+                            "column": 5
+                          },
+                          "url": "#match-each-symptom-to-its-evidence",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 12,
+                                "column": 6
+                              },
+                              "text": "Match each symptom to its evidence"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 13,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 13,
+                            "column": 5
+                          },
+                          "url": "#correlate-before-you-filter",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 13,
+                                "column": 6
+                              },
+                              "text": "Correlate before you filter"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 14,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "url": "#debugging-the-web-layer-and-the-native-layer",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 14,
+                        "column": 4
+                      },
+                      "text": "Debugging the Web Layer and the Native Layer"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 15,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 15,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 15,
+                            "column": 5
+                          },
+                          "url": "#start-with-the-webview",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 15,
+                                "column": 6
+                              },
+                              "text": "Start with the WebView"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 16,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 16,
+                            "column": 5
+                          },
+                          "url": "#move-to-native-tools-when-the-evidence-points-there",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 16,
+                                "column": 6
+                              },
+                              "text": "Move to native tools when the evidence points there"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 17,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 17,
+                    "column": 3
+                  },
+                  "url": "#networking-storage-and-permissions-first-checks",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 17,
+                        "column": 4
+                      },
+                      "text": "Networking, Storage, and Permissions First Checks"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 18,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "url": "#automated-tests-and-ci-as-early-warning-systems",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 18,
+                        "column": 4
+                      },
+                      "text": "Automated Tests and CI as Early Warning Systems"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 19,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 19,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 19,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 19,
+                            "column": 5
+                          },
+                          "url": "#test-the-shared-logic-and-the-shells",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 19,
+                                "column": 6
+                              },
+                              "text": "Test the shared logic and the shells"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 20,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 20,
+                            "column": 5
+                          },
+                          "url": "#make-failures-merge-blocking",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 20,
+                                "column": 6
+                              },
+                              "text": "Make failures merge-blocking"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 21,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 21,
+                    "column": 3
+                  },
+                  "url": "#live-updates-as-an-emergency-recovery-channel",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 21,
+                        "column": 4
+                      },
+                      "text": "Live Updates as an Emergency Recovery Channel"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 22,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 22,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 22,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 22,
+                            "column": 5
+                          },
+                          "url": "#use-a-guarded-rollout",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 22,
+                                "column": 6
+                              },
+                              "text": "Use a guarded rollout"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 23,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "url": "#post-incident-analysis-that-prevents-the-next-one",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 23,
+                        "column": 4
+                      },
+                      "text": "Post-Incident Analysis That Prevents the Next One"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 24,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 24,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 24,
+                            "column": 5
+                          },
+                          "url": "#use-five-concrete-blocks",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 24,
+                                "column": 6
+                              },
+                              "text": "Use five concrete blocks"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 25,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 25,
+                            "column": 5
+                          },
+                          "url": "#assign-work-before-closing-the-incident",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 25,
+                                "column": 6
+                              },
+                              "text": "Assign work before closing the incident"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "text": "<a id=\"the-night-the-dashboard-went-dark\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 27,
+            "column": 43
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 4
+          },
+          "text": "The Night the Dashboard Went Dark"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "text": "By Thursday evening, Android users were reporting a blank dashboard while Electron desktop users continued working normally. The first assumption was an Android 14 or WebView regression. That clue narrowed the search, but it did not identify the failure. The affected users also shared a release channel, a cached configuration path, an API environment, and a particular sequence of dashboard requests."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "text": "The on-call engineer started by comparing WebView versions. The results looked plausible and led nowhere. A blank dashboard can come from a rendering exception, an empty API response, a rejected request, an invalid token, a feature flag, or a storage read that prevents session restoration. Before changing code, establish which binary, web bundle, configuration, and backend path the affected users received."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/e9f58ef9-1b69-4549-9685-8f09de959f0f/app-troubleshooting-checklist.jpg",
+          "title": null,
+          "alt": "A troubleshooting checklist titled The Night the Dashboard Went Dark, outlining incident details for Android users."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "text": "<a id=\"establish-the-exact-failure-surface\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 36,
+            "column": 45
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 37,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 5
+          },
+          "text": "Establish the exact failure surface"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 1
+          },
+          "text": "Start with production telemetry, not a developer laptop. Google's Android crash and ANR guidance recommends narrowing events by "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 39,
+            "column": 129
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 39,
+                "column": 131
+              },
+              "text": "device, operating system, and time window"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 174
+          },
+          "text": ", then using logcat during reproduction when the failure location remains unclear. ("
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 39,
+            "column": 258
+          },
+          "url": "https://developer.android.com/games/optimize/vitals/crash",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 39,
+                "column": 259
+              },
+              "text": "Google's Android vitals troubleshooting guidance"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 367
+          },
+          "text": ")"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "text": "Capture these fields from one affected session:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 43,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 43,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 43,
+                        "column": 5
+                      },
+                      "text": "Build identity:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 22
+                  },
+                  "text": " Record the native app version, build ID, web bundle hash, and release timestamp."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 44,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 44,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 44,
+                        "column": 5
+                      },
+                      "text": "Distribution channel:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 28
+                  },
+                  "text": " Confirm whether the user received canary, beta, staged, or stable content."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 45,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 45,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 45,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 45,
+                        "column": 5
+                      },
+                      "text": "Runtime context:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 23
+                  },
+                  "text": " Note the Android or iOS version, device model, network type, permission state, and whether the app resumed from the background."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 46,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 46,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 46,
+                        "column": 5
+                      },
+                      "text": "Last successful action:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 30
+                  },
+                  "text": " Preserve the exact tap sequence, request, response status, and visible result."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 47,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 47,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 47,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 47,
+                        "column": 5
+                      },
+                      "text": "Configuration snapshot:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 30
+                  },
+                  "text": " Compare the API base URL, feature flags, authentication settings, and plugin configuration with a known-good device."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 49,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 1
+          },
+          "text": "Capacitor keeps the native version separate from the web content running inside the WebView. Two users can share a store-installed binary while receiving different JavaScript bundles. They can also share a web bundle while using different native plugins. Electron requires the same check across the release manifest, main-process version, renderer bundle, and update channel. Renderer package metadata alone does not establish what the user executed."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 51,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 51,
+            "column": 1
+          },
+          "text": "<a id=\"reproduce-by-removing-variables\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 51,
+            "column": 41
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 5
+          },
+          "text": "Reproduce by removing variables"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "text": "After collecting the identifiers, classify the incident as "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 54,
+            "column": 60
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 54,
+                "column": 62
+              },
+              "text": "canary-only, staged, or fully rolled out"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 104
+          },
+          "text": ". A canary-only failure points toward a targeted bundle, flag, or channel assignment. A staged failure suggests audience or device-selection logic. A fully rolled-out failure raises the priority of shared configuration, backend behavior, and native compatibility."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 1
+          },
+          "text": "Diff the affected device against a known-good one. Check native plugin versions, web hash, channel, API environment, authentication state, and permission grants. Replay the user's last action sequence locally before reaching for an emulator. If one flag controls the failure, hold the other variables steady and bisect that flag's behavior."
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 58,
+            "column": 3
+          },
+          "blocks": [
+            {
+              "type": "strong",
+              "location": {
+                "line": 58,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 58,
+                    "column": 5
+                  },
+                  "text": "Practical rule:"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 58,
+                "column": 22
+              },
+              "text": " Do not call a reproduction “the same bug” until the build ID, channel, web bundle, operating system, and configuration match."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 1
+          },
+          "text": "The Android dashboard incident turned on configuration correction. The team compared snapshots, confirmed that the native binary was valid, and verified that the WebView and dashboard code were unchanged. Production clients were requesting an environment with a staging credential because the earlier cache invalidation had not reached every mobile client. The recovery work therefore focused on correcting the configuration, setting appropriate cache invalidation headers, and verifying the CDN purge from affected regions and client paths."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 1
+          },
+          "text": "That sequence matters because a successful purge command does not prove that every user can fetch the corrected value. Check CDN responses, cache age, bundle or configuration hashes, and a fresh client session before declaring recovery. A native rebuild would have added rollout time without changing the artifact that caused the failure."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 1
+          },
+          "text": "Use the same discipline for future incidents: "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 64,
+            "column": 47
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 64,
+                "column": 49
+              },
+              "text": "identify the user's artifact, locate the failure surface, eliminate environmental differences, and then debug code"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 165
+          },
+          "text": ". A written "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 64,
+            "column": 177
+          },
+          "url": "https://capgo.app/blog/incident-response-guide/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 64,
+                "column": 178
+              },
+              "text": "incident response guide for mobile teams"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 268
+          },
+          "text": " should keep those checks beside the on-call runbook, including telemetry queries, rollout ownership, purge verification, and the decision to use a live update when the native binary is not the failing component."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "text": "<a id=\"reading-logs-from-webview-native-and-the-os\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 66,
+            "column": 53
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 67,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 4
+          },
+          "text": "Reading Logs from Webview, Native, and the OS"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 69,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 69,
+            "column": 1
+          },
+          "text": "A CapacitorJS or Electron application produces evidence at several layers, and each layer answers a different question. The WebView can show JavaScript exceptions and failed requests, but it won't explain every plugin failure. Native logs expose bridge and lifecycle behavior, while the operating system records memory pressure, permission denials, and process termination that application code may never observe."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 71,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/8a7ad788-3c46-419d-9a55-7219c85fd8d7/app-troubleshooting-log-levels.jpg",
+          "title": null,
+          "alt": "A diagram illustrating three layers for reading logs: Webview, Native, and OS for mobile application troubleshooting."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 73,
+            "column": 1
+          },
+          "text": "<a id=\"match-each-symptom-to-its-evidence\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 73,
+            "column": 44
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 74,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 74,
+            "column": 5
+          },
+          "text": "Match each symptom to its evidence"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 76,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 1
+          },
+          "text": "At the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 76,
+            "column": 8
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 76,
+                "column": 10
+              },
+              "text": "WebView layer"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 25
+          },
+          "text": ", collect console errors, unhandled promise rejections, navigation events, request URLs, response status, and request timing. A silent plugin rejection is especially dangerous. The UI may continue rendering while a camera, filesystem, secure storage, or notification operation has already failed."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 78,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 78,
+            "column": 5
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 78,
+                "column": 7
+              },
+              "text": "native layer"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 21
+          },
+          "text": " contains Android logcat output, iOS "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 78,
+            "column": 58
+          },
+          "text": "os_log"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 66
+          },
+          "text": " records, plugin bridge exceptions, activity or view-controller lifecycle events, and native crash traces. Electron adds the main-process log stream, auto-update events, window creation failures, and IPC messages. A renderer error won't necessarily appear in the main process, and a main-process crash won't be visible in renderer console output."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 80,
+            "column": 5
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 80,
+                "column": 7
+              },
+              "text": "OS layer"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 17
+          },
+          "text": " explains events outside the application's control. Look for memory pressure, background termination, battery restrictions, denied permissions, process kills, and system-level crash reports. This layer often explains an apparent “random crash” that has no useful JavaScript stack."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 82,
+            "column": 1
+          },
+          "text": "<a id=\"correlate-before-you-filter\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 82,
+            "column": 37
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 5
+          },
+          "text": "Correlate before you filter"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 85,
+            "column": 1
+          },
+          "text": "Use a shared request or operation ID across the WebView, native bridge, backend, and central log sink. Add the ID before a user action begins, then preserve it through the network request and native callback. Correlate timestamps in a consistent format, account for device clock drift, and filter framework noise only after retaining the original event."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 87,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 1
+          },
+          "text": "Store the same contextual fields in every layer: app version, web bundle hash, channel, device, OS, session, and feature flag state. Centralized collection means a reproduction attempt can be compared with the user's evidence instead of replacing it with assumptions. A practical "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 87,
+            "column": 281
+          },
+          "url": "https://capgo.app/blog/log-analysis-tools/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 87,
+                "column": 282
+              },
+              "text": "log analysis toolkit for mobile debugging"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 368
+          },
+          "text": " should help you search those fields without forcing engineers to gather screenshots from each device."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 89,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 89,
+            "column": 1
+          },
+          "text": "<a id=\"debugging-the-web-layer-and-the-native-layer\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 89,
+            "column": 54
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 90,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 90,
+            "column": 4
+          },
+          "text": "Debugging the Web Layer and the Native Layer"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "text": "Debug the layer that owns the symptom. A frozen screen that still responds to native lifecycle events usually starts in the WebView. A process termination, plugin exception, or startup failure belongs in native tooling or the Electron main process. Jumping between layers without that routing rule creates activity without narrowing the cause."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 94,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 94,
+            "column": 1
+          },
+          "text": "<a id=\"start-with-the-webview\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 94,
+            "column": 32
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 95,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 95,
+            "column": 5
+          },
+          "text": "Start with the WebView"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "text": "On Android, connect a debuggable Capacitor build to Chrome and open "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 69
+          },
+          "text": "chrome://inspect"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 87
+          },
+          "text": ". Inspect the console, network panel, storage, and performance timeline. On iOS, use Safari Web Inspector with the connected device or simulator. For Electron, attach to the renderer through its DevTools port or call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 304
+          },
+          "text": "BrowserWindow.webContents.openDevTools()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 346
+          },
+          "text": " during investigation."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 99,
+            "column": 1
+          },
+          "text": "Production stack traces are useful only when they map back to source. Upload and retain source maps for each web bundle, then verify that the symbolication artifact matches the exact bundle hash. Add a controlled console interceptor for critical operations, but avoid logging credentials, tokens, or personal data. Capture operation names, request IDs, response classes, and state transitions instead."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 101,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 101,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/c3dfee59-b7c5-499f-8a93-8dfd6f023cf3/app-troubleshooting-debugging-process.jpg",
+          "title": null,
+          "alt": "A diagram illustrating the debugging processes for web and native layers to identify application root causes."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 103,
+            "column": 1
+          },
+          "text": "<a id=\"move-to-native-tools-when-the-evidence-points-there\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 103,
+            "column": 61
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 104,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 104,
+            "column": 5
+          },
+          "text": "Move to native tools when the evidence points there"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 106,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 106,
+            "column": 1
+          },
+          "text": "Filter Android Studio Logcat by the application package, then reproduce with the smallest possible action sequence. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 106,
+            "column": 117
+          },
+          "text": "npx cap run android --livereload"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 106,
+            "column": 151
+          },
+          "text": " shortens the iteration loop for WebView changes, but it doesn't validate the packaged native artifact. On iOS, run from Xcode and use the Devices window for device logs. Instruments' Time Profiler helps with sustained CPU work, while Allocations helps identify memory growth."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 108,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 1
+          },
+          "text": "Electron has two debugging targets. Use renderer DevTools for DOM, JavaScript, and network behavior. Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 108,
+            "column": 106
+          },
+          "text": "--inspect"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 117
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 108,
+            "column": 121
+          },
+          "text": "--inspect-brk"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 136
+          },
+          "text": " for the main process, and preserve its stderr output during startup and auto-update tests."
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "location": {
+        "line": 110,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 110,
+            "column": 3
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 110,
+                "column": 3
+              },
+              "text": "Route by symptom. UI behavior starts in the WebView. Native termination starts in Android Studio or Xcode. Electron startup failure starts in the main process."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 112,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 112,
+            "column": 1
+          },
+          "text": "A useful explanation of why this split matters appears in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 112,
+            "column": 59
+          },
+          "url": "https://capgo.app/blog/how-capacitor-bridges-web-and-native-code/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 112,
+                "column": 60
+              },
+              "text": "Capacitor's WebView and native bridge model"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 112,
+            "column": 171
+          },
+          "text": ". The bridge is a boundary, not a single debugging surface. Treat it that way, and each log line has a better chance of answering the question you have."
+        }
+      ]
+    },
+    {
+      "type": "html",
+      "location": {
+        "line": 114,
+        "column": 1
+      },
+      "text": "<iframe width=\"100%\" style=\"aspect-ratio: 16 / 9;\" src=\"https://www.youtube.com/embed/VN3VzMx8kSA\" frameborder=\"0\" allow=\"autoplay; encrypted-media\" allowfullscreen></iframe>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 116,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 116,
+            "column": 1
+          },
+          "text": "<a id=\"networking-storage-and-permissions-first-checks\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 116,
+            "column": 57
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 4
+          },
+          "text": "Networking, Storage, and Permissions First Checks"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 119,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 1
+          },
+          "text": "Teams often check the API first because network errors look technical and familiar. That habit misses failures caused by stale state, changed permission declarations, or a platform upgrade that altered sandbox behavior. The fastest check depends on the failure domain."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 121,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 121,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 3
+                  },
+                  "text": "Failure Domain"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 121,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 20
+                  },
+                  "text": "Common Symptom Pattern"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 121,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 45
+                  },
+                  "text": "Fastest First Check"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 123,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 123,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 123,
+                    "column": 3
+                  },
+                  "text": "Networking"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 123,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 123,
+                    "column": 16
+                  },
+                  "text": "Blank data, login loops, timeouts, failed uploads, or requests that work on one network but not another"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 123,
+                "column": 120
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 123,
+                    "column": 122
+                  },
+                  "text": "Run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 123,
+                    "column": 126
+                  },
+                  "text": "curl"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 123,
+                    "column": 132
+                  },
+                  "text": " from the same network, inspect failed WebView requests, check CORS preflight, certificate pinning, captive portals, and proxy behavior"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 124,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 124,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 124,
+                    "column": 3
+                  },
+                  "text": "Storage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 124,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 124,
+                    "column": 13
+                  },
+                  "text": "A feature worked previously, then fails after an update, restart, or operating system change"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 124,
+                "column": 106
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 124,
+                    "column": 108
+                  },
+                  "text": "Inspect storage estimates, check IndexedDB quota errors, compare encryption keys, verify Electron's "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 124,
+                    "column": 208
+                  },
+                  "text": "userData"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 124,
+                    "column": 218
+                  },
+                  "text": " path, and test a clean sandbox"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 125,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 125,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 125,
+                    "column": 3
+                  },
+                  "text": "Permissions"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 125,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 125,
+                    "column": 17
+                  },
+                  "text": "Camera, files, notifications, location, or background behavior fails without a clear application exception"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 125,
+                "column": 124
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 125,
+                    "column": 126
+                  },
+                  "text": "Check iOS usage descriptions, Android "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 125,
+                    "column": 164
+                  },
+                  "text": "ACCESS_*"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 125,
+                    "column": 174
+                  },
+                  "text": " declarations, Electron's permission handler, and cold-start permission timing"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 127,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 1
+          },
+          "text": "For storage problems, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 127,
+            "column": 23
+          },
+          "text": "storage.estimate()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 43
+          },
+          "text": " can reveal quota pressure, but it won't diagnose every database problem. Test a manually cleaned application sandbox, then compare behavior with the existing profile. Capacitor Preferences encryption key rotation can make previously valid values unreadable, while SQLite write-ahead logging may leave a damaged state after abrupt termination. Electron applications can also appear to lose data when an operating system upgrade changes the resolved "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 127,
+            "column": 492
+          },
+          "text": "userData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 502
+          },
+          "text": " path."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 1
+          },
+          "text": "Permissions deserve the same attention. iOS usage descriptions must match the capability being requested. Android permission behavior can drift after SDK changes, and notification prompts can race with cold-start initialization. Electron's permission handler may reject a request before the renderer receives a useful explanation."
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "location": {
+        "line": 131,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 131,
+            "column": 3
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 131,
+                "column": 3
+              },
+              "text": "If a user says “it worked yesterday,” inspect storage and permissions before assuming the network changed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 133,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 133,
+            "column": 1
+          },
+          "text": "<a id=\"automated-tests-and-ci-as-early-warning-systems\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 133,
+            "column": 57
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 134,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 134,
+            "column": 4
+          },
+          "text": "Automated Tests and CI as Early Warning Systems"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 136,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 136,
+            "column": 1
+          },
+          "text": "CI catches regressions most cheaply when it tests the artifact users will run. A green test suite against a development server doesn't prove that the signed Android package, iOS archive, or Electron installer can start, load its bundle, and complete a real authenticated operation."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 138,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 138,
+            "column": 1
+          },
+          "text": "<a id=\"test-the-shared-logic-and-the-shells\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 138,
+            "column": 46
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 5
+          },
+          "text": "Test the shared logic and the shells"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 141,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 1
+          },
+          "text": "Use "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 141,
+            "column": 5
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 141,
+                "column": 7
+              },
+              "text": "Vitest"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 15
+          },
+          "text": " for shared web logic and "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 141,
+            "column": 41
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 141,
+                "column": 43
+              },
+              "text": "Jest"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 49
+          },
+          "text": " for Electron main-process behavior. For Capacitor plugins, test the JavaScript contract and the native implementation separately, then add integration coverage for permission denial, unavailable hardware, malformed responses, and lifecycle interruption."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 143,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 143,
+            "column": 1
+          },
+          "text": "Playwright can exercise a built web bundle. For Electron, use Playwright Electron or an equivalent shell test against the packaged binary, not only the renderer served by a local development process. The packaged test catches missing assets, incorrect paths, signing mistakes, and startup assumptions that browser tests hide."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 145,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 145,
+            "column": 1
+          },
+          "text": "Device coverage should reflect your actual install base. BrowserStack or Sauce Labs can exercise a deliberately selected set of device profiles, operating systems, permission states, and network conditions. The goal isn't maximal matrix size. It's representative failure coverage."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 147,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 147,
+            "column": 1
+          },
+          "text": "<a id=\"make-failures-merge-blocking\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 147,
+            "column": 38
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 5
+          },
+          "text": "Make failures merge-blocking"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 150,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 150,
+            "column": 1
+          },
+          "text": "Add explicit checks for:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 152,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 152,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 152,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 152,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 152,
+                        "column": 5
+                      },
+                      "text": "Bundle changes:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 152,
+                    "column": 22
+                  },
+                  "text": " Reject unexpected bundle-size deltas and missing source maps."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 153,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 153,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 153,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 153,
+                        "column": 5
+                      },
+                      "text": "Native alignment:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 153,
+                    "column": 24
+                  },
+                  "text": " Detect plugin version drift and incompatible "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 153,
+                    "column": 70
+                  },
+                  "text": "minSdkVersion"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 153,
+                    "column": 85
+                  },
+                  "text": " settings."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 154,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 154,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 154,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 154,
+                        "column": 5
+                      },
+                      "text": "Artifact integrity:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 154,
+                    "column": 26
+                  },
+                  "text": " Verify signatures, package identity, embedded assets, and release manifests."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 155,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 155,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 155,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 155,
+                        "column": 5
+                      },
+                      "text": "Startup behavior:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 155,
+                    "column": 24
+                  },
+                  "text": " Boot the packaged app and complete one authenticated endpoint request."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 156,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 156,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 156,
+                        "column": 5
+                      },
+                      "text": "Update behavior:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 156,
+                    "column": 23
+                  },
+                  "text": " Install an older bundle, apply the candidate update, restart, and confirm rollback behavior."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "text": "Publish every result through one GitHub status check so a red signal blocks the merge. A build that passes unit tests but fails signed-artifact verification should be treated as failed, not “mostly green.”"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 160,
+            "column": 5
+          },
+          "url": "https://capgo.app/blog/continuous-integration-setup/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 160,
+                "column": 6
+              },
+              "text": "continuous integration setup for Capacitor releases"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 112
+          },
+          "text": " is useful when wiring these checks into a repeatable pipeline. CI isn't a substitute for production telemetry, but it narrows the number of defects that reach staging and gives on-call engineers fewer unknowns during an incident."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 162,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 162,
+            "column": 1
+          },
+          "text": "<a id=\"live-updates-as-an-emergency-recovery-channel\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 162,
+            "column": 55
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 4
+          },
+          "text": "Live Updates as an Emergency Recovery Channel"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 165,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 165,
+            "column": 1
+          },
+          "text": "A production regression doesn't always require a new native build. If the defect lives in JavaScript, CSS, copy, configuration, or another web asset, a live update can restore the user journey while the team prepares a proper release. That makes live-update delivery an "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 165,
+            "column": 271
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 165,
+                "column": 273
+              },
+              "text": "operational recovery channel"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 165,
+            "column": 303
+          },
+          "text": ", not merely a convenience for cosmetic changes."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 167,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "text": "The safety requirement is control. Separate named channels for canary, beta, and stable audiences. Keep the native app ID and compatible runtime constraints explicit, and record which bundle each audience receives. A live update can't add a native permission, replace a native plugin, change the Electron main process, or repair a failure that occurs before the updater can initialize. Those cases still need a store or installer release."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 169,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/b02a66d8-8b0d-4d3e-bb83-395121f605d3/app-troubleshooting-emergency-recovery.jpg",
+          "title": null,
+          "alt": "A flowchart showing the emergency recovery process for app production regressions using live updates for faster fixes."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 171,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 171,
+            "column": 1
+          },
+          "text": "<a id=\"use-a-guarded-rollout\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 171,
+            "column": 31
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 5
+          },
+          "text": "Use a guarded rollout"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "text": "An emergency flow should look like this:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 176,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 176,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 176,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 176,
+                        "column": 6
+                      },
+                      "text": "Confirm scope:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 22
+                  },
+                  "text": " Identify the affected native versions, channels, bundle hashes, and failure signals."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 177,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 177,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 177,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 177,
+                        "column": 6
+                      },
+                      "text": "Prepare the smallest patch:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 177,
+                    "column": 35
+                  },
+                  "text": " Change only the web behavior required to restore the failing path."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 178,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 178,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 178,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 178,
+                        "column": 6
+                      },
+                      "text": "Target a canary audience:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 178,
+                    "column": 33
+                  },
+                  "text": " Send the bundle to a controlled channel rather than every installation."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 179,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 179,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 179,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 179,
+                        "column": 6
+                      },
+                      "text": "Watch telemetry:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 179,
+                    "column": 24
+                  },
+                  "text": " Check crash, load, request, and update-failure signals against the affected cohort."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 180,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 180,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 180,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 180,
+                        "column": 6
+                      },
+                      "text": "Promote or rollback:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 28
+                  },
+                  "text": " Expand only when the signals remain healthy. Revert immediately when the patch introduces a new failure."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "text": "Automatic rollback should use explicit crash-rate or load-failure thresholds chosen by the team. A rollback protects users only when the updater can detect failure and the prior bundle remains available. Keep version history and channel guardrails intact so support can explain what happened to a particular device."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 1
+          },
+          "text": "Capgo provides signed web-bundle delivery, targeted channels, per-device logs, adoption and failure metrics, version history, and automatic rollback protection for CapacitorJS and Electron applications. The practical decision rule is direct: "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 184,
+            "column": 243
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 184,
+                "column": 245
+              },
+              "text": "use a live update when the fix is confined to the web bundle and the updater can start safely; schedule a native hotfix when the runtime, plugin, permission, package, or main process is involved"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 441
+          },
+          "text": ". The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 184,
+            "column": 447
+          },
+          "url": "https://capgo.app/blog/how-live-updates-for-capacitor-work/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 184,
+                "column": 448
+              },
+              "text": "Capacitor live-update flow"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 536
+          },
+          "text": " describes the boundary between those two paths."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 186,
+            "column": 1
+          },
+          "text": "<a id=\"post-incident-analysis-that-prevents-the-next-one\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 186,
+            "column": 59
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 187,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 187,
+            "column": 4
+          },
+          "text": "Post-Incident Analysis That Prevents the Next One"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 189,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 189,
+            "column": 1
+          },
+          "text": "A retrospective earns its place when it changes the system. Write it while logs, deployment context, and operator decisions remain available. Keep the record factual, blameless, and specific enough for another engineer to identify the missing guardrail without reconstructing the entire incident."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 191,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "text": "<a id=\"use-five-concrete-blocks\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 191,
+            "column": 34
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 192,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 192,
+            "column": 5
+          },
+          "text": "Use five concrete blocks"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 194,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 194,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 194,
+                "column": 3
+              },
+              "text": "Timeline with telemetry timestamps."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 194,
+            "column": 40
+          },
+          "text": " Record the first failed request, affected release, alert creation, investigation steps, mitigation, and recovery. For the Android dashboard incident, the timeline might show that the blank view appeared after a configuration rollout while iOS continued receiving valid responses."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 196,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 196,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 196,
+                "column": 3
+              },
+              "text": "User-visible failure mode."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 196,
+            "column": 31
+          },
+          "text": " Describe what customers experienced, not what the code did. “Android users saw an empty dashboard after authentication” gives responders more direction than “API key mismatch.” The first description points toward the broken journey and the signals that should have detected it."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 198,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 198,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 198,
+                "column": 3
+              },
+              "text": "Detection gap."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 19
+          },
+          "text": " State why the team learned late. Crash monitoring may have stayed green because the app rendered successfully, while no alert tracked authenticated request failures or empty dashboard payloads. Record the missing signal and where it should have been emitted."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 200,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 200,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 200,
+                "column": 3
+              },
+              "text": "Contributing non-code factors."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 200,
+            "column": 35
+          },
+          "text": " List configuration drift, cache behavior, deployment timing, service dependencies, permission changes, or an Electron auto-update race. These domains deserve early checks because a production failure can occur without a defect in application code."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 202,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 202,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 202,
+                "column": 3
+              },
+              "text": "Preventive guardrail."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 202,
+            "column": 26
+          },
+          "text": " Assign the test or control that would have caught the issue. Examples include validating production credentials during deployment, checking delivered configuration from representative clients, or adding a packaged Electron startup test. A guardrail needs an owner and a failure condition, not only a sentence in the retrospective."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 204,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 1
+          },
+          "text": "Notification paths belong in the same review. If mail alerts fail to reach the team, use a practical resource on "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 204,
+            "column": 114
+          },
+          "url": "https://www.mailgenius.com/how-to-stop-email-from-going-to-spam-folder-in-gmail/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 204,
+                "column": 115
+              },
+              "text": "how to stop email from going to spam in Gmail"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 243
+          },
+          "text": " during the notification check, then verify the alert path. Do not treat successful message creation as proof that an operator received the alert."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 206,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 206,
+            "column": 1
+          },
+          "text": "<a id=\"assign-work-before-closing-the-incident\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 206,
+            "column": 49
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 207,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 5
+          },
+          "text": "Assign work before closing the incident"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 209,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 1
+          },
+          "text": "For every block, name one owner, one due date, and one verification method. Review the incident again within "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 209,
+            "column": 110
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 209,
+                "column": 112
+              },
+              "text": "24 hours"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 122
+          },
+          "text": ", while engineers can still challenge assumptions from the investigation. Close an item only after the new test, dashboard, configuration check, or rollout rule has run successfully."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 211,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 211,
+            "column": 1
+          },
+          "text": "Use this final checklist:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 213,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 213,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 213,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 213,
+                    "column": 3
+                  },
+                  "text": "Did we identify the exact native build and web bundle?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 214,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 214,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 214,
+                    "column": 3
+                  },
+                  "text": "Did we distinguish code, configuration, deployment, infrastructure, and dependency causes?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 215,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 215,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 215,
+                    "column": 3
+                  },
+                  "text": "Did telemetry show the user-visible failure, not only crashes?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 216,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 216,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 216,
+                    "column": 3
+                  },
+                  "text": "Did we test the affected channel and a known-good channel?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 217,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 217,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 217,
+                    "column": 3
+                  },
+                  "text": "Did we add a guardrail that fails before production?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 218,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 218,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 218,
+                    "column": 3
+                  },
+                  "text": "Did we document whether a live update or native release was appropriate?"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 219,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 219,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 219,
+                    "column": 3
+                  },
+                  "text": "Did one named owner verify the fix?"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 221,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 1
+          },
+          "text": "User complaints show why the review must cover more than crashes. In a "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 221,
+            "column": 72
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 221,
+                "column": 74
+              },
+              "text": "6,634-app audit"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 91
+          },
+          "text": ", payment failures affected "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 221,
+            "column": 119
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 221,
+                "column": 121
+              },
+              "text": "28.6%"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 128
+          },
+          "text": " of apps, device compatibility "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 221,
+            "column": 159
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 221,
+                "column": 161
+              },
+              "text": "28.4%"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 168
+          },
+          "text": ", UI and UX friction "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 221,
+            "column": 189
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 221,
+                "column": 191
+              },
+              "text": "25.4%"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 198
+          },
+          "text": ", subscription trouble "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 221,
+            "column": 221
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 221,
+                "column": 223
+              },
+              "text": "21.8%"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 230
+          },
+          "text": ", and login errors "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 221,
+            "column": 249
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 221,
+                "column": 251
+              },
+              "text": "17.2%"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 258
+          },
+          "text": ", while crashes ranked seventh at "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 221,
+            "column": 292
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 221,
+                "column": 294
+              },
+              "text": "10.3%"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 301
+          },
+          "text": ". ("
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 221,
+            "column": 304
+          },
+          "url": "https://brightappdata.com/blog/what-users-complain-about-most-in-mobile-apps",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 221,
+                "column": 305
+              },
+              "text": "Bright App Data's audit of mobile-app complaints"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 432
+          },
+          "text": ") A troubleshooting process that asks only “why did the app crash?” can miss the failures preventing payment, sign-in, or normal product use."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 223,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 1
+          },
+          "text": "Stability data supports the same operating model. A benchmark places the median app at "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 223,
+            "column": 88
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 223,
+                "column": 90
+              },
+              "text": "99.95% crash-free sessions"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 118
+          },
+          "text": ", with top-performing apps at "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 223,
+            "column": 148
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 223,
+                "column": 150
+              },
+              "text": "99.99%"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 158
+          },
+          "text": " and weaker apps at "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 223,
+            "column": 178
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 223,
+                "column": 180
+              },
+              "text": "99.77% or lower"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 197
+          },
+          "text": ". It also reports a median "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 223,
+            "column": 224
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 223,
+                "column": 226
+              },
+              "text": "ANR rate of 2.62 per 10,000 sessions"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 264
+          },
+          "text": ", an "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 223,
+            "column": 269
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 223,
+                "column": 271
+              },
+              "text": "OOM rate of 1.12 per 10,000 sessions"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 309
+          },
+          "text": ", and app-hang rates from "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 223,
+            "column": 335
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 223,
+                "column": 337
+              },
+              "text": "64 to 103 per 10,000 sessions"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 368
+          },
+          "text": " depending on quality tier. ("
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 223,
+            "column": 397
+          },
+          "url": "https://www.alphabin.co/blog/mobile-app-testing-crash-rates",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 223,
+                "column": 398
+              },
+              "text": "The mobile stability benchmark"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 490
+          },
+          "text": ") High stability still leaves meaningful failures. Teams need telemetry for failed requests, blank states, hangs, update errors, and other user-facing symptoms."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 225,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 1
+          },
+          "text": "A 2026 report says users filed "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 225,
+            "column": 32
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 225,
+                "column": 34
+              },
+              "text": "6x more complaints about broken basics than requests for new features"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 105
+          },
+          "text": ", and reports that "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 225,
+            "column": 124
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 225,
+                "column": 126
+              },
+              "text": "15.4% uninstall after a single crash while more than half abandon after 2-3 crashes"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 211
+          },
+          "text": ". ("
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 225,
+            "column": 214
+          },
+          "url": "https://www.mactech.com/2026/02/26/unitq-report-app-users-file-6x-more-complaints-about-broken-basics-than-requests-for-new-features/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 225,
+                "column": 215
+              },
+              "text": "The 2026 report on broken app basics"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 387
+          },
+          "text": ") The response is practical: detect broadly, recover quickly, and convert every incident into a testable control."
+        }
+      ]
+    },
+    {
+      "type": "thematicBreak",
+      "location": {
+        "line": 227,
+        "column": 1
+      }
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 229,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 229,
+            "column": 1
+          },
+          "text": "Use "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 229,
+            "column": 5
+          },
+          "url": "https://capgo.app",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 229,
+                "column": 6
+              },
+              "text": "Capgo"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 229,
+            "column": 31
+          },
+          "text": " to deliver signed CapacitorJS and Electron web-bundle updates through controlled channels, inspect per-device telemetry, and roll back a failed JavaScript fix without waiting for a store review. Connect it to the release pipeline, define stable and canary audiences, and test the recovery path before the next dashboard outage."
+        }
+      ]
+    }
+  ]
+}

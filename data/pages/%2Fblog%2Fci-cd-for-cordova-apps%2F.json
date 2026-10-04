@@ -1,0 +1,4566 @@
+{
+  "version": 1,
+  "route": "/blog/ci-cd-for-cordova-apps/",
+  "source": "corpus/source/apps/web/src/content/blog/en/ci-cd-for-cordova-apps.md",
+  "sourceSha256": "ec63425b4a7ca02840e9babb8f2903e75b2f3f2a221a38549efd480d6c3efb63",
+  "metadata": {
+    "slug": "ci-cd-for-cordova-apps",
+    "title": "CI/CD for Cordova Apps in 2026: A Complete Setup Guide",
+    "description": "Set up CI/CD for Cordova apps in 2026: signed Android AAB and iOS IPA builds, store uploads, live update options, and when to move to Capacitor.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/cordova.webp",
+    "head_image_alt": "Apache Cordova app moving through a CI/CD pipeline to the App Store and Google Play",
+    "keywords": "Cordova CI/CD, Cordova build pipeline, Cordova GitHub Actions, Cordova iOS build, Cordova Android AAB, Cordova live updates, App Center Cordova replacement, Cordova to Capacitor",
+    "tag": "CI/CD, Migration, Guides",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Is Apache Cordova still usable in 2026?",
+        "answer": "Yes. Cordova still ships platform releases and many production apps run on it. What changed is the tooling around it: App Center retired on March 31, 2025, and Ionic Appflow only serves existing customers until December 31, 2027, so most Cordova teams need to own their build pipeline."
+      },
+      {
+        "question": "Which CI service can build a Cordova app?",
+        "answer": "Any CI with a Linux runner can build the Android app, and any CI with macOS runners can build iOS: GitHub Actions, GitLab CI, Bitrise, Codemagic, Appcircle, CircleCI, and Azure DevOps all work. Bitrise and Codemagic document Cordova specifically; the others run the Cordova CLI as a script."
+      },
+      {
+        "question": "How do I sign a Cordova Android release in CI?",
+        "answer": "Decode the keystore from a CI secret, then run cordova build android --release with a build.json that sets keystore, alias, passwords, and packageType bundle. Google Play requires an AAB for new apps and uses Play App Signing, so your keystore acts as the upload key."
+      },
+      {
+        "question": "Does Capgo support Cordova live updates?",
+        "answer": "Yes. The @capgo/cordova-updater plugin brings Capgo live updates to Cordova iOS 7+ and Cordova Android 13+ apps, with the same JavaScript API as the Capacitor updater. You upload bundles from CI with the Capgo CLI bundle upload command."
+      },
+      {
+        "question": "What replaced App Center CodePush for Cordova?",
+        "answer": "Microsoft did not ship a hosted replacement. Options are a managed service with a Cordova client such as Capgo with @capgo/cordova-updater, Ionic Appflow until its end date for existing customers, or a self-hosted update server."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "CI/CD for a Cordova app in 2026 means building and signing the Android AAB on a Linux runner, building and signing the iOS IPA on a macOS runner, and uploading both to the stores from the same pipeline. The managed services Cordova teams used for this are gone or closing, so most teams now run the Cordova CLI on a general-purpose CI. This guide gives you a working GitHub Actions setup, the same steps for other CIs, and an honest look at live updates and long-term options."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "What changed for Cordova teams"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "Three events shaped Cordova CI/CD:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 8,
+                        "column": 5
+                      },
+                      "text": "PhoneGap Build"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 21
+                  },
+                  "text": " shut down on October 1, 2020."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 9,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 9,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 9,
+                        "column": 5
+                      },
+                      "text": "Microsoft App Center"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 27
+                  },
+                  "text": " retired on March 31, 2025. Build, distribution, and the hosted CodePush service ended with it."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 10,
+                        "column": 5
+                      },
+                      "text": "Ionic Appflow"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 20
+                  },
+                  "text": " stopped new sales in February 2025. Existing customers keep access until December 31, 2027."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 12,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "text": "Cordova itself still works. The Apache project ships "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 12,
+            "column": 54
+          },
+          "text": "cordova-android"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 71
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 12,
+            "column": 76
+          },
+          "text": "cordova-ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 89
+          },
+          "text": " releases, and plenty of internal and enterprise apps run on it. The gap is the managed layer: signing storage, store uploads, and over-the-air updates. You now assemble those from a CI service plus a few tools."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 4
+          },
+          "text": "Anatomy of a Cordova pipeline"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "text": "Stage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 11
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 21
+                  },
+                  "text": "iOS"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "text": "Runner"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 12
+                  },
+                  "text": "Linux"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 20
+                  },
+                  "text": "macOS with Xcode 26"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 3
+                  },
+                  "text": "Restore"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 19,
+                    "column": 13
+                  },
+                  "text": "cordova prepare"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 30
+                  },
+                  "text": " (platforms and plugins from "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 19,
+                    "column": 59
+                  },
+                  "text": "package.json"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 73
+                  },
+                  "text": ")"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 75
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 77
+                  },
+                  "text": "same"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "text": "Web build"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 15
+                  },
+                  "text": "your bundler (Vite, webpack, Angular CLI) into "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 20,
+                    "column": 62
+                  },
+                  "text": "www/"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 69
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 71
+                  },
+                  "text": "same"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 3
+                  },
+                  "text": "Native build"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 18
+                  },
+                  "text": "Gradle via "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 21,
+                    "column": 29
+                  },
+                  "text": "cordova build android --release"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 63
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 21,
+                    "column": 65
+                  },
+                  "text": "xcodebuild"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 77
+                  },
+                  "text": " via "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 21,
+                    "column": 82
+                  },
+                  "text": "cordova build ios --release --device"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 3
+                  },
+                  "text": "Signing"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 13
+                  },
+                  "text": "upload keystore ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 22,
+                    "column": 30
+                  },
+                  "text": ".jks"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 36
+                  },
+                  "text": ")"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 40
+                  },
+                  "text": "distribution certificate ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 22,
+                    "column": 66
+                  },
+                  "text": ".p12"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 72
+                  },
+                  "text": ") and provisioning profile"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "text": "Artifact"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 23,
+                    "column": 14
+                  },
+                  "text": ".aab"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 20
+                  },
+                  "text": " for Google Play"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 23,
+                    "column": 39
+                  },
+                  "text": ".ipa"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 45
+                  },
+                  "text": " for TestFlight and the App Store"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "text": "Upload"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 12
+                  },
+                  "text": "Google Play Developer API (service account)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 56
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 58
+                  },
+                  "text": "App Store Connect API key"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "text": "Two platform rules apply to every pipeline:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 28,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 3
+                  },
+                  "text": "Since April 28, 2026, App Store Connect only accepts builds made with Xcode 26 and the iOS 26 SDK or later. Check that your "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 28,
+                    "column": 127
+                  },
+                  "text": "cordova-ios"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 140
+                  },
+                  "text": " version supports it."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 29,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 3
+                  },
+                  "text": "Google Play requires AAB uploads for new apps, and raises its minimum target API level every year. Keep "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 29,
+                    "column": 107
+                  },
+                  "text": "cordova-android"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 124
+                  },
+                  "text": " current so its default "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 29,
+                    "column": 148
+                  },
+                  "text": "targetSdkVersion"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 166
+                  },
+                  "text": " follows."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 31,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 31,
+            "column": 4
+          },
+          "text": "Step 1: Make the project reproducible"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 33,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 33,
+            "column": 1
+          },
+          "text": "CI can only rebuild what is in the repository. Before writing any workflow:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 35,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 35,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 4
+                  },
+                  "text": "Commit "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 11
+                  },
+                  "text": "package.json"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 25
+                  },
+                  "text": " and the lockfile. Cordova stores platforms and plugins in the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 88
+                  },
+                  "text": "cordova"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 97
+                  },
+                  "text": " section of "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 109
+                  },
+                  "text": "package.json"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 123
+                  },
+                  "text": ", so "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 128
+                  },
+                  "text": "cordova prepare"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 145
+                  },
+                  "text": " restores them."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 36,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 4
+                  },
+                  "text": "Do not commit "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 18
+                  },
+                  "text": "platforms/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 30
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 34
+                  },
+                  "text": "plugins/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 44
+                  },
+                  "text": ". They are generated."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 37,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 4
+                  },
+                  "text": "Install the Cordova CLI as a dev dependency so every machine uses the same version:"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add -d cordova"
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 4,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 43,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 4
+                  },
+                  "text": "Move signing values out of "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 43,
+                    "column": 31
+                  },
+                  "text": "config.xml"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 43
+                  },
+                  "text": " and into a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 43,
+                    "column": 55
+                  },
+                  "text": "build.json"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 67
+                  },
+                  "text": " that reads secrets at build time (next step)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 44,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 4
+                  },
+                  "text": "Pin the Node.js version in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 31
+                  },
+                  "text": ".nvmrc"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 39
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 43
+                  },
+                  "text": "package.json"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 57
+                  },
+                  "text": " "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 58
+                  },
+                  "text": "engines"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 67
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 46,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 4
+          },
+          "text": "Step 2: Signing with build.json"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 48,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 1
+          },
+          "text": "Cordova reads signing settings from a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 48,
+            "column": 39
+          },
+          "text": "build.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 51
+          },
+          "text": " file. Commit a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 48,
+            "column": 67
+          },
+          "text": "build.template.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 88
+          },
+          "text": " with placeholders, generate the real "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 48,
+            "column": 126
+          },
+          "text": "build.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 138
+          },
+          "text": " in CI from secrets, and never commit the generated file:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "lang": "json",
+      "meta": null,
+      "text": "{\n  \"android\": {\n    \"release\": {\n      \"keystore\": \"release.jks\",\n      \"storePassword\": \"${KEYSTORE_STORE_PASSWORD}\",\n      \"alias\": \"upload\",\n      \"password\": \"${KEYSTORE_KEY_PASSWORD}\",\n      \"packageType\": \"bundle\"\n    }\n  },\n  \"ios\": {\n    \"release\": {\n      \"codeSignIdentity\": \"Apple Distribution\",\n      \"developmentTeam\": \"ABCDE12345\",\n      \"packageType\": \"app-store\",\n      \"provisioningProfile\": \"com.example.app AppStore\",\n      \"automaticProvisioning\": false\n    }\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 73,
+            "column": 5
+          },
+          "text": "${...}"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 13
+          },
+          "text": " placeholders are not expanded by Cordova. The workflow below writes the real values with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 73,
+            "column": 103
+          },
+          "text": "envsubst"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 113
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 75,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "text": "If you do not have an Android keystore yet, create one with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 75,
+            "column": 61
+          },
+          "text": "keytool"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 70
+          },
+          "text": " or the browser-based "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 75,
+            "column": 92
+          },
+          "url": "/tools/android-keystore-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 75,
+                "column": 93
+              },
+              "text": "Android keystore generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 156
+          },
+          "text": ". For iOS, the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 75,
+            "column": 171
+          },
+          "url": "/tools/ios-certificate-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 75,
+                "column": 172
+              },
+              "text": "iOS certificate generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 233
+          },
+          "text": " creates a certificate signing request and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 75,
+            "column": 276
+          },
+          "text": ".p12"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 282
+          },
+          "text": " without a Mac."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 77,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 4
+          },
+          "text": "Step 3: A GitHub Actions workflow"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 79,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 1
+          },
+          "text": "This workflow builds both platforms in parallel on a version tag and uploads them to the internal testing tracks."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "# .github/workflows/cordova-release.yml\nname: Cordova release\n\non:\n  push:\n    tags: ['v*']\n\njobs:\n  android:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: oven-sh/setup-bun@v2\n      - uses: actions/setup-java@v4\n        with:\n          distribution: temurin\n          java-version: '17'\n      - run: bun install --frozen-lockfile\n      - run: bun run build            # outputs to www/\n      - run: bunx cordova prepare android\n      - name: Signing files\n        env:\n          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}\n          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}\n          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}\n        run: |\n          echo \"$KEYSTORE_BASE64\" | base64 --decode > release.jks\n          envsubst < build.template.json > build.json\n      - run: bunx cordova build android --release --buildConfig=build.json\n      - uses: r0adkll/upload-google-play@v1\n        with:\n          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}\n          packageName: com.example.app\n          releaseFiles: platforms/android/app/build/outputs/bundle/release/app-release.aab\n          track: internal\n          status: completed\n\n  ios:\n    runs-on: macos-26\n    steps:\n      - uses: actions/checkout@v6\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - run: bun run build\n      - run: bunx cordova prepare ios\n      - name: Install certificate and profile\n        env:\n          P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}\n          P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}\n          PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}\n          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}\n        run: |\n          echo \"$P12_BASE64\" | base64 --decode > dist.p12\n          security create-keychain -p \"$KEYCHAIN_PASSWORD\" build.keychain\n          security set-keychain-settings -lut 21600 build.keychain\n          security unlock-keychain -p \"$KEYCHAIN_PASSWORD\" build.keychain\n          security import dist.p12 -k build.keychain -P \"$P12_PASSWORD\" -T /usr/bin/codesign\n          security set-key-partition-list -S apple-tool:,apple: -s -k \"$KEYCHAIN_PASSWORD\" build.keychain\n          security list-keychains -d user -s build.keychain login.keychain\n          for dir in \"$HOME/Library/MobileDevice/Provisioning Profiles\" \\\n                     \"$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles\"; do\n            mkdir -p \"$dir\"\n            echo \"$PROFILE_BASE64\" | base64 --decode > \"$dir/app.mobileprovision\"\n          done\n          cp build.template.json build.json   # iOS values hold no secrets\n      - run: bunx cordova build ios --release --device --buildConfig=build.json\n      - name: Upload to TestFlight\n        env:\n          API_KEY_ID: ${{ secrets.APPLE_KEY_ID }}\n          API_ISSUER: ${{ secrets.APPLE_ISSUER_ID }}\n          API_KEY_BASE64: ${{ secrets.APPLE_KEY_CONTENT }}\n        run: |\n          mkdir -p ~/.appstoreconnect/private_keys\n          echo \"$API_KEY_BASE64\" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8\n          IPA=$(find platforms/ios/build -name '*.ipa' | head -n 1)\n          xcrun altool --upload-app -f \"$IPA\" -t ios --apiKey \"$API_KEY_ID\" --apiIssuer \"$API_ISSUER\"\n      - name: Clean up keychain\n        if: always()\n        run: security delete-keychain build.keychain || true"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 1
+          },
+          "text": "Why some lines are there:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 165,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 165,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 165,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 165,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 165,
+                        "column": 5
+                      },
+                      "text": "Two provisioning profile folders."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 40
+                  },
+                  "text": " Xcode 16 and later read profiles from "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 165,
+                    "column": 79
+                  },
+                  "text": "~/Library/Developer/Xcode/UserData/Provisioning Profiles"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 137
+                  },
+                  "text": ". Older Xcode used "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 165,
+                    "column": 156
+                  },
+                  "text": "~/Library/MobileDevice/Provisioning Profiles"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 202
+                  },
+                  "text": ". Writing both avoids \"No profiles for 'com.example.app' were found\"."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 166,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 166,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 166,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 166,
+                        "column": 5
+                      },
+                      "text": "set-key-partition-list"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 166,
+                    "column": 31
+                  },
+                  "text": " stops macOS from prompting for keychain access, which would hang a CI job."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 167,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 167,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 167,
+                        "column": 5
+                      },
+                      "text": "JDK version."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 167,
+                    "column": 19
+                  },
+                  "text": " Use the JDK your "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 167,
+                    "column": 37
+                  },
+                  "text": "cordova-android"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 167,
+                    "column": 54
+                  },
+                  "text": " release documents. Recent releases build with JDK 17."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 168,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 168,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 168,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 168,
+                        "column": 5
+                      },
+                      "text": "Build numbers."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 21
+                  },
+                  "text": " Bump "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 168,
+                    "column": 27
+                  },
+                  "text": "android-versionCode"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 48
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 168,
+                    "column": 53
+                  },
+                  "text": "ios-CFBundleVersion"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 74
+                  },
+                  "text": " in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 168,
+                    "column": 78
+                  },
+                  "text": "config.xml"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 90
+                  },
+                  "text": " before the build, for example from the CI run number, or the stores reject the upload as a duplicate."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 1
+          },
+          "text": "You can swap the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 170,
+            "column": 18
+          },
+          "text": "altool"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 26
+          },
+          "text": " upload for fastlane's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 170,
+            "column": 49
+          },
+          "text": "upload_to_testflight"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 71
+          },
+          "text": " and the Play action for fastlane "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 170,
+            "column": 105
+          },
+          "text": "supply"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 113
+          },
+          "text": " if your team already uses fastlane."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 4
+          },
+          "text": "Step 4: The same pipeline on other CI services"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "text": "The commands do not change between CIs. Only the runner selection and secret syntax do."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 176,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 176,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 3
+                  },
+                  "text": "CI"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 176,
+                "column": 6
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 8
+                  },
+                  "text": "Android runner"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 176,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 25
+                  },
+                  "text": "iOS runner"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 176,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 38
+                  },
+                  "text": "Notes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 178,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 178,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 178,
+                    "column": 3
+                  },
+                  "text": "GitHub Actions"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 178,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 178,
+                    "column": 20
+                  },
+                  "text": "ubuntu-latest"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 178,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 178,
+                    "column": 38
+                  },
+                  "text": "macos-26"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 178,
+                    "column": 48
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 178,
+                    "column": 51
+                  },
+                  "text": "macos-latest"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 178,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 178,
+                    "column": 68
+                  },
+                  "text": "macOS minutes cost more than Linux on private repos"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 179,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 179,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 179,
+                    "column": 3
+                  },
+                  "text": "GitLab CI"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 179,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 179,
+                    "column": 15
+                  },
+                  "text": "any Linux runner"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 179,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 179,
+                    "column": 34
+                  },
+                  "text": "hosted macOS runners (beta, Premium and Ultimate) or self-hosted"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 179,
+                "column": 99
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 179,
+                    "column": 101
+                  },
+                  "text": "images such as "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 179,
+                    "column": 116
+                  },
+                  "text": "macos-26-xcode-26"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 180,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 180,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 3
+                  },
+                  "text": "Bitbucket Pipelines"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 180,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 25
+                  },
+                  "text": "Linux Docker image"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 180,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 46
+                  },
+                  "text": "self-hosted Mac only"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 180,
+                "column": 67
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 69
+                  },
+                  "text": "see "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 180,
+                    "column": 73
+                  },
+                  "url": "/blog/build-and-deploy-ios-apps-with-bitbucket-pipelines/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 180,
+                        "column": 74
+                      },
+                      "text": "Bitbucket iOS guide"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 181,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 181,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 3
+                  },
+                  "text": "Gitea / Forgejo"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 181,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 21
+                  },
+                  "text": "Linux runner"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 181,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 36
+                  },
+                  "text": "self-hosted Mac in host mode"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 181,
+                "column": 65
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 67
+                  },
+                  "text": "see "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 181,
+                    "column": 71
+                  },
+                  "url": "/blog/build-and-deploy-ios-apps-with-gitea-actions/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 181,
+                        "column": 72
+                      },
+                      "text": "Gitea iOS guide"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 182,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 3
+                  },
+                  "text": "Bitrise"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 182,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 13
+                  },
+                  "text": "Linux stacks"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 182,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 28
+                  },
+                  "text": "macOS stacks"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 182,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 43
+                  },
+                  "text": "ships Cordova steps (prepare, archive)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 183,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 183,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 183,
+                    "column": 3
+                  },
+                  "text": "Codemagic"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 183,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 183,
+                    "column": 15
+                  },
+                  "text": "Linux"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 183,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 183,
+                    "column": 23
+                  },
+                  "text": "Mac mini instances"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 183,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 183,
+                    "column": 44
+                  },
+                  "text": "documents Ionic Cordova builds in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 183,
+                    "column": 78
+                  },
+                  "text": "codemagic.yaml"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 184,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 184,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 184,
+                    "column": 3
+                  },
+                  "text": "Azure DevOps"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 184,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 184,
+                    "column": 18
+                  },
+                  "text": "ubuntu-latest"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 184,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 184,
+                    "column": 36
+                  },
+                  "text": "macOS-latest"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 184,
+                "column": 51
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 184,
+                    "column": 53
+                  },
+                  "text": "tasks to install certificates and profiles"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 1
+          },
+          "text": "For a feature-by-feature view, read "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 186,
+            "column": 37
+          },
+          "url": "/blog/comparing-ci-cd-platforms-for-cordova-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 186,
+                "column": 38
+              },
+              "text": "Comparing CI/CD platforms for Cordova apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 132
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 188,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 188,
+            "column": 4
+          },
+          "text": "Step 5: Live updates for Cordova"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 190,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 190,
+            "column": 1
+          },
+          "text": "Live updates let you ship HTML, CSS, and JavaScript fixes without a store review. App Center CodePush ended in March 2025, Appflow Live Updates end on December 31, 2027, and the old community hot code push plugins are unmaintained. A maintained option is "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 190,
+            "column": 256
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 190,
+                "column": 257
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 190,
+            "column": 291
+          },
+          "text": " with the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 190,
+            "column": 301
+          },
+          "url": "/plugins/cordova-updater/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 190,
+                "column": 302
+              },
+              "text": "@capgo/cordova-updater"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 190,
+            "column": 354
+          },
+          "text": " plugin, which uses the same backend, channels, and CLI as the Capacitor updater."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 192,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 192,
+            "column": 5
+          },
+          "text": "Requirements"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 194,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 194,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 194,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 194,
+                    "column": 3
+                  },
+                  "text": "Cordova CLI 12+"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 195,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 195,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 195,
+                    "column": 3
+                  },
+                  "text": "cordova-android"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 195,
+                    "column": 20
+                  },
+                  "text": " 13+ and/or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 195,
+                    "column": 32
+                  },
+                  "text": "cordova-ios"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 195,
+                    "column": 45
+                  },
+                  "text": " 7+ (the plugin relies on their default "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 195,
+                    "column": 85
+                  },
+                  "text": "https://localhost/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 195,
+                    "column": 105
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 195,
+                    "column": 110
+                  },
+                  "text": "app://localhost/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 195,
+                    "column": 128
+                  },
+                  "text": " schemes)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 196,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 196,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 196,
+                    "column": 3
+                  },
+                  "text": "Do not use "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 196,
+                    "column": 14
+                  },
+                  "text": "cordova-plugin-ionic-webview"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 196,
+                    "column": 44
+                  },
+                  "text": " with it. Ionic WebView bypasses Cordova's scheme handlers, so downloaded bundles would not load."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 198,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 5
+          },
+          "text": "Install the plugin"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 200,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 200,
+            "column": 1
+          },
+          "text": "Create the app in Capgo the same way as for Capacitor, then install the plugin with your Capgo app ID:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 202,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "cordova plugin add @capgo/cordova-updater \\\n  --variable APP_ID=com.example.app \\\n  --variable DEFAULT_CHANNEL=production\ncordova prepare android ios"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 209,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 209,
+            "column": 1
+          },
+          "text": "DEFAULT_CHANNEL"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 18
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 209,
+            "column": 20
+          },
+          "text": "UPDATE_URL"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 32
+          },
+          "text": ", and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 209,
+            "column": 38
+          },
+          "text": "AUTO_UPDATE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 51
+          },
+          "text": " are optional install variables. Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 209,
+            "column": 88
+          },
+          "text": "cordova prepare"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 105
+          },
+          "text": " again whenever you change them."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 211,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 211,
+            "column": 5
+          },
+          "text": "Confirm each launch"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 213,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 213,
+            "column": 1
+          },
+          "text": "After "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 213,
+            "column": 7
+          },
+          "text": "deviceready"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 213,
+            "column": 20
+          },
+          "text": ", the plugin is available as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 213,
+            "column": 49
+          },
+          "text": "cordova.plugins.Updater"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 213,
+            "column": 74
+          },
+          "text": ". Call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 213,
+            "column": 81
+          },
+          "text": "notifyAppReady()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 213,
+            "column": 99
+          },
+          "text": " on every launch, or the plugin treats the new bundle as broken and rolls back:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 215,
+        "column": 1
+      },
+      "lang": "javascript",
+      "meta": null,
+      "text": "document.addEventListener('deviceready', async () => {\n  const { Updater } = cordova.plugins\n\n  await Updater.notifyAppReady()\n\n  const latest = await Updater.getLatest()\n  if (latest.url && !latest.error) {\n    const bundle = await Updater.download({\n      url: latest.url,\n      version: latest.version,\n      checksum: latest.checksum,\n    })\n    await Updater.next({ id: bundle.id })\n  }\n})"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 233,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 233,
+            "column": 5
+          },
+          "text": "Upload bundles from CI"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 235,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 235,
+            "column": 1
+          },
+          "text": "Add a job that builds the web layer and uploads it, for web-only changes:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 237,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "  live-update:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - run: bun run build\n      - run: bunx @capgo/cli@latest bundle upload --channel=production\n        env:\n          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 250,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 250,
+            "column": 1
+          },
+          "text": "Live updates only replace the web bundle. Adding, removing, or upgrading a Cordova plugin still needs a new store build. Capgo compares the native plugins recorded for the live bundle with your project and flags incompatible uploads; see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 250,
+            "column": 239
+          },
+          "url": "/docs/live-updates/compatibility/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 250,
+                "column": 240
+              },
+              "text": "live update compatibility"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 250,
+            "column": 301
+          },
+          "text": ". Full setup is in the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 250,
+            "column": 324
+          },
+          "url": "/docs/plugins/cordova-updater/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 250,
+                "column": 325
+              },
+              "text": "Cordova updater docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 250,
+            "column": 378
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 252,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 252,
+            "column": 1
+          },
+          "text": "On the build side, the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 252,
+            "column": 24
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 252,
+                "column": 25
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 252,
+            "column": 53
+          },
+          "text": " documentation covers Capacitor projects only (it uploads the native project produced by "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 252,
+            "column": 142
+          },
+          "text": "cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 252,
+            "column": 152
+          },
+          "text": "). Cordova binaries keep building on your CI as shown above."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 254,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 4
+          },
+          "text": "Optional: migrating to Capacitor later"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 256,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 256,
+            "column": 1
+          },
+          "text": "You do not need to leave Cordova to get a working pipeline and live updates. Migration is a separate decision, worth it when:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 258,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 258,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 258,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 258,
+                    "column": 3
+                  },
+                  "text": "You want iOS builds without maintaining macOS runners. Capgo Build compiles Capacitor apps from a Linux CI job."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 259,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 259,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 259,
+                    "column": 3
+                  },
+                  "text": "Plugins you depend on stopped receiving Cordova updates, but have Capacitor equivalents."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 260,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 260,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 260,
+                    "column": 3
+                  },
+                  "text": "You want Swift Package Manager support and current Android Gradle Plugin versions without patching platforms."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 262,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 262,
+            "column": 1
+          },
+          "text": "The migration keeps your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 262,
+            "column": 26
+          },
+          "text": "www"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 262,
+            "column": 31
+          },
+          "text": " code. You add Capacitor, move plugins over (most Cordova plugins work as is), and replace a few that have Capacitor-native equivalents. Your Capgo app ID and channels stay the same; only the updater plugin changes from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 262,
+            "column": 251
+          },
+          "text": "@capgo/cordova-updater"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 262,
+            "column": 275
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 262,
+            "column": 279
+          },
+          "text": "@capgo/capacitor-updater"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 262,
+            "column": 305
+          },
+          "text": ". The steps are in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 262,
+            "column": 324
+          },
+          "url": "/blog/migrating-cordova-to-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 262,
+                "column": 325
+              },
+              "text": "Migrating from Cordova to Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 262,
+            "column": 400
+          },
+          "text": ", and the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 262,
+            "column": 410
+          },
+          "url": "/solutions/cordova-to-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 262,
+                "column": 411
+              },
+              "text": "Cordova to Capacitor solution page"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 262,
+            "column": 480
+          },
+          "text": " covers getting help with it. After migration, the CI above shrinks to a web build, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 262,
+            "column": 564
+          },
+          "text": "cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 262,
+            "column": 574
+          },
+          "text": ", and one "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 262,
+            "column": 584
+          },
+          "text": "build request"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 262,
+            "column": 599
+          },
+          "text": " call per platform, as described in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 262,
+            "column": 635
+          },
+          "url": "/blog/comparing-ci-cd-platforms-for-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 262,
+                "column": 636
+              },
+              "text": "Comparing CI/CD platforms for Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 262,
+            "column": 734
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 264,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 264,
+            "column": 4
+          },
+          "text": "Troubleshooting Cordova builds in CI"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 266,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 266,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 266,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 266,
+                    "column": 3
+                  },
+                  "text": "Error"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 266,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 266,
+                    "column": 11
+                  },
+                  "text": "Cause and fix"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 268,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 268,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 268,
+                    "column": 3
+                  },
+                  "text": "Current working directory is not a Cordova-based project"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 268,
+                "column": 62
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 268,
+                    "column": 64
+                  },
+                  "text": "config.xml"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 268,
+                    "column": 76
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 268,
+                    "column": 80
+                  },
+                  "text": "www/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 268,
+                    "column": 86
+                  },
+                  "text": " missing. Run your web build before Cordova commands, or create an empty "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 268,
+                    "column": 159
+                  },
+                  "text": "www/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 268,
+                    "column": 165
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 269,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 269,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 269,
+                    "column": 3
+                  },
+                  "text": "No platforms added to this project"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 269,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 269,
+                    "column": 42
+                  },
+                  "text": "Platforms are not listed in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 269,
+                    "column": 70
+                  },
+                  "text": "package.json"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 269,
+                    "column": 84
+                  },
+                  "text": ". Run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 269,
+                    "column": 90
+                  },
+                  "text": "cordova platform add"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 269,
+                    "column": 112
+                  },
+                  "text": " locally once and commit "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 269,
+                    "column": 137
+                  },
+                  "text": "package.json"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 269,
+                    "column": 151
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 270,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 270,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 270,
+                    "column": 3
+                  },
+                  "text": "Could not find an installed version of Gradle"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 270,
+                "column": 51
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 270,
+                    "column": 53
+                  },
+                  "text": "Recent "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 270,
+                    "column": 60
+                  },
+                  "text": "cordova-android"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 270,
+                    "column": 77
+                  },
+                  "text": " uses the Gradle wrapper. Update the platform rather than installing Gradle globally."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 271,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 271,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 271,
+                    "column": 3
+                  },
+                  "text": "Unsupported class file major version"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 271,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 271,
+                    "column": 44
+                  },
+                  "text": "JDK on the runner does not match the one "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 271,
+                    "column": 85
+                  },
+                  "text": "cordova-android"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 271,
+                    "column": 102
+                  },
+                  "text": " expects. Pin it with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 271,
+                    "column": 124
+                  },
+                  "text": "setup-java"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 271,
+                    "column": 136
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 272,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 272,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 272,
+                    "column": 3
+                  },
+                  "text": "No signing certificate \"iOS Distribution\" found"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 272,
+                "column": 53
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 272,
+                    "column": 55
+                  },
+                  "text": "Use "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 272,
+                    "column": 59
+                  },
+                  "text": "Apple Distribution"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 272,
+                    "column": 79
+                  },
+                  "text": " as the identity, and check that the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 272,
+                    "column": 116
+                  },
+                  "text": ".p12"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 272,
+                    "column": 122
+                  },
+                  "text": " contains the private key."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 273,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 273,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 273,
+                    "column": 3
+                  },
+                  "text": "errSecInternalComponent"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 273,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 273,
+                    "column": 31
+                  },
+                  "text": "Locked keychain or missing partition list. Re-run the keychain setup commands."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 274,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 274,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 274,
+                    "column": 3
+                  },
+                  "text": "Upload rejected: SDK too old"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 274,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 274,
+                    "column": 34
+                  },
+                  "text": "Runner image uses Xcode older than 26. Select "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 274,
+                    "column": 80
+                  },
+                  "text": "macos-26"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 274,
+                    "column": 90
+                  },
+                  "text": " or set Xcode with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 274,
+                    "column": 109
+                  },
+                  "text": "xcode-select"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 274,
+                    "column": 123
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 275,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 275,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 275,
+                    "column": 3
+                  },
+                  "text": "Play upload: "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 275,
+                    "column": 16
+                  },
+                  "text": "Version code has already been used"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 275,
+                "column": 53
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 275,
+                    "column": 55
+                  },
+                  "text": "Bump "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 275,
+                    "column": 60
+                  },
+                  "text": "android-versionCode"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 275,
+                    "column": 81
+                  },
+                  "text": " for every upload."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 277,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 277,
+            "column": 4
+          },
+          "text": "Summary"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 279,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 279,
+            "column": 1
+          },
+          "text": "A Cordova pipeline in 2026 is a CI job per platform: a Linux runner for the Android AAB, a macOS runner with Xcode 26 for the IPA, secrets decoded into a generated "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 279,
+            "column": 165
+          },
+          "text": "build.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 279,
+            "column": 177
+          },
+          "text": ", and API keys for both stores. Any mainstream CI can run it. Add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 279,
+            "column": 243
+          },
+          "text": "@capgo/cordova-updater"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 279,
+            "column": 267
+          },
+          "text": " and a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 279,
+            "column": 274
+          },
+          "text": "bundle upload"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 279,
+            "column": 289
+          },
+          "text": " job for web-only fixes, and you have the build, store, and over-the-air pieces Appflow and App Center used to provide. Moving to Capacitor stays an option for later, not a requirement."
+        }
+      ]
+    }
+  ]
+}

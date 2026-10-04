@@ -1,0 +1,2996 @@
+{
+  "version": 1,
+  "route": "/blog/spm-package-traits-in-capacitor/",
+  "source": "corpus/source/apps/web/src/content/blog/en/spm-package-traits-in-capacitor.md",
+  "sourceSha256": "f6b8574e2667d7992932a5c0c8105428004534f66e8f433c4adb9fd142e07a40",
+  "metadata": {
+    "slug": "spm-package-traits-in-capacitor",
+    "title": "How to Use SPM Package Traits in Capacitor 8",
+    "description": "Use SPM package traits in Capacitor 8: enable optional plugin features with packageTraits, set swiftToolsVersion 6.1, and add traits to your own plugin.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capacitor-spm-migration-guide.jpg",
+    "head_image_alt": "Illustration for Swift Package Manager configuration in Capacitor iOS projects",
+    "keywords": "SPM package traits Capacitor, Swift package traits, SE-0450, packageTraits Capacitor, swiftToolsVersion Capacitor, Capacitor 8 SPM, CocoaPods subspecs alternative",
+    "tag": "Capacitor, iOS, Configuration",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Which Capacitor version supports SPM package traits?",
+        "answer": "Capacitor CLI 8.3.0 and later. The options are experimental.ios.spm.swiftToolsVersion and experimental.ios.spm.packageTraits in the Capacitor config. Traits require swiftToolsVersion 6.1 or higher, which needs Xcode 16.3 or later. Capacitor 8 already requires Xcode 26."
+      },
+      {
+        "question": "Does enabling traits replace a plugin's default traits?",
+        "answer": "Yes. When you list traits for a package, SwiftPM uses exactly that list. To keep the plugin's defaults and add one, include .defaults in the array, for example [\".defaults\", \"SQLCipher\"]. An empty list is ignored by the Capacitor CLI."
+      },
+      {
+        "question": "Will setting swiftToolsVersion to 6.1 switch my app to Swift 6 language mode?",
+        "answer": "The setting only changes the header of the generated CapApp-SPM Package.swift, which contains almost no code. Each plugin keeps its own tools version and language mode. Capacitor does not officially support Swift 6 yet, so test the app after changing it."
+      },
+      {
+        "question": "Do traits work in CocoaPods projects?",
+        "answer": "No. Traits are a Swift Package Manager feature. Plugins that want the same choice in CocoaPods apps need to offer podspec subspecs, and CocoaPods users select the subspec in their Podfile."
+      },
+      {
+        "question": "Can two traits of one plugin be mutually exclusive?",
+        "answer": "SwiftPM unifies traits across the whole dependency graph, so any combination can end up enabled. Traits should be additive. If two options really conflict, add a #error check so the build fails with a clear message."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To use SPM package traits in Capacitor 8, set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 47
+          },
+          "text": "experimental.ios.spm.swiftToolsVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 87
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 91
+          },
+          "text": "\"6.1\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 98
+          },
+          "text": " and list the traits per plugin under "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 136
+          },
+          "text": "experimental.ios.spm.packageTraits"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 172
+          },
+          "text": " in your Capacitor config, then run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 208
+          },
+          "text": "bunx cap sync ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 227
+          },
+          "text": ". The CLI writes those traits into the generated "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 276
+          },
+          "text": "CapApp-SPM/Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 302
+          },
+          "text": ", and SwiftPM builds the plugin with the matching optional dependencies and code paths. This needs Capacitor CLI 8.3.0 or later and only applies to iOS projects that use Swift Package Manager."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "Traits close the last big feature gap between SPM and CocoaPods for plugins: optional native dependencies that used to be podspec subspecs. This guide covers the app side, the plugin author side, and the limits of the current experimental support."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "What package traits are"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "Package traits come from Swift Evolution proposal "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 8,
+            "column": 51
+          },
+          "url": "https://github.com/swiftlang/swift-evolution/blob/main/proposals/0450-swiftpm-package-traits.md",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 8,
+                "column": 52
+              },
+              "text": "SE-0450"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 157
+          },
+          "text": ", implemented in Swift 6.1 (Xcode 16.3 and later). A package declares named traits in its "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 247
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 262
+          },
+          "text": ". Consumers choose which ones to enable when they depend on the package. A trait can:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "make a dependency optional ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 31
+                  },
+                  "text": "condition: .when(traits: [...])"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 64
+                  },
+                  "text": " on a target dependency),"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "turn on code paths, since every enabled trait is available as a compilation condition ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 90
+                  },
+                  "text": "#if TraitName"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 105
+                  },
+                  "text": "),"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 12,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "toggle build settings such as defines or linker flags,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 13,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "enable other traits."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 15,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "text": "A package can also mark traits as default. They're on unless the consumer passes an explicit list."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 17,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "text": "If you know CocoaPods subspecs or Cargo features in Rust, it's the same idea."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 19,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 19,
+            "column": 4
+          },
+          "text": "Why it matters in Capacitor"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 21,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "text": "Capacitor generates the app's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 21,
+            "column": 31
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 46
+          },
+          "text": " for you, so you can't hand-edit dependency lines to pass traits. Before CLI 8.3, plugin authors with an optional native SDK had two bad choices on SPM: always link the SDK, increasing size and sometimes adding privacy or export compliance work, or publish a second plugin. Common cases:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 23,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "text": "encrypted vs plain SQLite (SQLCipher),"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 24,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "text": "analytics SDKs with and without advertising identifier collection,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 25,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "text": "an optional vendor SDK for one payment or login provider,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 26,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 3
+                  },
+                  "text": "debug-only tooling."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 4
+          },
+          "text": "Enable traits in your app"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 5
+          },
+          "text": "1. Check versions"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx cap --version      # 8.3.0 or later\nxcodebuild -version     # Xcode 26 (required by Capacitor 8 anyway)"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 37,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "text": "The project must use SPM: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 37,
+            "column": 27
+          },
+          "text": "ios/App/CapApp-SPM"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 47
+          },
+          "text": " exists. If you're on CocoaPods, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 37,
+            "column": 84
+          },
+          "url": "/blog/how-to-migrate-your-capacitor-app-to-spm/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 37,
+                "column": 85
+              },
+              "text": "how to migrate your Capacitor app to SPM"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 175
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 5
+          },
+          "text": "2. Find the plugin's trait names"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "text": "Open the plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 41,
+            "column": 19
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 34
+          },
+          "text": " in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 41,
+            "column": 38
+          },
+          "text": "node_modules"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 52
+          },
+          "text": " and look for the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 41,
+            "column": 70
+          },
+          "text": "traits:"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 79
+          },
+          "text": " array, or check its README. Trait names are case-sensitive."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 5
+          },
+          "text": "3. Configure Capacitor"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "import type { CapacitorConfig } from '@capacitor/cli';\n\nconst config: CapacitorConfig = {\n  appId: 'com.example.app',\n  appName: 'Example',\n  webDir: 'dist',\n  experimental: {\n    ios: {\n      spm: {\n        swiftToolsVersion: '6.1',\n        packageTraits: {\n          '@acme/capacitor-db': ['.defaults', 'SQLCipher'],\n        },\n      },\n    },\n  },\n};\n\nexport default config;"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 67,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 1
+          },
+          "text": "The key is the plugin's npm package name. The value is the list of traits to enable."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 69,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 69,
+            "column": 5
+          },
+          "text": "4. Sync and check the output"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx cap sync ios"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 75,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "text": "The generated "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 75,
+            "column": 15
+          },
+          "text": "ios/App/CapApp-SPM/Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 49
+          },
+          "text": " now starts with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 75,
+            "column": 66
+          },
+          "text": "// swift-tools-version: 6.1"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 95
+          },
+          "text": " and the plugin's dependency line carries the traits:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 77,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": ".package(name: \"AcmeCapacitorDb\", path: \"../../../node_modules/@acme/capacitor-db\", traits: [.defaults, \"SQLCipher\"])"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 1
+          },
+          "text": "The CLI writes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 81,
+            "column": 16
+          },
+          "text": ".defaults"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 27
+          },
+          "text": " (or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 81,
+            "column": 32
+          },
+          "text": "defaults"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 42
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 81,
+            "column": 44
+          },
+          "text": ".default"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 54
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 81,
+            "column": 56
+          },
+          "text": "default"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 65
+          },
+          "text": " in any case) as the SwiftPM "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 81,
+            "column": 94
+          },
+          "text": ".defaults"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 105
+          },
+          "text": " value, and every other name as a quoted string."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 1
+          },
+          "text": "Build in Xcode. If Xcode still shows the old graph, use "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 83,
+            "column": 57
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 83,
+                "column": 59
+              },
+              "text": "File > Packages > Reset Package Caches"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 99
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 85,
+            "column": 5
+          },
+          "text": "Rules the CLI enforces"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 87,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 1
+          },
+          "text": "The Capacitor CLI validates the config during sync:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 89,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 89,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 89,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 89,
+                    "column": 3
+                  },
+                  "text": "If any plugin has a non-empty trait list and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 89,
+                    "column": 48
+                  },
+                  "text": "swiftToolsVersion"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 89,
+                    "column": 67
+                  },
+                  "text": " is missing, sync stops with \"Package traits require an explicit Swift tools version of 6.1 or higher.\""
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 90,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 90,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 90,
+                    "column": 3
+                  },
+                  "text": "If "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 90,
+                    "column": 6
+                  },
+                  "text": "swiftToolsVersion"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 90,
+                    "column": 25
+                  },
+                  "text": " is lower than 6.1, sync stops and tells you the version is too low."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 91,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 91,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 91,
+                    "column": 3
+                  },
+                  "text": "swiftToolsVersion"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 91,
+                    "column": 22
+                  },
+                  "text": " must look like "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 91,
+                    "column": 38
+                  },
+                  "text": "6.1"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 91,
+                    "column": 43
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 91,
+                    "column": 47
+                  },
+                  "text": "6.1.0"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 91,
+                    "column": 54
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 92,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 92,
+                    "column": 3
+                  },
+                  "text": "Plugins with an empty array are treated as if they weren't listed."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 94,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 94,
+            "column": 5
+          },
+          "text": "Keep or drop default traits"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 96,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 1
+          },
+          "text": "Listing traits replaces the defaults. Compare:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 98,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 98,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 98,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 98,
+                    "column": 3
+                  },
+                  "text": "Config value"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 98,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 98,
+                    "column": 18
+                  },
+                  "text": "Result"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 100,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 100,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 100,
+                    "column": 3
+                  },
+                  "text": "not listed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 100,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 100,
+                    "column": 16
+                  },
+                  "text": "plugin's default traits"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 101,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 101,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 101,
+                    "column": 3
+                  },
+                  "text": "['SQLCipher']"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 101,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 101,
+                    "column": 21
+                  },
+                  "text": "only "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 101,
+                    "column": 26
+                  },
+                  "text": "SQLCipher"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 101,
+                    "column": 37
+                  },
+                  "text": ", defaults off"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 102,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 102,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 102,
+                    "column": 3
+                  },
+                  "text": "['.defaults', 'SQLCipher']"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 102,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 102,
+                    "column": 34
+                  },
+                  "text": "defaults plus "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 102,
+                    "column": 48
+                  },
+                  "text": "SQLCipher"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 104,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 104,
+            "column": 1
+          },
+          "text": "Read the plugin docs before dropping defaults. A plugin might put its standard backend behind a default trait."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 106,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 106,
+            "column": 4
+          },
+          "text": "Add traits to your own plugin"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 108,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 1
+          },
+          "text": "If you maintain a plugin with an optional SDK, here's a complete "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 108,
+            "column": 66
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 81
+          },
+          "text": ". The package name must match the name the Capacitor CLI derives from your npm name ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 108,
+            "column": 166
+          },
+          "text": "@acme/capacitor-db"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 186
+          },
+          "text": " becomes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 108,
+            "column": 195
+          },
+          "text": "AcmeCapacitorDb"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 212
+          },
+          "text": "). See "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 108,
+            "column": 219
+          },
+          "url": "/blog/migrate-capacitor-plugin-to-swift-package-manager/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 108,
+                "column": 220
+              },
+              "text": "migrate a Capacitor plugin to SPM"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 312
+          },
+          "text": " for the rule."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 110,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "// swift-tools-version: 6.1\nimport PackageDescription\n\nlet package = Package(\n    name: \"AcmeCapacitorDb\",\n    platforms: [.iOS(.v15)],\n    products: [\n        .library(name: \"AcmeCapacitorDb\", targets: [\"DbPlugin\"])\n    ],\n    traits: [\n        .trait(name: \"SQLCipher\", description: \"Link SQLCipher and enable encrypted databases.\"),\n        .default(enabledTraits: [])\n    ],\n    dependencies: [\n        .package(url: \"https://github.com/ionic-team/capacitor-swift-pm.git\", from: \"8.0.0\"),\n        .package(url: \"https://github.com/sqlcipher/SQLCipher.swift.git\", from: \"4.10.0\")\n    ],\n    targets: [\n        .target(\n            name: \"DbPlugin\",\n            dependencies: [\n                .product(name: \"Capacitor\", package: \"capacitor-swift-pm\"),\n                .product(name: \"Cordova\", package: \"capacitor-swift-pm\"),\n                .product(\n                    name: \"SQLCipher\",\n                    package: \"SQLCipher.swift\",\n                    condition: .when(traits: [\"SQLCipher\"])\n                )\n            ],\n            path: \"ios/Sources/DbPlugin\"\n        )\n    ],\n    swiftLanguageModes: [.v5]\n)"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 147,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 147,
+            "column": 1
+          },
+          "text": "Check the SDK's own repository for its current package URL, product name and version before you copy this."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 149,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 149,
+            "column": 1
+          },
+          "text": "Points that are easy to miss:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 151,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 151,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 151,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 151,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 151,
+                        "column": 5
+                      },
+                      "text": "Tools version 6.x changes the default language mode to Swift 6"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 151,
+                    "column": 69
+                  },
+                  "text": " for your targets. Capacitor doesn't officially support Swift 6 yet, so keep "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 151,
+                    "column": 146
+                  },
+                  "text": "swiftLanguageModes: [.v5]"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 151,
+                    "column": 173
+                  },
+                  "text": " unless your code is ready for strict concurrency."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 152,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 152,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 152,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 152,
+                        "column": 5
+                      },
+                      "text": "Raising your plugin's tools version to 6.1 means consumers need Xcode 16.3+."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 152,
+                    "column": 83
+                  },
+                  "text": " Capacitor 8 apps already require Xcode 26, so that's not a new constraint."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 5
+          },
+          "text": "Use the trait in code"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 156,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "text": "Enabled traits are compilation conditions in your package's targets:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "#if SQLCipher\nimport SQLCipher\n#endif\n\n@objc func open(_ call: CAPPluginCall) {\n    let key = call.getString(\"encryptionKey\")\n    #if SQLCipher\n    // open with key\n    #else\n    if key != nil {\n        call.unavailable(\"Encryption requires the SQLCipher trait. Enable it in experimental.ios.spm.packageTraits.\")\n        return\n    }\n    #endif\n    // open without encryption\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 177,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 177,
+            "column": 1
+          },
+          "text": "Return a clear error naming the trait when a feature is off. App developers otherwise see a silent failure and blame the plugin."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 179,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 179,
+            "column": 1
+          },
+          "text": "You can also define your own flag with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 179,
+            "column": 40
+          },
+          "text": "swiftSettings: [.define(\"ACME_SQLCIPHER\", .when(traits: [\"SQLCipher\"]))]"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 179,
+            "column": 114
+          },
+          "text": " if you prefer a prefixed name."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 181,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 5
+          },
+          "text": "Design traits to be additive"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 183,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 183,
+            "column": 1
+          },
+          "text": "SwiftPM unifies traits across the dependency graph. If two packages depend on your plugin with different traits, the union is enabled. So:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 185,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 185,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 185,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 185,
+                    "column": 3
+                  },
+                  "text": "Enabling a trait should add capabilities, not remove API or change defaults."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 186,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 186,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 186,
+                    "column": 3
+                  },
+                  "text": "Avoid mutually exclusive traits. If you can't, fail the build loudly:"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 188,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "#if TraitA && TraitB\n#error(\"TraitA and TraitB cannot be enabled together\")\n#endif"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 194,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 194,
+            "column": 5
+          },
+          "text": "Test every combination"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 196,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 196,
+            "column": 1
+          },
+          "text": "swift build"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 196,
+            "column": 14
+          },
+          "text": " on its own builds for the Mac, and a plugin that depends on Capacitor only builds for iOS, so test the traits through a Capacitor test app built for an iOS Simulator. For each combination (no entry for the default traits, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 196,
+            "column": 237
+          },
+          "text": "['SQLCipher']"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 196,
+            "column": 252
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 196,
+            "column": 254
+          },
+          "text": "['.defaults', 'SQLCipher']"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 196,
+            "column": 282
+          },
+          "text": " and so on), change "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 196,
+            "column": 302
+          },
+          "text": "packageTraits"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 196,
+            "column": 317
+          },
+          "text": " in the test app's config, then sync and build:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 198,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx cap sync ios\nxcodebuild build \\\n  -project ios/App/App.xcodeproj \\\n  -scheme App \\\n  -destination 'generic/platform=iOS Simulator' \\\n  CODE_SIGNING_ALLOWED=NO"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 207,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 1
+          },
+          "text": "Add each combination to CI as its own job."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 209,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 5
+          },
+          "text": "Keep CocoaPods users covered"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 211,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 211,
+            "column": 1
+          },
+          "text": "Traits only exist in SPM. If your plugin also ships a podspec, offer the same choice as subspecs:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 213,
+        "column": 1
+      },
+      "lang": "ruby",
+      "meta": null,
+      "text": "s.default_subspec = 'Core'\n\ns.subspec 'Core' do |core|\n  core.source_files = 'ios/Sources/DbPlugin/**/*.swift'\n  core.dependency 'Capacitor'\nend\n\ns.subspec 'SQLCipher' do |sc|\n  sc.dependency 'AcmeCapacitorDb/Core'\n  sc.dependency 'SQLCipher', '~> 4.10'\n  sc.pod_target_xcconfig = { 'SWIFT_ACTIVE_COMPILATION_CONDITIONS' => '$(inherited) SQLCipher' }\nend"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 228,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 228,
+            "column": 1
+          },
+          "text": "Setting the same compilation condition name in the subspec lets you share one "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 228,
+            "column": 79
+          },
+          "text": "#if SQLCipher"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 228,
+            "column": 94
+          },
+          "text": " code path. CocoaPods apps then select the subspec in their Podfile. The Capacitor CLI writes one "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 228,
+            "column": 192
+          },
+          "text": "pod"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 228,
+            "column": 197
+          },
+          "text": " line per plugin inside "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 228,
+            "column": 221
+          },
+          "text": "capacitor_pods"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 228,
+            "column": 237
+          },
+          "text": ", so document the extra Podfile line in your README. "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 228,
+            "column": 290
+          },
+          "url": "/blog/use-cocoapods-with-capacitor-8/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 228,
+                "column": 291
+              },
+              "text": "How to use CocoaPods with Capacitor 8"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 228,
+            "column": 368
+          },
+          "text": " shows where custom pod lines go."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 230,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 230,
+            "column": 4
+          },
+          "text": "Limitations"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 232,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 232,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 232,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 232,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 232,
+                        "column": 5
+                      },
+                      "text": "Experimental."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 232,
+                    "column": 20
+                  },
+                  "text": " The options live under "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 232,
+                    "column": 44
+                  },
+                  "text": "experimental"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 232,
+                    "column": 58
+                  },
+                  "text": " and may move to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 232,
+                    "column": 75
+                  },
+                  "text": "ios.spm.*"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 232,
+                    "column": 86
+                  },
+                  "text": " in a future major. Expect a config rename at some point."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 233,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 233,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 233,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 233,
+                        "column": 5
+                      },
+                      "text": "Swift 6 not officially supported."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 233,
+                    "column": 40
+                  },
+                  "text": " The CLI's own docs warn that setting "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 233,
+                    "column": 78
+                  },
+                  "text": "swiftToolsVersion"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 233,
+                    "column": 97
+                  },
+                  "text": " to 6.0 or higher may cause issues. Test the full app, especially plugins that ship binary xcframeworks."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 234,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 234,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 234,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 234,
+                        "column": 5
+                      },
+                      "text": "iOS only."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 234,
+                    "column": 16
+                  },
+                  "text": " Android has no equivalent in Capacitor. Plugins handle optional Android SDKs with Gradle variables in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 234,
+                    "column": 119
+                  },
+                  "text": "variables.gradle"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 234,
+                    "column": 137
+                  },
+                  "text": " or separate artifacts."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 235,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 235,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 235,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 235,
+                        "column": 5
+                      },
+                      "text": "Plugins must opt in."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 235,
+                    "column": 27
+                  },
+                  "text": " Most plugins don't define traits yet. Check before you plan on one."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 237,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 237,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 239,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 239,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 239,
+                "column": 3
+              },
+              "text": "Sync fails with \"Package traits require an explicit Swift tools version of 6.1 or higher\"."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 239,
+            "column": 95
+          },
+          "text": " Add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 239,
+            "column": 100
+          },
+          "text": "swiftToolsVersion: '6.1'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 239,
+            "column": 126
+          },
+          "text": " next to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 239,
+            "column": 135
+          },
+          "text": "packageTraits"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 239,
+            "column": 150
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 241,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 241,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 241,
+                "column": 3
+              },
+              "text": "SwiftPM reports an unknown trait."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 38
+          },
+          "text": " Trait names are case-sensitive and must exist in the plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 241,
+            "column": 101
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 116
+          },
+          "text": " for the installed version."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 243,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 243,
+                "column": 3
+              },
+              "text": "Feature still missing after enabling the trait."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 52
+          },
+          "text": " Reset package caches in Xcode, clean the build folder, and confirm the generated "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 243,
+            "column": 134
+          },
+          "text": "CapApp-SPM/Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 160
+          },
+          "text": " has the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 243,
+            "column": 169
+          },
+          "text": "traits:"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 178
+          },
+          "text": " suffix. Editing that file by hand doesn't stick, since the CLI rewrites it on every sync."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 245,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 245,
+                "column": 3
+              },
+              "text": "Errors in Swift code after raising the tools version."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 58
+          },
+          "text": " That's Swift 6 language mode in a package you control. Add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 245,
+            "column": 118
+          },
+          "text": "swiftLanguageModes: [.v5]"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 145
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 247,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 247,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 247,
+                "column": 3
+              },
+              "text": "Name conflicts between plugins."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 247,
+            "column": 36
+          },
+          "text": " Since CLI 8.4, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 247,
+            "column": 52
+          },
+          "text": "experimental.ios.spm.packageOptions"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 247,
+            "column": 89
+          },
+          "text": " lets you set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 247,
+            "column": 103
+          },
+          "text": "symlink"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 247,
+            "column": 112
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 247,
+            "column": 116
+          },
+          "text": "moduleAliases"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 247,
+            "column": 131
+          },
+          "text": " per plugin. More on that in the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 247,
+            "column": 164
+          },
+          "url": "/blog/troubleshooting-capacitor-ios-build-errors/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 247,
+                "column": 165
+              },
+              "text": "Capacitor iOS troubleshooting guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 247,
+            "column": 252
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 249,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 249,
+            "column": 1
+          },
+          "text": "For the bigger SPM picture, read "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 249,
+            "column": 34
+          },
+          "url": "/blog/ios-spm-vs-cocoapods-capacitor-migration-guide/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 249,
+                "column": 35
+              },
+              "text": "SPM vs CocoaPods for Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 249,
+            "column": 121
+          },
+          "text": ". If you want cloud builds that already run current Xcode for SPM projects, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 249,
+            "column": 201
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 249,
+                "column": 202
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 249,
+            "column": 230
+          },
+          "text": "."
+        }
+      ]
+    }
+  ]
+}

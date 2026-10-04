@@ -1,0 +1,3077 @@
+{
+  "version": 1,
+  "route": "/blog/capacitor-device-sensors-guide/",
+  "source": "corpus/source/apps/web/src/content/blog/en/capacitor-device-sensors-guide.md",
+  "sourceSha256": "fd8504e623d62ad2886b91d4b500a5d1fe307cdc2771f59d315d88db18f1b115",
+  "metadata": {
+    "slug": "capacitor-device-sensors-guide",
+    "title": "Capacitor Device Sensors Guide: Motion, Compass, Steps",
+    "description": "Capacitor device sensors guide: read the accelerometer, barometer, compass, pedometer, light and proximity sensors on iOS and Android, with permissions.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_plugins.webp",
+    "head_image_alt": "Smartphone sensors such as accelerometer, compass and barometer used in a Capacitor app",
+    "keywords": "capacitor device sensors, capacitor accelerometer, capacitor compass, capacitor pedometer, capacitor barometer, capacitor light sensor, capacitor proximity sensor, ionic sensors, capacitor gyroscope",
+    "tag": "Guides, Capacitor, Mobile",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Which Capacitor sensor plugins need a permission prompt?",
+        "answer": "On iOS, the pedometer and barometer (and the accelerometer plugin, per its setup docs) use Core Motion and need NSMotionUsageDescription, and the compass needs location permission because iOS derives heading from Core Location. On Android, only the pedometer needs a runtime permission, ACTIVITY_RECOGNITION on Android 10+. Accelerometer, barometer, compass, light and proximity sensors need none."
+      },
+      {
+        "question": "Why does the light sensor not work on iOS?",
+        "answer": "Apple does not expose the ambient light sensor through a public API, so no App Store compliant plugin can read lux values on iPhone. @capgo/capacitor-light-sensor reports available: false on iOS. Use the screen brightness or the system dark mode setting as a proxy."
+      },
+      {
+        "question": "Do these sensor plugins work in the browser?",
+        "answer": "Partly. Browsers expose motion and orientation through DeviceMotionEvent and DeviceOrientationEvent, and some plugins fall back to them. Barometer, pedometer, light and proximity readings are generally not available on the web, so always check isAvailable() and design a fallback."
+      },
+      {
+        "question": "Should I use the accelerometer or the pedometer to count steps?",
+        "answer": "Use the pedometer. It reads the dedicated low-power step counter that runs even when your app is closed, and it is far more accurate than counting peaks in raw accelerometer data, which drains battery and only works while your app is running."
+      },
+      {
+        "question": "How do I read the gyroscope in Capacitor?",
+        "answer": "Use the standard DeviceMotionEvent in the WebView. event.rotationRate gives rotation in degrees per second around each axis. On iOS, call DeviceMotionEvent.requestPermission() from a user tap first."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "Capacitor device sensors are available through small, focused plugins: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 72
+          },
+          "text": "@capgo/capacitor-accelerometer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 104
+          },
+          "text": " for motion, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 117
+          },
+          "text": "@capgo/capacitor-barometer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 145
+          },
+          "text": " for air pressure, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 164
+          },
+          "text": "@capgo/capacitor-compass"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 190
+          },
+          "text": " for heading, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 204
+          },
+          "text": "@capgo/capacitor-pedometer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 232
+          },
+          "text": " for steps, plus light, proximity and shake plugins. Each follows the same pattern: check availability, request permission if needed, start updates, listen, and stop when you are done. This guide covers every sensor with Capacitor 8 code, the platform differences that matter, and the battery rules that keep apps out of trouble."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "Sensor overview"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 6,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 6,
+                    "column": 3
+                  },
+                  "text": "Sensor"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 6,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 6,
+                    "column": 12
+                  },
+                  "text": "Plugin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 6,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 6,
+                    "column": 21
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 6,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 6,
+                    "column": 27
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 6,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 6,
+                    "column": 37
+                  },
+                  "text": "Permission"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "Accelerometer"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 8,
+                    "column": 19
+                  },
+                  "url": "/plugins/capacitor-accelerometer/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 8,
+                        "column": 20
+                      },
+                      "text": "@capgo/capacitor-accelerometer"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 89
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 91
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 95
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 97
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 101
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 103
+                  },
+                  "text": "iOS "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 8,
+                    "column": 107
+                  },
+                  "text": "NSMotionUsageDescription"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 9,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 9,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "text": "Barometer"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 9,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 9,
+                    "column": 15
+                  },
+                  "url": "/plugins/capacitor-barometer/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 9,
+                        "column": 16
+                      },
+                      "text": "@capgo/capacitor-barometer"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 9,
+                "column": 77
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 79
+                  },
+                  "text": "Yes, with relative altitude"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 9,
+                "column": 107
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 109
+                  },
+                  "text": "Yes, pressure only, on devices with a sensor"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 9,
+                "column": 154
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 156
+                  },
+                  "text": "iOS motion usage string"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Compass"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 10,
+                    "column": 13
+                  },
+                  "url": "/plugins/capacitor-compass/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 10,
+                        "column": 14
+                      },
+                      "text": "@capgo/capacitor-compass"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 71
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 73
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 77
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 79
+                  },
+                  "text": "Yes, with accuracy events"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 105
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 107
+                  },
+                  "text": "iOS location when in use"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "Pedometer"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 11,
+                    "column": 15
+                  },
+                  "url": "/plugins/capacitor-pedometer/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 11,
+                        "column": 16
+                      },
+                      "text": "@capgo/capacitor-pedometer"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 77
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 79
+                  },
+                  "text": "Steps, distance, floors, pace, cadence"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 118
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 120
+                  },
+                  "text": "Steps"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 126
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 128
+                  },
+                  "text": "iOS motion, Android "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 148
+                  },
+                  "text": "ACTIVITY_RECOGNITION"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Ambient light"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 12,
+                    "column": 19
+                  },
+                  "url": "/plugins/capacitor-light-sensor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 12,
+                        "column": 20
+                      },
+                      "text": "@capgo/capacitor-light-sensor"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 87
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 89
+                  },
+                  "text": "No public API"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 103
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 105
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 109
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 111
+                  },
+                  "text": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "Proximity"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 13,
+                    "column": 15
+                  },
+                  "url": "/plugins/capacitor-proximity/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 13,
+                        "column": 16
+                      },
+                      "text": "@capgo/capacitor-proximity"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 77
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 79
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 83
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 85
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 89
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 91
+                  },
+                  "text": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "Shake gesture"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 14,
+                    "column": 19
+                  },
+                  "url": "/plugins/capacitor-shake/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 14,
+                        "column": 20
+                      },
+                      "text": "@capgo/capacitor-shake"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 73
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 75
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 79
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 81
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 85
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 87
+                  },
+                  "text": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "text": "Gyroscope / orientation"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 29
+                  },
+                  "text": "Web "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 33
+                  },
+                  "text": "DeviceMotionEvent"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 52
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 55
+                  },
+                  "text": "DeviceOrientationEvent"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 80
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 82
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 86
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 88
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 92
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 94
+                  },
+                  "text": "iOS "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 98
+                  },
+                  "text": "requestPermission()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 119
+                  },
+                  "text": " in the WebView"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 17,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "text": "Install only what you use. Each plugin is small, and fewer permission strings mean fewer questions in App Review."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 19,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-accelerometer @capgo/capacitor-compass @capgo/capacitor-pedometer\nbunx cap sync"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 4
+          },
+          "text": "iOS setup"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "text": "Add the usage strings your sensors need to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 26,
+            "column": 44
+          },
+          "text": "ios/App/App/Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 68
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<!-- Accelerometer, pedometer, barometer altitude -->\n<key>NSMotionUsageDescription</key>\n<string>Counts your steps and detects movement during workouts.</string>\n\n<!-- Compass heading -->\n<key>NSLocationWhenInUseUsageDescription</key>\n<string>Shows which direction you are facing on the map.</string>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "text": "Explain the user benefit in plain words. Generic text like \"This app needs motion access\" is a frequent App Review rejection reason."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 4
+          },
+          "text": "Android setup"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "text": "Most sensors need no permission. The pedometer plugin adds "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 42,
+            "column": 60
+          },
+          "text": "ACTIVITY_RECOGNITION"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 82
+          },
+          "text": " to the merged manifest, and you request it at runtime on Android 10+."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 44,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "text": "If a sensor is essential, declare the hardware feature so Google Play hides your app from devices without it. If it is optional, declare it with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 44,
+            "column": 146
+          },
+          "text": "required=\"false\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 44,
+            "column": 164
+          },
+          "text": " and check availability at runtime:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 46,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<uses-feature android:name=\"android.hardware.sensor.barometer\" android:required=\"false\" />\n<uses-feature android:name=\"android.hardware.sensor.stepcounter\" android:required=\"false\" />\n<uses-feature android:name=\"android.hardware.sensor.compass\" android:required=\"false\" />"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 4
+          },
+          "text": "Accelerometer: motion and tilt"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "text": "The accelerometer reports acceleration on the x, y and z axes in G. A phone lying flat reads about "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 100
+          },
+          "text": "z = -1"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 108
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 112
+          },
+          "text": "1"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 115
+          },
+          "text": " depending on the platform convention, because gravity is included."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { CapacitorAccelerometer } from '@capgo/capacitor-accelerometer';\n\nconst { isAvailable } = await CapacitorAccelerometer.isAvailable();\nif (isAvailable) {\n  await CapacitorAccelerometer.requestPermissions();\n\n  const listener = await CapacitorAccelerometer.addListener('measurement', ({ x, y, z }) => {\n    const tiltX = Math.atan2(x, Math.sqrt(y * y + z * z)) * (180 / Math.PI);\n    ball.style.transform = `translateX(${tiltX * 3}px)`;\n  });\n\n  await CapacitorAccelerometer.startMeasurementUpdates();\n\n  // later\n  await CapacitorAccelerometer.stopMeasurementUpdates();\n  await listener.remove();\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 76,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 1
+          },
+          "text": "Use cases: tilt controls in games, \"lift to wake\" UI, fall or impact detection, activity intensity. Raw data is noisy, so smooth it with a low-pass filter before using it:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 78,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const alpha = 0.2;\nlet smoothed = { x: 0, y: 0, z: 0 };\n\nfunction lowPass(m: { x: number; y: number; z: number }) {\n  smoothed = {\n    x: smoothed.x + alpha * (m.x - smoothed.x),\n    y: smoothed.y + alpha * (m.y - smoothed.y),\n    z: smoothed.z + alpha * (m.z - smoothed.z),\n  };\n  return smoothed;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "text": "Do not update the DOM on every sample. Store the latest value and render it in a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 92,
+            "column": 82
+          },
+          "text": "requestAnimationFrame"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 105
+          },
+          "text": " loop."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 94,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 94,
+            "column": 5
+          },
+          "text": "Shake gestures"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 96,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 1
+          },
+          "text": "For \"shake to report a bug\" or \"shake to undo\", you do not need to tune thresholds yourself:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 98,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { CapacitorShake } from '@capgo/capacitor-shake';\n\nconst handle = await CapacitorShake.addListener('shake', () => openFeedbackForm());"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 104,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 104,
+            "column": 4
+          },
+          "text": "Gyroscope and device orientation"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 106,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 106,
+            "column": 1
+          },
+          "text": "There is no separate plugin needed for rotation. The WebView already exposes it:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 108,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "async function enableMotion() {\n  // iOS 13+ requires a user gesture and explicit permission\n  const DME = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<'granted' | 'denied'> };\n  if (typeof DME.requestPermission === 'function') {\n    const result = await DME.requestPermission();\n    if (result !== 'granted') return;\n  }\n\n  window.addEventListener('devicemotion', (e) => {\n    const r = e.rotationRate; // alpha, beta, gamma in degrees per second\n    if (r) updateRotation(r.alpha ?? 0, r.beta ?? 0, r.gamma ?? 0);\n  });\n\n  window.addEventListener('deviceorientation', (e) => {\n    // alpha: 0-360 around z, beta: -180..180 front/back, gamma: -90..90 left/right\n    updateOrientation(e.alpha, e.beta, e.gamma);\n  });\n}\n\ndocument.querySelector('#enable-motion')!.addEventListener('click', enableMotion);"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 131,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 1
+          },
+          "text": "Call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 131,
+            "column": 6
+          },
+          "text": "requestPermission"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 25
+          },
+          "text": " from a button tap, never on page load, or iOS rejects the request."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 133,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 133,
+            "column": 4
+          },
+          "text": "Compass: heading"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 135,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { CapgoCompass, CompassAccuracy } from '@capgo/capacitor-compass';\n\nconst status = await CapgoCompass.requestPermissions(); // iOS: location permission\nif (status.compass === 'granted') {\n  await CapgoCompass.addListener('headingChange', ({ value }) => {\n    needle.style.transform = `rotate(${-value}deg)`;\n  });\n\n  await CapgoCompass.startListening({\n    minInterval: 100,      // ms between events\n    minHeadingChange: 2,   // degrees\n  });\n\n  // Android only: ask the user to calibrate when accuracy drops\n  await CapgoCompass.addListener('accuracyChange', ({ accuracy }) => {\n    calibrationHint.hidden = accuracy >= CompassAccuracy.MEDIUM;\n  });\n  await CapgoCompass.watchAccuracy();\n}\n\n// One-off reading\nconst { value } = await CapgoCompass.getCurrentHeading();"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "text": "value"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 8
+          },
+          "text": " is degrees from magnetic north, 0 to 360. Things to know:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 162,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 162,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 162,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 162,
+                    "column": 3
+                  },
+                  "text": "The magnetometer is disturbed by magnets in phone cases, laptops and car mounts. Show a calibration hint (move the phone in a figure eight) when Android reports low accuracy."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 163,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 163,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 3
+                  },
+                  "text": "Throttle with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 163,
+                    "column": 17
+                  },
+                  "text": "minInterval"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 30
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 163,
+                    "column": 35
+                  },
+                  "text": "minHeadingChange"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 53
+                  },
+                  "text": " rather than in JavaScript. It saves bridge traffic."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 164,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 164,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 164,
+                    "column": 3
+                  },
+                  "text": "For a map that rotates with the user, combine heading with geolocation. If you need location while the app is in the background, see the "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 164,
+                    "column": 140
+                  },
+                  "url": "/plugins/capacitor-background-geolocation/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 164,
+                        "column": 141
+                      },
+                      "text": "background geolocation plugin"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 164,
+                    "column": 215
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 166,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 4
+          },
+          "text": "Pedometer: steps, distance and floors"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 168,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 1
+          },
+          "text": "The step counter is a low-power chip that counts continuously, even when your app is not running."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { CapacitorPedometer } from '@capgo/capacitor-pedometer';\n\nconst features = await CapacitorPedometer.isAvailable();\n// { stepCounting, distance, pace, cadence, floorCounting }\n\nconst perm = await CapacitorPedometer.requestPermissions();\nif (perm.activityRecognition !== 'granted') {\n  // explain why and link to settings\n}\n\n// Steps today (start and end are required on iOS)\nconst startOfDay = new Date();\nstartOfDay.setHours(0, 0, 0, 0);\nconst today = await CapacitorPedometer.getMeasurement({\n  start: startOfDay.getTime(),\n  end: Date.now(),\n});\nconsole.log(today.numberOfSteps, today.distance, today.floorsAscended);\n\n// Live updates during a walk\nawait CapacitorPedometer.addListener('measurement', (m) => {\n  stepsEl.textContent = String(m.numberOfSteps ?? 0);\n});\nawait CapacitorPedometer.startMeasurementUpdates();"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 197,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 197,
+            "column": 1
+          },
+          "text": "Platform differences:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 199,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 199,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 199,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 199,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 199,
+                        "column": 5
+                      },
+                      "text": "iOS"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 199,
+                    "column": 10
+                  },
+                  "text": " (Core Motion) answers historical queries for about the last seven days and also provides distance, floors, pace and cadence on supported devices."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 200,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 200,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 200,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 200,
+                        "column": 5
+                      },
+                      "text": "Android"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 200,
+                    "column": 14
+                  },
+                  "text": " reports steps only. The hardware counter resets on reboot, so do not treat it as a lifetime total. Store your own baseline."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 202,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 202,
+            "column": 1
+          },
+          "text": "For long-term history, daily totals across devices, or data from a watch, read from the health store with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 202,
+            "column": 107
+          },
+          "url": "/plugins/capacitor-health/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 202,
+                "column": 108
+              },
+              "text": "@capgo/capacitor-health"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 202,
+            "column": 162
+          },
+          "text": " instead. It aggregates steps from all sources in Apple Health and Health Connect. Our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 202,
+            "column": 249
+          },
+          "url": "/blog/google-fit-to-health-connect-migration-in-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 202,
+                "column": 250
+              },
+              "text": "Health Connect migration guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 202,
+            "column": 341
+          },
+          "text": " explains the setup."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 204,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 4
+          },
+          "text": "Barometer: pressure and altitude"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 206,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { CapacitorBarometer } from '@capgo/capacitor-barometer';\n\nconst { isAvailable } = await CapacitorBarometer.isAvailable();\nif (isAvailable) {\n  await CapacitorBarometer.requestPermissions();\n  await CapacitorBarometer.addListener('measurement', ({ pressure, relativeAltitude }) => {\n    pressureEl.textContent = `${pressure.toFixed(1)} hPa`;\n    altitudeEl.textContent = `${relativeAltitude.toFixed(1)} m`;\n  });\n  await CapacitorBarometer.startMeasurementUpdates();\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 220,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 220,
+            "column": 1
+          },
+          "text": "pressure"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 220,
+            "column": 11
+          },
+          "text": " is in hectopascals on both platforms. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 220,
+            "column": 50
+          },
+          "text": "relativeAltitude"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 220,
+            "column": 68
+          },
+          "text": " is the change in meters since updates started, provided by iOS only. On Android it is always "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 220,
+            "column": 162
+          },
+          "text": "0"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 220,
+            "column": 165
+          },
+          "text": ", so compute it yourself with the barometric formula:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 222,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const P0 = 1013.25; // standard sea-level pressure in hPa\nconst altitudeMeters = (p: number) => 44330 * (1 - Math.pow(p / P0, 1 / 5.255));\n\nlet baseline: number | null = null;\nfunction relativeAltitude(pressure: number) {\n  baseline ??= altitudeMeters(pressure);\n  return altitudeMeters(pressure) - baseline;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 233,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 233,
+            "column": 1
+          },
+          "text": "Absolute altitude from pressure is off by tens of meters because weather changes sea-level pressure. Relative changes over minutes are accurate to about a meter, which is enough for counting floors or climbs. Many budget Android phones have no barometer, so always check "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 233,
+            "column": 272
+          },
+          "text": "isAvailable"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 233,
+            "column": 285
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 235,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 235,
+            "column": 4
+          },
+          "text": "Ambient light sensor (Android)"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 237,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { LightSensor } from '@capgo/capacitor-light-sensor';\n\nconst { available } = await LightSensor.isAvailable(); // always false on iOS\nif (available) {\n  await LightSensor.addListener('lightSensorChange', ({ illuminance }) => {\n    document.body.classList.toggle('high-contrast', illuminance > 10_000); // bright sunlight\n  });\n  await LightSensor.start({ updateInterval: 500 });\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 249,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 249,
+            "column": 1
+          },
+          "text": "Typical values: below 10 lux is a dark room, a few hundred lux is an office, tens of thousands is direct sunlight. Use it for a reading mode that adapts to the room, or to raise contrast outdoors. To change the screen brightness itself, pair it with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 249,
+            "column": 251
+          },
+          "url": "/plugins/capacitor-brightness/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 249,
+                "column": 252
+              },
+              "text": "@capgo/capacitor-brightness"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 249,
+            "column": 314
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 251,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 251,
+            "column": 4
+          },
+          "text": "Proximity sensor"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 253,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 253,
+            "column": 1
+          },
+          "text": "The proximity sensor tells you when something covers the top of the screen, usually the user's ear during a call."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 255,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { CapacitorProximity } from '@capgo/capacitor-proximity';\n\nconst status = await CapacitorProximity.getStatus();\nif (status.available) {\n  await CapacitorProximity.enable();  // screen turns off when covered\n}\n\n// when the call or voice message ends\nawait CapacitorProximity.disable();"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 267,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 267,
+            "column": 1
+          },
+          "text": "On iOS this toggles "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 267,
+            "column": 21
+          },
+          "text": "UIDevice.isProximityMonitoringEnabled"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 267,
+            "column": 60
+          },
+          "text": ", which turns the display off while covered. On Android the plugin listens to the proximity sensor and dims the app window. Enable it only while a voice call, voice message, or walkie-talkie mode is active, so the user's cheek does not press buttons."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 269,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 269,
+            "column": 4
+          },
+          "text": "Practical rules for sensor apps"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 271,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 271,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 271,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 271,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 271,
+                        "column": 6
+                      },
+                      "text": "Check availability first."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 271,
+                    "column": 33
+                  },
+                  "text": " Tablets often lack a step counter or barometer, and emulators fake most sensors. Hide features you cannot support."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 272,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 272,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 272,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 272,
+                        "column": 6
+                      },
+                      "text": "Stop updates when not visible."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 272,
+                    "column": 38
+                  },
+                  "text": " Use "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 272,
+                    "column": 43
+                  },
+                  "text": "@capacitor/app"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 272,
+                    "column": 59
+                  },
+                  "text": "'s "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 272,
+                    "column": 62
+                  },
+                  "text": "appStateChange"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 272,
+                    "column": 78
+                  },
+                  "text": " to stop listeners when the app goes to the background and restart them on resume. Sensors left running drain the battery and cause one-star reviews."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 273,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 273,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 273,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 273,
+                        "column": 6
+                      },
+                      "text": "Throttle in native code when the plugin allows it"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 273,
+                    "column": 57
+                  },
+                  "text": " (compass "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 273,
+                    "column": 67
+                  },
+                  "text": "minInterval"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 273,
+                    "column": 80
+                  },
+                  "text": ", light sensor "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 273,
+                    "column": 95
+                  },
+                  "text": "updateInterval"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 273,
+                    "column": 111
+                  },
+                  "text": "), not in JavaScript."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 274,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 274,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 274,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 274,
+                        "column": 6
+                      },
+                      "text": "Ask for permission in context."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 274,
+                    "column": 38
+                  },
+                  "text": " Request motion access when the user starts a workout, not on first launch."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 275,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 275,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 275,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 275,
+                        "column": 6
+                      },
+                      "text": "Test on real hardware."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 275,
+                    "column": 30
+                  },
+                  "text": " Simulators return constant or synthetic values. Test at least one budget Android phone, where sensors are missing or noisy."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 276,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 276,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 276,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 276,
+                        "column": 6
+                      },
+                      "text": "Respect privacy rules."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 276,
+                    "column": 30
+                  },
+                  "text": " Motion and location data count as sensitive in App Store privacy labels and the Play data safety form. Declare what you collect."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 278,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 278,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 280,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 280,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 280,
+                "column": 3
+              },
+              "text": "No events on iOS"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 21
+          },
+          "text": ": the usage string is missing in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 280,
+            "column": 54
+          },
+          "text": "Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 66
+          },
+          "text": ", or permission was denied. Check Settings, Privacy and Security, Motion and Fitness."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 282,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 282,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 282,
+                "column": 3
+              },
+              "text": "Pedometer returns 0 on Android"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 282,
+            "column": 35
+          },
+          "text": ": "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 282,
+            "column": 37
+          },
+          "text": "ACTIVITY_RECOGNITION"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 282,
+            "column": 59
+          },
+          "text": " was denied, or the device has no step counter. Check "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 282,
+            "column": 113
+          },
+          "text": "isAvailable().stepCounting"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 282,
+            "column": 141
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 284,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 284,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 284,
+                "column": 3
+              },
+              "text": "Compass jumps around"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 284,
+            "column": 25
+          },
+          "text": ": magnetic interference or no calibration. Watch accuracy on Android and show a calibration hint."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 286,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 286,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 286,
+                "column": 3
+              },
+              "text": "relativeAltitude"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 286,
+                "column": 21
+              },
+              "text": " is always 0"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 35
+          },
+          "text": ": expected on Android. Compute it from pressure as shown above."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 288,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 288,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 288,
+                "column": 3
+              },
+              "text": "DeviceMotionEvent.requestPermission"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 288,
+                "column": 40
+              },
+              "text": " throws"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 49
+          },
+          "text": ": it was not called from a user gesture."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 290,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 290,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 290,
+                "column": 3
+              },
+              "text": "Battery drain reports"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 290,
+            "column": 26
+          },
+          "text": ": listeners keep running in the background. Stop them on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 290,
+            "column": 83
+          },
+          "text": "appStateChange"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 290,
+            "column": 99
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 292,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 292,
+            "column": 4
+          },
+          "text": "Ship sensor features quickly"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 294,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 294,
+            "column": 1
+          },
+          "text": "Thresholds, smoothing factors and UI for sensor features usually need several rounds of tuning with real users. That logic lives in JavaScript, so you can adjust it with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 294,
+            "column": 171
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 294,
+                "column": 172
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 294,
+            "column": 206
+          },
+          "text": " without a store review, while new plugins and permission strings go through a regular build. If you are connecting external sensors like chest straps, continue with our guide to "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 294,
+            "column": 385
+          },
+          "url": "/blog/how-to-build-a-heart-rate-monitor-with-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 294,
+                "column": 386
+              },
+              "text": "building a heart rate monitor with Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 294,
+            "column": 488
+          },
+          "text": "."
+        }
+      ]
+    }
+  ]
+}

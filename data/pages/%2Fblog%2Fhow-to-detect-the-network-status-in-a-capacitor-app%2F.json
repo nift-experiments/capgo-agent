@@ -1,0 +1,2990 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-detect-the-network-status-in-a-capacitor-app/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-detect-the-network-status-in-a-capacitor-app.md",
+  "sourceSha256": "3891cd1215970cdbe31a41df9c2dbac748646bf7c6ff1389ccb09354daaee536",
+  "metadata": {
+    "slug": "how-to-detect-the-network-status-in-a-capacitor-app",
+    "title": "How to Detect the Network Status in a Capacitor App",
+    "description": "Detect the network status in a Capacitor app: read online/offline state, listen for changes, verify real internet access, and handle metered networks.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_plugins.webp",
+    "head_image_alt": "Detecting online and offline network status in a Capacitor mobile app",
+    "keywords": "capacitor network status, capacitor network plugin, detect offline capacitor, ionic network status, capacitor networkStatusChange, capacitor internet connection check, capacitor offline mode",
+    "tag": "Tutorial, Capacitor, Development",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "How do I check if the device is online in Capacitor?",
+        "answer": "Install @capacitor/network and call Network.getStatus(). It returns connected (boolean) and connectionType ('wifi', 'cellular', 'none' or 'unknown'). Add a networkStatusChange listener to react when the connection changes."
+      },
+      {
+        "question": "Why does Capacitor say I am connected when nothing loads?",
+        "answer": "connected only means the device has an active network interface. A captive portal, a router without upstream internet, a blocked DNS or a down API all report connected: true. Confirm reachability with a short HTTP request to your own backend, or read internetReachable from @capgo/capacitor-network-diagnostics, which uses Android's validated network capability."
+      },
+      {
+        "question": "Do I need any permission to read the network status?",
+        "answer": "No runtime permission. On Android the plugins declare ACCESS_NETWORK_STATE in their own manifest, which is a normal install-time permission. iOS needs nothing."
+      },
+      {
+        "question": "Is navigator.onLine enough in a Capacitor app?",
+        "answer": "It works for a rough signal and fires online and offline events in the WebView, but it cannot tell Wi-Fi from cellular, cannot detect metered or Low Data Mode connections, and is unreliable on some Android WebViews. Use the native plugin on device and keep navigator.onLine as a web fallback."
+      },
+      {
+        "question": "How can I detect a metered or Low Data Mode connection?",
+        "answer": "Call NetworkDiagnostics.getNetworkStatus() from @capgo/capacitor-network-diagnostics. expensive is true for metered or cellular paths, and constrained is true when iOS Low Data Mode is on. Use these flags to skip large downloads or video autoplay."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To detect the network status in a Capacitor app, install "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 58
+          },
+          "text": "@capacitor/network"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 78
+          },
+          "text": ", call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 85
+          },
+          "text": "Network.getStatus()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 106
+          },
+          "text": " for the current state, and subscribe to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 147
+          },
+          "text": "networkStatusChange"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 168
+          },
+          "text": " for updates. That tells you whether the device has a connection and whether it is Wi-Fi or cellular. To know if the internet actually works, or if the connection is metered, add a reachability check or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 371
+          },
+          "text": "@capgo/capacitor-network-diagnostics"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 409
+          },
+          "text": ". This guide covers all three layers with Capacitor 8 code."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "The three questions behind \"is the user online?\""
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 6,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 6,
+                    "column": 3
+                  },
+                  "text": "Question"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 6,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 6,
+                    "column": 14
+                  },
+                  "text": "API"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 6,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 6,
+                    "column": 20
+                  },
+                  "text": "Notes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "Is there an active network interface?"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 8,
+                    "column": 43
+                  },
+                  "text": "Network.getStatus().connected"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 75
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 77
+                  },
+                  "text": "Fast, event-driven, says nothing about internet access"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 9,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 9,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "text": "What kind of link is it?"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 9,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 9,
+                    "column": 30
+                  },
+                  "text": "connectionType"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 9,
+                "column": 47
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 9,
+                    "column": 49
+                  },
+                  "text": "wifi"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 55
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 9,
+                    "column": 57
+                  },
+                  "text": "cellular"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 67
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 9,
+                    "column": 69
+                  },
+                  "text": "none"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 75
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 9,
+                    "column": 77
+                  },
+                  "text": "unknown"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 86
+                  },
+                  "text": " in the official plugin"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Does the internet actually work?"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 38
+                  },
+                  "text": "HTTP check or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 52
+                  },
+                  "text": "internetReachable"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 72
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 74
+                  },
+                  "text": "Needs a request or OS validation"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "Should I avoid big downloads?"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 35
+                  },
+                  "text": "expensive"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 46
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 48
+                  },
+                  "text": "constrained"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 62
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 64
+                  },
+                  "text": "Metered networks and iOS Low Data Mode"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 13,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "text": "Most offline bugs come from treating the first row as the third. A hotel Wi-Fi with a login page reports "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 13,
+            "column": 106
+          },
+          "text": "connected: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 13,
+            "column": 123
+          },
+          "text": " while every API call times out."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 15,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 15,
+            "column": 4
+          },
+          "text": "Install the Network plugin"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 17,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capacitor/network\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "text": "No configuration is needed. On Android the plugin adds "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 22,
+            "column": 56
+          },
+          "text": "ACCESS_NETWORK_STATE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 22,
+            "column": 78
+          },
+          "text": " to the merged manifest, a normal permission granted at install. iOS requires nothing."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 4
+          },
+          "text": "Read the current status"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Network } from '@capacitor/network';\n\nconst status = await Network.getStatus();\nconsole.log(status.connected);      // true or false\nconsole.log(status.connectionType); // 'wifi' | 'cellular' | 'none' | 'unknown'"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "text": "Call it on app start before deciding whether to load from cache or network. It returns in a few milliseconds because it reads the OS state, it does not send traffic."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 4
+          },
+          "text": "Listen for network changes"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Network, type ConnectionStatus } from '@capacitor/network';\nimport type { PluginListenerHandle } from '@capacitor/core';\n\nlet handle: PluginListenerHandle | undefined;\n\nexport async function watchNetwork(onChange: (s: ConnectionStatus) => void) {\n  onChange(await Network.getStatus());\n  handle = await Network.addListener('networkStatusChange', onChange);\n}\n\nexport async function stopWatchingNetwork() {\n  await handle?.remove();\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "text": "Two practical details:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 56,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 56,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 56,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 56,
+                        "column": 5
+                      },
+                      "text": "Debounce the event."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 56,
+                    "column": 26
+                  },
+                  "text": " When switching from Wi-Fi to cellular, both platforms can briefly report "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 56,
+                    "column": 100
+                  },
+                  "text": "none"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 56,
+                    "column": 106
+                  },
+                  "text": " before the new link is up. A 1 to 2 second debounce before showing an \"offline\" banner avoids flicker."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 57,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 57,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 57,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 57,
+                        "column": 5
+                      },
+                      "text": "Remove listeners"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 57,
+                    "column": 23
+                  },
+                  "text": " when a component unmounts, or you will run the callback several times after hot reloads and navigation."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 59,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 5
+          },
+          "text": "React hook"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { useEffect, useState } from 'react';\nimport { Network, type ConnectionStatus } from '@capacitor/network';\n\nexport function useNetworkStatus() {\n  const [status, setStatus] = useState<ConnectionStatus>({ connected: true, connectionType: 'unknown' });\n\n  useEffect(() => {\n    let timer: ReturnType<typeof setTimeout>;\n    const listener = Network.addListener('networkStatusChange', (s) => {\n      clearTimeout(timer);\n      timer = setTimeout(() => setStatus(s), s.connected ? 0 : 1500);\n    });\n    Network.getStatus().then(setStatus);\n    return () => {\n      clearTimeout(timer);\n      listener.then((l) => l.remove());\n    };\n  }, []);\n\n  return status;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 85,
+            "column": 1
+          },
+          "text": "Going online is applied immediately, going offline waits 1.5 seconds. The same pattern works as a Vue composable or an Angular service with a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 85,
+            "column": 143
+          },
+          "text": "BehaviorSubject"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 85,
+            "column": 160
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 87,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 4
+          },
+          "text": "Why \"connected\" does not mean online"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 89,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 89,
+            "column": 1
+          },
+          "text": "connected: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 89,
+            "column": 18
+          },
+          "text": " comes from the OS network stack. It stays true when:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 91,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 91,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 91,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 91,
+                    "column": 3
+                  },
+                  "text": "the Wi-Fi network has a captive portal (airports, hotels, trains)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 92,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 92,
+                    "column": 3
+                  },
+                  "text": "the router has no upstream connection"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 93,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 93,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 93,
+                    "column": 3
+                  },
+                  "text": "DNS is broken or filtered"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 94,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 94,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 94,
+                    "column": 3
+                  },
+                  "text": "a corporate firewall or VPN blocks your API domain"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 95,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 95,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 95,
+                    "column": 3
+                  },
+                  "text": "your own backend is down"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "text": "The fix is a reachability check against something you control:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "export async function canReachApi(timeoutMs = 4000): Promise<boolean> {\n  const controller = new AbortController();\n  const timer = setTimeout(() => controller.abort(), timeoutMs);\n  try {\n    const res = await fetch('https://api.example.com/health', {\n      method: 'HEAD',\n      cache: 'no-store',\n      signal: controller.signal,\n    });\n    return res.ok;\n  } catch {\n    return false;\n  } finally {\n    clearTimeout(timer);\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 118,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 1
+          },
+          "text": "Run it on app start, when "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 118,
+            "column": 27
+          },
+          "text": "networkStatusChange"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 48
+          },
+          "text": " reports "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 118,
+            "column": 57
+          },
+          "text": "connected: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 74
+          },
+          "text": ", and after a request fails. Do not poll every few seconds, it drains battery and data. Make sure the health endpoint allows your app's origin in CORS ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 118,
+            "column": 226
+          },
+          "text": "capacitor://localhost"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 249
+          },
+          "text": " on iOS, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 118,
+            "column": 258
+          },
+          "text": "https://localhost"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 277
+          },
+          "text": " on Android by default), or use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 118,
+            "column": 309
+          },
+          "text": "CapacitorHttp"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 324
+          },
+          "text": " to send it from native code."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 120,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 4
+          },
+          "text": "Get richer status with network diagnostics"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 122,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "link",
+          "location": {
+            "line": 122,
+            "column": 1
+          },
+          "url": "/plugins/capacitor-network-diagnostics/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 122,
+                "column": 2
+              },
+              "text": "@capgo/capacitor-network-diagnostics"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 122,
+            "column": 82
+          },
+          "text": " reads more of what the OS knows and can run native checks that bypass WebView CORS:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 124,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-network-diagnostics\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { NetworkDiagnostics } from '@capgo/capacitor-network-diagnostics';\n\nconst status = await NetworkDiagnostics.getNetworkStatus();\n// {\n//   connected: true,\n//   connectionType: 'wifi' | 'cellular' | 'ethernet' | 'vpn' | 'other' | 'unknown' | 'none',\n//   internetReachable: true,\n//   expensive: false,      // metered / cellular\n//   constrained: false,    // iOS Low Data Mode\n//   captivePortal: false,  // Android only\n//   details: { ... }\n// }"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 144,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "text": "How the fields map to the OS:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 146,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 146,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 146,
+                    "column": 3
+                  },
+                  "text": "Field"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 146,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 146,
+                    "column": 11
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 146,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 146,
+                    "column": 21
+                  },
+                  "text": "iOS"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 148,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 148,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 148,
+                    "column": 3
+                  },
+                  "text": "internetReachable"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 148,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 148,
+                    "column": 25
+                  },
+                  "text": "NET_CAPABILITY_VALIDATED"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 148,
+                    "column": 51
+                  },
+                  "text": " (Android probed the internet)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 148,
+                "column": 82
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 148,
+                    "column": 84
+                  },
+                  "text": "Mirrors the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 148,
+                    "column": 96
+                  },
+                  "text": "NWPathMonitor"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 148,
+                    "column": 111
+                  },
+                  "text": " path status"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 149,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 149,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 149,
+                    "column": 3
+                  },
+                  "text": "expensive"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 149,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 149,
+                    "column": 17
+                  },
+                  "text": "isActiveNetworkMetered()"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 149,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 149,
+                    "column": 46
+                  },
+                  "text": "NWPath.isExpensive"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 150,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 150,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 150,
+                    "column": 3
+                  },
+                  "text": "constrained"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 150,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 150,
+                    "column": 19
+                  },
+                  "text": "Always "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 150,
+                    "column": 26
+                  },
+                  "text": "false"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 150,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 150,
+                    "column": 36
+                  },
+                  "text": "NWPath.isConstrained"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 150,
+                    "column": 58
+                  },
+                  "text": " (Low Data Mode)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 151,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 151,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 151,
+                    "column": 3
+                  },
+                  "text": "captivePortal"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 151,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 151,
+                    "column": 21
+                  },
+                  "text": "NET_CAPABILITY_CAPTIVE_PORTAL"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 151,
+                "column": 53
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 151,
+                    "column": 55
+                  },
+                  "text": "Not reported"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 152,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 152,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 152,
+                    "column": 3
+                  },
+                  "text": "vpn"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 152,
+                    "column": 8
+                  },
+                  "text": " type"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 152,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 152,
+                    "column": 16
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 152,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 152,
+                    "column": 22
+                  },
+                  "text": "Yes"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 1
+          },
+          "text": "On Android, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 154,
+            "column": 13
+          },
+          "text": "internetReachable"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 32
+          },
+          "text": " is a strong signal because the OS already tested the connection. On iOS it is closer to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 154,
+            "column": 121
+          },
+          "text": "connected"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 132
+          },
+          "text": ", so keep the HTTP check for critical flows."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 156,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 156,
+            "column": 5
+          },
+          "text": "Native reachability checks"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const api = await NetworkDiagnostics.testUrl({\n  url: 'https://api.example.com/health',\n  method: 'HEAD',\n  timeoutMs: 4000,\n});\n// api.reachable, api.statusCode, api.durationMs, api.errorCode\n\nconst socket = await NetworkDiagnostics.testWebSocket({ url: 'wss://realtime.example.com' });\nconst port = await NetworkDiagnostics.testPort({ host: 'mqtt.example.com', port: 8883 });"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 1
+          },
+          "text": "Native requests are not subject to CORS, so you can test third-party hosts too."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 5
+          },
+          "text": "A support \"network report\" screen"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "text": "When users say \"the app does not work\", a one-tap diagnostic report saves hours of back and forth:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const report = await NetworkDiagnostics.runDiagnostics({\n  urls: [{ url: 'https://api.example.com/health' }, { url: 'https://cdn.example.com/ping' }],\n  websockets: [{ url: 'wss://realtime.example.com' }],\n  download: { url: 'https://cdn.example.com/1mb.bin', maxBytes: 1_048_576 },\n  packetLoss: { url: 'https://api.example.com/health', count: 5 },\n});\n\nconsole.log(report.issues);        // human-readable list of problems\nconsole.log(report.download?.mbps);\nconsole.log(report.packetLoss?.lossPercent);"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 189,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 189,
+            "column": 1
+          },
+          "text": "Attach the JSON to a support ticket. You will see right away whether the problem is DNS, a blocked WebSocket, a captive portal, or a slow link."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 191,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 4
+          },
+          "text": "Adapt to metered and Low Data Mode connections"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 193,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 1
+          },
+          "text": "Respecting data limits is a quick win for reviews in markets with expensive mobile data:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 195,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "export async function shouldPrefetchMedia() {\n  const s = await NetworkDiagnostics.getNetworkStatus();\n  if (!s.connected) return false;\n  if (s.constrained) return false; // user asked iOS to save data\n  if (s.expensive) return false;   // cellular or metered Wi-Fi\n  return true;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 205,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 205,
+            "column": 1
+          },
+          "text": "Use it to decide on video autoplay, image quality, background sync, and large downloads. On Android, users can mark a Wi-Fi network as metered, so do not assume Wi-Fi is free."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 207,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 4
+          },
+          "text": "Build an offline banner"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 209,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 1
+          },
+          "text": "A small banner is clearer than failing requests. Using the hook above:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 211,
+        "column": 1
+      },
+      "lang": "tsx",
+      "meta": null,
+      "text": "export function OfflineBanner() {\n  const { connected } = useNetworkStatus();\n  if (connected) return null;\n  return (\n    <div role=\"status\" aria-live=\"polite\" className=\"offline-banner\">\n      You are offline. Changes will sync when you reconnect.\n    </div>\n  );\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 223,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 1
+          },
+          "text": "role=\"status\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 16
+          },
+          "text": " with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 22
+          },
+          "text": "aria-live=\"polite\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 42
+          },
+          "text": " makes screen readers announce the change. For framework-specific UI, see our guide to "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 223,
+            "column": 129
+          },
+          "url": "/blog/create-offline-screen-in-vue-angular-react/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 223,
+                "column": 130
+              },
+              "text": "building an offline screen in Vue, Angular and React"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 234
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 225,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 4
+          },
+          "text": "Queue work while offline"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 227,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 1
+          },
+          "text": "Detection is only half of offline support. When the status goes offline:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 229,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 229,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 229,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 229,
+                    "column": 4
+                  },
+                  "text": "Serve reads from local storage. A SQLite database such as "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 229,
+                    "column": 62
+                  },
+                  "url": "/plugins/capacitor-fast-sql/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 229,
+                        "column": 63
+                      },
+                      "text": "@capgo/capacitor-fast-sql"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 229,
+                    "column": 121
+                  },
+                  "text": " handles large datasets better than "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 229,
+                    "column": 157
+                  },
+                  "text": "localStorage"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 229,
+                    "column": 171
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 230,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 230,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 230,
+                    "column": 4
+                  },
+                  "text": "Write user actions to an outbox table with a timestamp and an idempotency key."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 231,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 231,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 231,
+                    "column": 4
+                  },
+                  "text": "On "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 231,
+                    "column": 7
+                  },
+                  "text": "networkStatusChange"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 231,
+                    "column": 28
+                  },
+                  "text": " to connected, run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 231,
+                    "column": 47
+                  },
+                  "text": "canReachApi()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 231,
+                    "column": 62
+                  },
+                  "text": ", then flush the outbox in order."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 232,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 232,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 232,
+                    "column": 4
+                  },
+                  "text": "Retry failed requests with exponential backoff, capped at a few minutes."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 234,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 234,
+            "column": 1
+          },
+          "text": "For uploads that must survive the app being closed, hand them to a native uploader rather than "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 234,
+            "column": 96
+          },
+          "text": "fetch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 234,
+            "column": 103
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 236,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 236,
+            "column": 4
+          },
+          "text": "Web fallback"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 238,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 1
+          },
+          "text": "@capacitor/network"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 21
+          },
+          "text": " also runs in the browser, where it is based on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 69
+          },
+          "text": "navigator.onLine"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 87
+          },
+          "text": " and the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 96
+          },
+          "text": "online"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 104
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 109
+          },
+          "text": "offline"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 118
+          },
+          "text": " events. That means your code works in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 157
+          },
+          "text": "bun run dev"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 170
+          },
+          "text": " and in a PWA without changes, but "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 205
+          },
+          "text": "connectionType"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 221
+          },
+          "text": " will often be "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 236
+          },
+          "text": "unknown"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 245
+          },
+          "text": " on the web. Chrome's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 267
+          },
+          "text": "navigator.connection"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 289
+          },
+          "text": " exposes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 298
+          },
+          "text": "effectiveType"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 313
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 318
+          },
+          "text": "saveData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 328
+          },
+          "text": ", Safari does not, so treat them as optional hints."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 240,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 240,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 242,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 242,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 242,
+                "column": 3
+              },
+              "text": "The listener never fires on iOS Simulator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 242,
+            "column": 46
+          },
+          "text": ": the simulator shares the Mac's network. Toggle Wi-Fi on the Mac or test on a device with airplane mode."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 244,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 244,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 244,
+                "column": 3
+              },
+              "text": "connectionType"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 244,
+                "column": 19
+              },
+              "text": " is "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 244,
+                "column": 23
+              },
+              "text": "unknown"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 244,
+                "column": 32
+              },
+              "text": " on a VPN"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 244,
+            "column": 43
+          },
+          "text": ": the official plugin only reports "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 244,
+            "column": 78
+          },
+          "text": "wifi"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 244,
+            "column": 84
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 244,
+            "column": 86
+          },
+          "text": "cellular"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 244,
+            "column": 96
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 244,
+            "column": 98
+          },
+          "text": "none"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 244,
+            "column": 104
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 244,
+            "column": 109
+          },
+          "text": "unknown"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 244,
+            "column": 118
+          },
+          "text": ". Use the diagnostics plugin, which returns "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 244,
+            "column": 162
+          },
+          "text": "vpn"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 244,
+            "column": 167
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 244,
+            "column": 172
+          },
+          "text": "ethernet"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 244,
+            "column": 182
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 246,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 246,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 246,
+                "column": 3
+              },
+              "text": "The app shows offline for a second when switching networks"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 246,
+            "column": 63
+          },
+          "text": ": debounce the offline transition as shown above."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 248,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 248,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 248,
+                "column": 3
+              },
+              "text": "The health check fails on device but works in the browser"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 62
+          },
+          "text": ": CORS. Allow "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 248,
+            "column": 76
+          },
+          "text": "capacitor://localhost"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 99
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 248,
+            "column": 104
+          },
+          "text": "https://localhost"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 123
+          },
+          "text": ", or use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 248,
+            "column": 132
+          },
+          "text": "NetworkDiagnostics.testUrl"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 160
+          },
+          "text": ", which runs natively."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 250,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 250,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 250,
+                "column": 3
+              },
+              "text": "navigator.onLine"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 250,
+                "column": 21
+              },
+              "text": " is true while the plugin says offline"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 250,
+            "column": 61
+          },
+          "text": ": trust the plugin. Some Android WebViews do not update "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 250,
+            "column": 117
+          },
+          "text": "navigator.onLine"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 250,
+            "column": 135
+          },
+          "text": " reliably."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 252,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 252,
+            "column": 4
+          },
+          "text": "Ship offline fixes over the air"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 254,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 1
+          },
+          "text": "Offline handling is mostly JavaScript: thresholds, banners, retry logic, cache rules. With "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 254,
+            "column": 92
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 254,
+                "column": 93
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 127
+          },
+          "text": ", you can tune those for every user the same day. Capgo downloads update bundles in the background and keeps the current version if a download fails, so a bad connection never leaves users with a half-installed update. The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 254,
+            "column": 350
+          },
+          "url": "/docs/plugins/network-diagnostics/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 254,
+                "column": 351
+              },
+              "text": "network diagnostics docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 412
+          },
+          "text": " list every option."
+        }
+      ]
+    }
+  ]
+}

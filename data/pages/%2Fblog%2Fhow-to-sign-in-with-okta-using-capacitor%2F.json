@@ -1,0 +1,3621 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-sign-in-with-okta-using-capacitor/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-sign-in-with-okta-using-capacitor.md",
+  "sourceSha256": "79d532a00f2a22b1de4c0d0e74b116161f4465297ca7739aa935d03a08d3bfd4",
+  "metadata": {
+    "slug": "how-to-sign-in-with-okta-using-capacitor",
+    "title": "How to Sign In with Okta Using Capacitor",
+    "description": "Connect Okta to a Capacitor 8 app with OIDC and PKCE: create the native app integration, set redirect URIs, refresh tokens, logout, and fix Okta errors.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/login.webp",
+    "head_image_alt": "Okta sign-in page opened from a Capacitor mobile app with PKCE",
+    "keywords": "okta capacitor, capacitor okta login, ionic okta, okta pkce mobile, okta oidc native app, okta refresh token capacitor, capacitor enterprise sso",
+    "tag": "Tutorial, Security, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Do I need an Okta client secret for a Capacitor app?",
+        "answer": "No. Create an OIDC Native Application, which is a public client. Client authentication is set to None and PKCE protects the code exchange. A secret shipped in an app bundle is not a secret."
+      },
+      {
+        "question": "Which Okta issuer URL should I use?",
+        "answer": "Use a custom authorization server issuer such as https://your-org.okta.com/oauth2/default when your own API validates the access tokens. The org authorization server (https://your-org.okta.com) only issues access tokens for Okta's own APIs, so your backend cannot validate them."
+      },
+      {
+        "question": "How do I get a refresh token from Okta?",
+        "answer": "Enable the Refresh Token grant type on the app integration, request the offline_access scope, and make sure the access policy rule on your authorization server allows the refresh token grant. Okta can rotate refresh tokens on every use, so save the new one each time."
+      },
+      {
+        "question": "Why do users get 'User is not assigned to the client application'?",
+        "answer": "Okta only lets assigned users or groups sign in to an app integration. Open the app in the Admin Console, go to Assignments, and assign the users or a group such as Everyone."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To sign in with Okta in a Capacitor app, create an "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 2,
+            "column": 52
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 2,
+                "column": 54
+              },
+              "text": "OIDC Native Application"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 79
+          },
+          "text": " in the Okta Admin Console, register a sign-in redirect URI such as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 147
+          },
+          "text": "com.example.app://oauth/okta"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 177
+          },
+          "text": ", and run the authorization code flow with PKCE in a system browser. With "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 251
+          },
+          "text": "@capgo/capacitor-social-login"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 282
+          },
+          "text": " you configure Okta once with your issuer and client ID, then call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 349
+          },
+          "text": "SocialLogin.login({ provider: 'oauth2', options: { providerId: 'okta' } })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 425
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide covers the Okta app integration, authorization server policies, the plugin code for iOS, Android and web, token refresh, user profile, logout, and the Okta errors that show up most often. It targets Capacitor 8 as of October 2026."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "What you need"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "An Okta org (Workforce Identity or Customer Identity) with admin access to create app integrations."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 9,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 9,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "text": "A Capacitor 8 app."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Your Capacitor "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 18
+                  },
+                  "text": "appId"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 25
+                  },
+                  "text": ", which you will reuse as the redirect scheme."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "Optionally, a backend API that validates Okta access tokens."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 13,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 13,
+            "column": 4
+          },
+          "text": "How Okta login works in a Capacitor app"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 15,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "text": "Your app never shows a password form. It opens the Okta sign-in page in a secure browser, Okta handles MFA and policies, then redirects back to your app with a code. The app exchanges the code plus the PKCE verifier for tokens."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 17,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 3
+                  },
+                  "text": "Platform"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 14
+                  },
+                  "text": "Browser"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 24
+                  },
+                  "text": "What you configure"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 3
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 19,
+                    "column": 9
+                  },
+                  "text": "ASWebAuthenticationSession"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 40
+                  },
+                  "text": "Nothing in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 19,
+                    "column": 51
+                  },
+                  "text": "Info.plist"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 13
+                  },
+                  "text": "Chrome Custom Tabs with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 20,
+                    "column": 37
+                  },
+                  "text": "androidUseCustomTabs: true"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 65
+                  },
+                  "text": " (WebView by default)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 87
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 89
+                  },
+                  "text": "Intent filter for the redirect scheme"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 3
+                  },
+                  "text": "Web"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 9
+                  },
+                  "text": "Popup or redirect"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 29
+                  },
+                  "text": "Trusted Origin for CORS"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "text": "Prefer Custom Tabs on Android. Okta Verify, FastPass and passkeys behave better in the system browser than in an embedded WebView, and SSO cookies are shared with Chrome."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 25,
+            "column": 4
+          },
+          "text": "Step 1: Create the Okta app integration"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 27,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 4
+                  },
+                  "text": "In the Okta Admin Console, go to "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 27,
+                    "column": 37
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 27,
+                        "column": 39
+                      },
+                      "text": "Applications > Applications > Create App Integration"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 93
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 28,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 4
+                  },
+                  "text": "Choose "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 28,
+                    "column": 11
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 28,
+                        "column": 13
+                      },
+                      "text": "OIDC - OpenID Connect"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 36
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 28,
+                    "column": 41
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 28,
+                        "column": 43
+                      },
+                      "text": "Native Application"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 63
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 29,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 4
+                  },
+                  "text": "Name it, then under "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 29,
+                    "column": 24
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 29,
+                        "column": 26
+                      },
+                      "text": "Grant type"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 38
+                  },
+                  "text": " keep "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 29,
+                    "column": 44
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 29,
+                        "column": 46
+                      },
+                      "text": "Authorization Code"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 66
+                  },
+                  "text": " and tick "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 29,
+                    "column": 76
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 29,
+                        "column": 78
+                      },
+                      "text": "Refresh Token"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 93
+                  },
+                  "text": " if users should stay signed in."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 30,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 30,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 30,
+                        "column": 6
+                      },
+                      "text": "Sign-in redirect URIs"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 29
+                  },
+                  "text": ": "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 30,
+                    "column": 31
+                  },
+                  "text": "com.example.app://oauth/okta"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 61
+                  },
+                  "text": ". Add "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 30,
+                    "column": 67
+                  },
+                  "text": "https://app.example.com/auth/callback"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 106
+                  },
+                  "text": " if you ship a web build."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 31,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 31,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 31,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 31,
+                        "column": 6
+                      },
+                      "text": "Sign-out redirect URIs"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 30
+                  },
+                  "text": ": "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 31,
+                    "column": 32
+                  },
+                  "text": "com.example.app://oauth/logout"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 64
+                  },
+                  "text": " (and the web URL if needed)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 32,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 32,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 32,
+                        "column": 6
+                      },
+                      "text": "Assignments"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 19
+                  },
+                  "text": ": pick who can use the app. Users who are not assigned get an error at sign-in."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 33,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 33,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 4
+                  },
+                  "text": "Save, then copy the "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 33,
+                    "column": 24
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 33,
+                        "column": 26
+                      },
+                      "text": "Client ID"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 37
+                  },
+                  "text": ". Under "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 33,
+                    "column": 45
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 33,
+                        "column": 47
+                      },
+                      "text": "Client Credentials"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 67
+                  },
+                  "text": ", client authentication should be "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 33,
+                    "column": 101
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 33,
+                        "column": 103
+                      },
+                      "text": "None"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 109
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 33,
+                    "column": 114
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 33,
+                        "column": 116
+                      },
+                      "text": "Require PKCE"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 130
+                  },
+                  "text": " should be on."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 35,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "text": "Okta requires native redirect URIs to use a private-use scheme in reverse-domain form. Your bundle ID or application ID fits."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 37,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 5
+          },
+          "text": "Check the authorization server"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 1
+          },
+          "text": "Go to "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 39,
+            "column": 7
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 39,
+                "column": 9
+              },
+              "text": "Security > API > Authorization Servers"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 49
+          },
+          "text": ". Most setups use the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 39,
+            "column": 71
+          },
+          "text": "default"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 80
+          },
+          "text": " custom authorization server, issuer "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 39,
+            "column": 117
+          },
+          "text": "https://your-org.okta.com/oauth2/default"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 159
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 3
+                  },
+                  "text": "Issuer"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 12
+                  },
+                  "text": "Use when"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 43,
+                    "column": 3
+                  },
+                  "text": "https://your-org.okta.com/oauth2/default"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 45
+                  },
+                  "text": " (custom)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 57
+                  },
+                  "text": "Your own API validates access tokens, you need custom scopes or claims"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 3
+                  },
+                  "text": "https://your-org.okta.com"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 30
+                  },
+                  "text": " (org)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 39
+                  },
+                  "text": "You only need ID tokens or call Okta APIs"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 46,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "text": "Open the server's "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 46,
+            "column": 19
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 46,
+                "column": 21
+              },
+              "text": "Access Policies"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 38
+          },
+          "text": " tab. There must be a policy assigned to your app (or All clients) with a rule that allows the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 46,
+            "column": 133
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 46,
+                "column": 135
+              },
+              "text": "Authorization Code"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 155
+          },
+          "text": " grant, and "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 46,
+            "column": 167
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 46,
+                "column": 169
+              },
+              "text": "Refresh Token"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 184
+          },
+          "text": " if you use it. A missing rule produces \"Policy evaluation failed for this request\"."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 48,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 5
+          },
+          "text": "Trusted Origins for web"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 1
+          },
+          "text": "If you run the same code on the web, add your web origin under "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 50,
+            "column": 64
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 50,
+                "column": 66
+              },
+              "text": "Security > API > Trusted Origins"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 100
+          },
+          "text": " with "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 50,
+            "column": 106
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 50,
+                "column": 108
+              },
+              "text": "CORS"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 114
+          },
+          "text": " checked. Without it, the browser blocks the token request."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 4
+          },
+          "text": "Step 2: Install the plugin"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-social-login\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 59,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 1
+          },
+          "text": "If Okta is the only provider, turn off the bundled social SDKs in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 59,
+            "column": 67
+          },
+          "text": "capacitor.config.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 88
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "plugins: {\n  SocialLogin: {\n    providers: { google: false, facebook: false, apple: false, twitter: false },\n  },\n},"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 69,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 69,
+            "column": 4
+          },
+          "text": "Step 3: Add the Android redirect intent filter"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 1
+          },
+          "text": "In "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 71,
+            "column": 4
+          },
+          "text": "android/app/src/main/AndroidManifest.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 46
+          },
+          "text": ", inside the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 71,
+            "column": 59
+          },
+          "text": "MainActivity"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 73
+          },
+          "text": " activity:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<intent-filter>\n    <action android:name=\"android.intent.action.VIEW\" />\n    <category android:name=\"android.intent.category.DEFAULT\" />\n    <category android:name=\"android.intent.category.BROWSABLE\" />\n    <data android:scheme=\"com.example.app\" android:host=\"oauth\" />\n</intent-filter>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 82,
+            "column": 1
+          },
+          "text": "MainActivity"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 15
+          },
+          "text": " must stay "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 82,
+            "column": 26
+          },
+          "text": "android:launchMode=\"singleTask\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 59
+          },
+          "text": ", which is the Capacitor default, so the redirect arrives in the running activity."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 84,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 84,
+            "column": 4
+          },
+          "text": "Step 4: Initialize Okta"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 86,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Capacitor } from '@capacitor/core';\nimport { SocialLogin } from '@capgo/capacitor-social-login';\n\nconst OKTA_ISSUER = 'https://your-org.okta.com/oauth2/default';\nconst isWeb = Capacitor.getPlatform() === 'web';\n\nexport async function initAuth() {\n  await SocialLogin.initialize({\n    oauth2: {\n      okta: {\n        appId: 'YOUR_OKTA_CLIENT_ID',\n        authorizationBaseUrl: `${OKTA_ISSUER}/v1/authorize`,\n        accessTokenEndpoint: `${OKTA_ISSUER}/v1/token`,\n        resourceUrl: `${OKTA_ISSUER}/v1/userinfo`,\n        redirectUrl: isWeb\n          ? 'https://app.example.com/auth/callback'\n          : 'com.example.app://oauth/okta',\n        scope: 'openid profile email offline_access',\n        pkceEnabled: true,\n        logoutUrl: `${OKTA_ISSUER}/v1/logout`,\n        postLogoutRedirectUrl: isWeb\n          ? 'https://app.example.com/'\n          : 'com.example.app://oauth/logout',\n        androidUseCustomTabs: true,\n      },\n    },\n  });\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 1
+          },
+          "text": "Shorter alternative: set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 26
+          },
+          "text": "issuerUrl: OKTA_ISSUER"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 50
+          },
+          "text": " and drop the endpoint URLs. The plugin loads "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 96
+          },
+          "text": "/.well-known/openid-configuration"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 131
+          },
+          "text": " and fills them in. Teams migrating from Ionic Auth Connect can use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 199
+          },
+          "text": "SocialLoginAuthConnect"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 223
+          },
+          "text": " with the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 233
+          },
+          "text": "okta"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 239
+          },
+          "text": " preset ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 248
+          },
+          "text": "issuer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 256
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 258
+          },
+          "text": "clientId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 268
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 270
+          },
+          "text": "redirectUrl"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 283
+          },
+          "text": "), covered in the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 117,
+            "column": 301
+          },
+          "url": "/docs/plugins/social-login/migrations/ionic-auth-connect/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 117,
+                "column": 302
+              },
+              "text": "migration guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 377
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 119,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 4
+          },
+          "text": "Step 5: Sign in and read the profile"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { SocialLogin } from '@capgo/capacitor-social-login';\n\nexport async function signInWithOkta() {\n  try {\n    const { result } = await SocialLogin.login({\n      provider: 'oauth2',\n      options: { providerId: 'okta' },\n    });\n\n    const profile = result.resourceData as {\n      sub: string;\n      email?: string;\n      name?: string;\n      preferred_username?: string;\n    } | null;\n\n    return {\n      accessToken: result.accessToken?.token,\n      idToken: result.idToken,\n      refreshToken: result.refreshToken,\n      scopes: result.scope,\n      profile,\n    };\n  } catch (error: any) {\n    if (error?.code === 'USER_CANCELLED') return null;\n    throw error;\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 152,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 152,
+            "column": 1
+          },
+          "text": "resourceData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 15
+          },
+          "text": " holds the JSON returned by the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 152,
+            "column": 47
+          },
+          "text": "/userinfo"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 58
+          },
+          "text": " endpoint, so you get the profile without another request. To read the ID token claims for display, use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 152,
+            "column": 162
+          },
+          "text": "SocialLogin.decodeIdToken({ idToken })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 202
+          },
+          "text": ". That call does not verify the signature."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 1
+          },
+          "text": "Login options worth knowing:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 156,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 156,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 156,
+                    "column": 3
+                  },
+                  "text": "loginHint"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 156,
+                    "column": 14
+                  },
+                  "text": " pre-fills the username."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 157,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 157,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 157,
+                    "column": 3
+                  },
+                  "text": "prompt: 'login'"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 157,
+                    "column": 20
+                  },
+                  "text": " forces re-authentication even with an active Okta session."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 158,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 158,
+                    "column": 3
+                  },
+                  "text": "additionalParameters: { idp: '0oa...' }"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 158,
+                    "column": 44
+                  },
+                  "text": " routes straight to a specific identity provider configured in Okta."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "text": "On web with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 13
+          },
+          "text": "flow: 'redirect'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 31
+          },
+          "text": ", call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 38
+          },
+          "text": "SocialLogin.handleRedirectCallback()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 76
+          },
+          "text": " on the callback page to finish the exchange."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 162,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 162,
+            "column": 4
+          },
+          "text": "Step 6: Validate Okta tokens on your API"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 164,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { createRemoteJWKSet, jwtVerify } from 'jose';\n\nconst ISSUER = 'https://your-org.okta.com/oauth2/default';\nconst jwks = createRemoteJWKSet(new URL(`${ISSUER}/v1/keys`));\n\nexport async function verifyOktaAccessToken(token: string) {\n  const { payload } = await jwtVerify(token, jwks, {\n    issuer: ISSUER,\n    audience: 'api://default', // the Audience value of your authorization server\n  });\n  return payload; // payload.uid is the Okta user ID, payload.sub the login\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 179,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 179,
+            "column": 1
+          },
+          "text": "Find the audience on the authorization server's "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 179,
+            "column": 49
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 179,
+                "column": 51
+              },
+              "text": "Settings"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 179,
+            "column": 61
+          },
+          "text": " tab. Do not validate access tokens from the org authorization server in your API. Okta does not support that."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 181,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 4
+          },
+          "text": "Step 7: Refresh tokens"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 183,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { SocialLogin } from '@capgo/capacitor-social-login';\n\nexport async function ensureFreshOktaToken() {\n  const { isLoggedIn } = await SocialLogin.isLoggedIn({ provider: 'oauth2', providerId: 'okta' });\n  if (!isLoggedIn) {\n    await SocialLogin.refresh({ provider: 'oauth2', options: { providerId: 'okta' } });\n  }\n  const { accessToken } = await SocialLogin.getAuthorizationCode({ provider: 'oauth2', providerId: 'okta' });\n  return accessToken;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 196,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 196,
+            "column": 1
+          },
+          "text": "If the refresh token is expired or revoked, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 196,
+            "column": 45
+          },
+          "text": "refresh"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 196,
+            "column": 54
+          },
+          "text": " rejects. Catch that and send the user back to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 196,
+            "column": 101
+          },
+          "text": "signInWithOkta()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 196,
+            "column": 119
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 198,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 1
+          },
+          "text": "Check the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 198,
+            "column": 11
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 198,
+                "column": 13
+              },
+              "text": "Refresh Token"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 28
+          },
+          "text": " section of the app integration. With "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 198,
+            "column": 66
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 198,
+                "column": 68
+              },
+              "text": "Rotate token after every use"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 98
+          },
+          "text": ", each refresh returns a new refresh token and the old one stops working after a short grace period. The plugin replaces its stored copy automatically. If you hold the refresh token yourself (for example in the Keychain through "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 198,
+            "column": 326
+          },
+          "url": "/plugins/capacitor-native-biometric/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 198,
+                "column": 327
+              },
+              "text": "@capgo/capacitor-native-biometric"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 399
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 198,
+            "column": 400
+          },
+          "text": "setData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 409
+          },
+          "text": "), use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 198,
+            "column": 416
+          },
+          "text": "SocialLogin.refreshToken({ provider: 'oauth2', providerId: 'okta', refreshToken })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 500
+          },
+          "text": " and save the returned value."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 200,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 200,
+            "column": 4
+          },
+          "text": "Step 8: Sign out"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 202,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await SocialLogin.logout({ provider: 'oauth2', providerId: 'okta' });"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 206,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 1
+          },
+          "text": "The plugin clears its stored tokens, then opens "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 206,
+            "column": 49
+          },
+          "text": "/v1/logout"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 61
+          },
+          "text": " with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 206,
+            "column": 67
+          },
+          "text": "id_token_hint"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 82
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 206,
+            "column": 87
+          },
+          "text": "post_logout_redirect_uri"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 113
+          },
+          "text": ". Okta ends the session and redirects to your sign-out URI, which must be listed in the app integration. On mobile the logout page opens in the system browser."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 208,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 208,
+            "column": 1
+          },
+          "text": "To also revoke the refresh token server-side, call Okta's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 208,
+            "column": 59
+          },
+          "text": "/v1/revoke"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 208,
+            "column": 71
+          },
+          "text": " endpoint from your backend or the app before logging out. See our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 208,
+            "column": 138
+          },
+          "url": "/blog/token-revocation-in-capacitor-apps-guide/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 208,
+                "column": 139
+              },
+              "text": "token revocation guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 208,
+            "column": 211
+          },
+          "text": " for the pattern."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 210,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 210,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 212,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 212,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 212,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 212,
+                    "column": 3
+                  },
+                  "text": "Error"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 212,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 212,
+                    "column": 11
+                  },
+                  "text": "Cause"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 212,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 212,
+                    "column": 19
+                  },
+                  "text": "Fix"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 214,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 214,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 214,
+                    "column": 3
+                  },
+                  "text": "invalid_request: The 'redirect_uri' parameter must be a Login redirect URI in the client app settings"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 214,
+                "column": 107
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 214,
+                    "column": 109
+                  },
+                  "text": "Redirect not registered"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 214,
+                "column": 133
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 214,
+                    "column": 135
+                  },
+                  "text": "Add the exact URI to Sign-in redirect URIs"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 215,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 215,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 215,
+                    "column": 3
+                  },
+                  "text": "User is not assigned to the client application"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 215,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 215,
+                    "column": 54
+                  },
+                  "text": "Missing assignment"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 215,
+                "column": 73
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 215,
+                    "column": 75
+                  },
+                  "text": "Assign the user or group under Assignments"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 216,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 216,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 216,
+                    "column": 3
+                  },
+                  "text": "Policy evaluation failed for this request"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 216,
+                "column": 47
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 216,
+                    "column": 49
+                  },
+                  "text": "No access policy rule for this client or grant"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 216,
+                "column": 96
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 216,
+                    "column": 98
+                  },
+                  "text": "Add a policy and rule on the authorization server"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 217,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 217,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 217,
+                    "column": 3
+                  },
+                  "text": "invalid_client"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 217,
+                    "column": 19
+                  },
+                  "text": " at token endpoint"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 217,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 217,
+                    "column": 40
+                  },
+                  "text": "App is Web or SPA type, or auth method is not None"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 217,
+                "column": 91
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 217,
+                    "column": 93
+                  },
+                  "text": "Use a Native app with client authentication None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 218,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 218,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 218,
+                    "column": 3
+                  },
+                  "text": "No refresh token"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 218,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 218,
+                    "column": 22
+                  },
+                  "text": "Refresh Token grant off, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 218,
+                    "column": 47
+                  },
+                  "text": "offline_access"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 218,
+                    "column": 63
+                  },
+                  "text": " missing, or rule blocks it"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 218,
+                "column": 91
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 218,
+                    "column": 93
+                  },
+                  "text": "Enable grant, add scope, allow it in the rule"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 219,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 219,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 219,
+                    "column": 3
+                  },
+                  "text": "API rejects token with bad issuer"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 219,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 219,
+                    "column": 39
+                  },
+                  "text": "Token came from org server"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 219,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 219,
+                    "column": 68
+                  },
+                  "text": "Use the custom authorization server issuer"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 220,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 220,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 220,
+                    "column": 3
+                  },
+                  "text": "Web: CORS error on "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 220,
+                    "column": 22
+                  },
+                  "text": "/v1/token"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 220,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 220,
+                    "column": 36
+                  },
+                  "text": "Origin not trusted"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 220,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 220,
+                    "column": 57
+                  },
+                  "text": "Add a Trusted Origin with CORS"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 221,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 221,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 221,
+                    "column": 3
+                  },
+                  "text": "Android stays in browser after login"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 221,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 221,
+                    "column": 42
+                  },
+                  "text": "Intent filter mismatch"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 221,
+                "column": 65
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 221,
+                    "column": 67
+                  },
+                  "text": "Match scheme and host to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 221,
+                    "column": 92
+                  },
+                  "text": "redirectUrl"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 223,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 1
+          },
+          "text": "Turn on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 9
+          },
+          "text": "logsEnabled: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 28
+          },
+          "text": " in the provider config while debugging to see the authorize URL and token responses in the native logs."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 225,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 4
+          },
+          "text": "Rolling out Okta changes"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 227,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 1
+          },
+          "text": "Enterprise customers often change policies or claims after launch. Client-side changes like scopes, claim handling or error screens can ship with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 227,
+            "column": 147
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 227,
+                "column": 148
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 182
+          },
+          "text": " instead of a full store review. The native pieces (intent filter, new scheme) still require a new build."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 229,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 229,
+            "column": 4
+          },
+          "text": "Related guides"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 231,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 231,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 231,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 231,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-sign-in-with-auth0-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 231,
+                        "column": 4
+                      },
+                      "text": "How to sign in with Auth0 using Capacitor"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 232,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 232,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 232,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-sign-in-with-azure-entra-id-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 232,
+                        "column": 4
+                      },
+                      "text": "How to sign in with Microsoft Entra ID using Capacitor"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 233,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 233,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 233,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-add-authentication-to-a-capacitor-app/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 233,
+                        "column": 4
+                      },
+                      "text": "How to add authentication to a Capacitor app"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 234,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 234,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 234,
+                    "column": 3
+                  },
+                  "url": "/docs/plugins/social-login/integrations/okta/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 234,
+                        "column": 4
+                      },
+                      "text": "Okta integration docs for the Social Login plugin"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

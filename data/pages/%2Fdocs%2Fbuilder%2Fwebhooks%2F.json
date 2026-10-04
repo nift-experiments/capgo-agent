@@ -1,0 +1,2608 @@
+{
+  "version": 1,
+  "route": "/docs/builder/webhooks/",
+  "source": "corpus/source/apps/docs/src/content/docs/docs/builder/webhooks.mdx",
+  "sourceSha256": "fe7184593b3a46e1e1415c7d383f4a2a346192bfe7cbafa8367c2bb8ae4c0a4c",
+  "metadata": {
+    "title": "Trigger Native Builds via Webhook",
+    "description": "Expose an HTTP webhook that starts a Capgo Build from your admin dashboard, CMS, or any system that can POST a URL.",
+    "sidebar": {
+      "order": 11,
+      "label": "Build Webhooks"
+    }
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "text": "Capgo Build is normally started from a laptop or CI job. Teams that ship from an "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 18,
+            "column": 82
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 18,
+                "column": 84
+              },
+              "text": "admin dashboard"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 101
+          },
+          "text": ", CMS, or internal portal often want a single "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 18,
+            "column": 147
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 18,
+                "column": 149
+              },
+              "text": "HTTP webhook"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 163
+          },
+          "text": ": press a button in their own UI, and a signed native build starts. This guide shows the standard pattern — a thin authenticated HTTP call into your code host, which runs the same Capgo Build workflow you already use."
+        }
+      ]
+    },
+    {
+      "type": "component",
+      "name": "Aside",
+      "props": {},
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 21,
+                "column": 1
+              },
+              "text": "Capgo organization webhooks (Dashboard → Organization → Webhooks) notify "
+            },
+            {
+              "type": "emphasis",
+              "location": {
+                "line": 21,
+                "column": 74
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 75
+                  },
+                  "text": "your"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 21,
+                "column": 80
+              },
+              "text": " URLs about Capgo events (bundles, channels, members). This page is the other direction: "
+            },
+            {
+              "type": "strong",
+              "location": {
+                "line": 21,
+                "column": 169
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 171
+                  },
+                  "text": "your"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 21,
+                "column": 177
+              },
+              "text": " system calls a URL to "
+            },
+            {
+              "type": "strong",
+              "location": {
+                "line": 21,
+                "column": 200
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 202
+                  },
+                  "text": "start"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 21,
+                "column": 209
+              },
+              "text": " a Capgo Build."
+            }
+          ]
+        }
+      ],
+      "location": {
+        "line": 20,
+        "column": 1
+      }
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 4
+          },
+          "text": "Architecture"
+        }
+      ]
+    },
+    {
+      "type": "component",
+      "name": "MermaidGraph",
+      "props": {
+        "graph": "sequenceDiagram\n  participant Admin as Admin dashboard\n  participant Hook as Webhook endpoint\n  participant CI as GitHub / GitLab\n  participant Capgo as Capgo Build\n\n  Admin->>Hook: POST /native-build (secret)\n  Hook->>CI: repository_dispatch / pipeline trigger\n  CI->>CI: checkout, npm ci, cap sync\n  CI->>Capgo: build request\n  Capgo-->>CI: signed binary / store upload\n",
+        "ariaLabel": "Sequence diagram of admin webhook triggering Capgo Build through CI"
+      },
+      "blocks": [],
+      "location": {
+        "line": 26,
+        "column": 1
+      }
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "text": "You do "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 28,
+            "column": 8
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 28,
+                "column": 10
+              },
+              "text": "not"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 15
+          },
+          "text": " need Capgo to expose a public “build webhook.” Your CI already has the signing secrets; the webhook's only job is to start that CI job safely."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 4
+          },
+          "text": "Prerequisites"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 32,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 3
+                  },
+                  "text": "A Capgo Build workflow that already works from the "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 32,
+                    "column": 54
+                  },
+                  "url": "/docs/builder/ci-ui-trigger/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 32,
+                        "column": 55
+                      },
+                      "text": "CI UI"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 91
+                  },
+                  "text": " or on push ("
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 32,
+                    "column": 104
+                  },
+                  "url": "/docs/builder/github-actions/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 32,
+                        "column": 105
+                      },
+                      "text": "GitHub Actions"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 151
+                  },
+                  "text": ")"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 33,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 33,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 3
+                  },
+                  "text": "Permission to create a fine-grained GitHub token, GitLab trigger token, or equivalent"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 34,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 3
+                  },
+                  "text": "A shared secret your admin dashboard will send (header or body)"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 4
+          },
+          "text": "Option A — GitHub "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 36,
+            "column": 22
+          },
+          "text": "repository_dispatch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 43
+          },
+          "text": " (recommended)"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "text": "GitHub accepts an authenticated API call that starts a workflow listening for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 38,
+            "column": 79
+          },
+          "text": "repository_dispatch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 100
+          },
+          "text": ". Any dashboard that can "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 38,
+            "column": 125
+          },
+          "text": "POST"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 131
+          },
+          "text": " JSON can fire it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 5
+          },
+          "text": "1. Workflow that listens for the webhook"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "text": "Validate the payload "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 42,
+            "column": 22
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 42,
+                "column": 24
+              },
+              "text": "before"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 32
+          },
+          "text": " checkout and before any secret-bearing step. Pass accepted values through job outputs / env vars — never interpolate "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 42,
+            "column": 150
+          },
+          "text": "client_payload"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 166
+          },
+          "text": " directly into "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 42,
+            "column": 181
+          },
+          "text": "run:"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 187
+          },
+          "text": " scripts ("
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 42,
+            "column": 197
+          },
+          "url": "https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#understanding-the-risk-of-script-injections",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 42,
+                "column": 198
+              },
+              "text": "script injection guidance"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 358
+          },
+          "text": ")."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 44,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "# .github/workflows/capgo-build-webhook.yml\nname: Capgo Build (Webhook)\n\non:\n  repository_dispatch:\n    types: [capgo-native-build]\n\njobs:\n  validate:\n    runs-on: ubuntu-latest\n    outputs:\n      platform: ${{ steps.check.outputs.platform }}\n      mode: ${{ steps.check.outputs.mode }}\n      ref: ${{ steps.check.outputs.ref }}\n      platforms_json: ${{ steps.check.outputs.platforms_json }}\n    steps:\n      - id: check\n        env:\n          RAW_PLATFORM: ${{ github.event.client_payload.platform }}\n          RAW_MODE: ${{ github.event.client_payload.mode }}\n          RAW_REF: ${{ github.event.client_payload.ref }}\n          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}\n        run: |\n          PLATFORM=\"${RAW_PLATFORM:-android}\"\n          MODE=\"${RAW_MODE:-release}\"\n          REF=\"${RAW_REF:-$DEFAULT_BRANCH}\"\n          case \"$PLATFORM\" in ios|android|both) ;; *)\n            echo \"Invalid platform: $PLATFORM\" >&2; exit 1;;\n          esac\n          case \"$MODE\" in debug|release) ;; *)\n            echo \"Invalid mode: $MODE\" >&2; exit 1;;\n          esac\n          # Allowlist branches / tags / full SHAs only\n          if [[ ! \"$REF\" =~ ^(main|master|production|release/[A-Za-z0-9._-]+|[0-9a-f]{40})$ ]]; then\n            echo \"Ref not allowlisted: $REF\" >&2\n            exit 1\n          fi\n          if [ \"$PLATFORM\" = \"both\" ]; then\n            PLATFORMS_JSON='[\"ios\",\"android\"]'\n          else\n            PLATFORMS_JSON=$(printf '[\"%s\"]' \"$PLATFORM\")\n          fi\n          {\n            echo \"platform=$PLATFORM\"\n            echo \"mode=$MODE\"\n            echo \"ref=$REF\"\n            echo \"platforms_json=$PLATFORMS_JSON\"\n          } >> \"$GITHUB_OUTPUT\"\n\n  build:\n    needs: validate\n    runs-on: ubuntu-latest\n    environment: ${{ needs.validate.outputs.mode == 'release' && 'production' || 'build-debug' }}\n    strategy:\n      fail-fast: false\n      matrix:\n        platform: ${{ fromJSON(needs.validate.outputs.platforms_json) }}\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          ref: ${{ needs.validate.outputs.ref }}\n\n      - uses: actions/setup-node@v6\n        with:\n          node-version: '24'\n          cache: 'npm'\n\n      - run: npm ci\n      - run: npm run build\n      - name: Sync native project\n        env:\n          PLATFORM: ${{ matrix.platform }}\n        run: npx cap sync \"$PLATFORM\"\n\n      - name: Capgo Build\n        env:\n          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}\n          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}\n          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}\n          CAPGO_IOS_PROVISIONING_MAP: ${{ secrets.CAPGO_IOS_PROVISIONING_MAP }}\n          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}\n          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}\n          APPLE_KEY_CONTENT: ${{ secrets.APPLE_KEY_CONTENT }}\n          APP_STORE_CONNECT_TEAM_ID: ${{ secrets.APP_STORE_CONNECT_TEAM_ID }}\n          ANDROID_KEYSTORE_FILE: ${{ secrets.ANDROID_KEYSTORE_FILE }}\n          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}\n          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}\n          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}\n          PLAY_CONFIG_JSON: ${{ secrets.PLAY_CONFIG_JSON }}\n          PLATFORM: ${{ matrix.platform }}\n          MODE: ${{ needs.validate.outputs.mode }}\n        run: |\n          npx @capgo/cli@latest build request com.example.app \\\n            --platform \"$PLATFORM\" \\\n            --build-mode \"$MODE\""
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 142,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 5
+          },
+          "text": "2. Create a GitHub token"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 144,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "text": "Create a fine-grained personal access token (or GitHub App installation token) with "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 144,
+            "column": 85
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 144,
+                "column": 87
+              },
+              "text": "Contents: Read and write"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 113
+          },
+          "text": " on the repository (required for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 144,
+            "column": 146
+          },
+          "text": "repository_dispatch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 167
+          },
+          "text": "). Store it only in your admin backend — never in the browser."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 5
+          },
+          "text": "3. Call the webhook from your admin dashboard"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 1
+          },
+          "text": "Your backend (not the end-user browser) should send:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 150,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "curl -X POST \\\n  -H \"Accept: application/vnd.github+json\" \\\n  -H \"Authorization: Bearer $GITHUB_TOKEN\" \\\n  -H \"X-GitHub-Api-Version: 2022-11-28\" \\\n  https://api.github.com/repos/OWNER/REPO/dispatches \\\n  -d '{\n    \"event_type\": \"capgo-native-build\",\n    \"client_payload\": {\n      \"platform\": \"both\",\n      \"mode\": \"release\",\n      \"ref\": \"main\",\n      \"requested_by\": \"admin@example.com\"\n    }\n  }'"
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 167,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 167,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 167,
+                    "column": 3
+                  },
+                  "text": "Field"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 167,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 167,
+                    "column": 11
+                  },
+                  "text": "Purpose"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 169,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 169,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 169,
+                    "column": 3
+                  },
+                  "text": "event_type"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 169,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 169,
+                    "column": 18
+                  },
+                  "text": "Must match "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 169,
+                    "column": 29
+                  },
+                  "text": "types"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 169,
+                    "column": 36
+                  },
+                  "text": " in the workflow ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 169,
+                    "column": 54
+                  },
+                  "text": "capgo-native-build"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 169,
+                    "column": 74
+                  },
+                  "text": ")"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 170,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 170,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 170,
+                    "column": 3
+                  },
+                  "text": "client_payload.platform"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 170,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 170,
+                    "column": 31
+                  },
+                  "text": "ios"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 170,
+                    "column": 36
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 170,
+                    "column": 38
+                  },
+                  "text": "android"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 170,
+                    "column": 47
+                  },
+                  "text": ", or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 170,
+                    "column": 52
+                  },
+                  "text": "both"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 171,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 171,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 171,
+                    "column": 3
+                  },
+                  "text": "client_payload.mode"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 171,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 171,
+                    "column": 27
+                  },
+                  "text": "debug"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 171,
+                    "column": 34
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 171,
+                    "column": 38
+                  },
+                  "text": "release"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 172,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 172,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 172,
+                    "column": 3
+                  },
+                  "text": "client_payload.ref"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 172,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 172,
+                    "column": 26
+                  },
+                  "text": "Branch or tag to build (optional)"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "text": "Wire the same JSON POST to a button in your admin UI (\"Build native apps\"). The dashboard only needs to reach "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 174,
+            "column": 111
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 174,
+                "column": 113
+              },
+              "text": "your"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 119
+          },
+          "text": " backend; the backend holds "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 174,
+            "column": 147
+          },
+          "text": "GITHUB_TOKEN"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 161
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "component",
+      "name": "Aside",
+      "props": {
+        "type": "caution"
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 177,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 177,
+                "column": 1
+              },
+              "text": "Never embed the GitHub token in frontend JavaScript. The admin page should call your server; your server calls GitHub."
+            }
+          ]
+        }
+      ],
+      "location": {
+        "line": 176,
+        "column": 1
+      }
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 180,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 180,
+            "column": 4
+          },
+          "text": "Option B — Tiny proxy webhook (any host)"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "text": "If the admin tool can only POST to a URL you control (Zapier, Make, Cloudflare Worker, Express route), put a short proxy in front of GitHub:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "lang": "js",
+      "meta": null,
+      "text": "// Example Cloudflare Worker / Node handler (sketch)\nexport default {\n  async fetch(request, env) {\n    if (request.method !== 'POST') {\n      return new Response('Method not allowed', { status: 405 })\n    }\n    if (request.headers.get('x-webhook-secret') !== env.WEBHOOK_SECRET) {\n      return new Response('Unauthorized', { status: 401 })\n    }\n    const body = await request.json().catch(() => ({}))\n    const platform = body.platform || 'both'\n    const mode = body.mode || 'release'\n    const ref = body.ref || 'main'\n    if (!['ios', 'android', 'both'].includes(platform)) {\n      return new Response('Invalid platform', { status: 400 })\n    }\n    if (!['debug', 'release'].includes(mode)) {\n      return new Response('Invalid mode', { status: 400 })\n    }\n    if (!/^(main|master|production|release\\/[A-Za-z0-9._-]+|[0-9a-f]{40})$/.test(ref)) {\n      return new Response('Ref not allowlisted', { status: 400 })\n    }\n    const res = await fetch(\n      `https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/dispatches`,\n      {\n        method: 'POST',\n        headers: {\n          Accept: 'application/vnd.github+json',\n          Authorization: `Bearer ${env.GITHUB_TOKEN}`,\n          'X-GitHub-Api-Version': '2022-11-28',\n        },\n        body: JSON.stringify({\n          event_type: 'capgo-native-build',\n          client_payload: { platform, mode, ref },\n        }),\n      },\n    )\n    return new Response(res.status === 204 ? 'Build queued' : await res.text(), {\n      status: res.status === 204 ? 200 : res.status,\n    })\n  },\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 229,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 229,
+            "column": 1
+          },
+          "text": "Then configure the admin product:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 231,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 231,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 231,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 231,
+                    "column": 3
+                  },
+                  "text": "Setting"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 231,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 231,
+                    "column": 13
+                  },
+                  "text": "Value"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 233,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 233,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 233,
+                    "column": 3
+                  },
+                  "text": "URL"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 233,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 233,
+                    "column": 9
+                  },
+                  "text": "https://your-worker.example.com/native-build"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 234,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 234,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 234,
+                    "column": 3
+                  },
+                  "text": "Method"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 234,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 234,
+                    "column": 12
+                  },
+                  "text": "POST"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 235,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 235,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 235,
+                    "column": 3
+                  },
+                  "text": "Header"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 235,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 235,
+                    "column": 12
+                  },
+                  "text": "x-webhook-secret: <shared secret>"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 236,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 236,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 236,
+                    "column": 3
+                  },
+                  "text": "Body"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 236,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 236,
+                    "column": 10
+                  },
+                  "text": "{ \"platform\": \"both\", \"mode\": \"release\" }"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 238,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 1
+          },
+          "text": "This is the usual shape for connecting a webhook to an on-admin dashboard: the dashboard stores one URL and one secret; Capgo credentials stay in GitHub Actions."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 240,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 240,
+            "column": 4
+          },
+          "text": "GitLab Pipeline Trigger"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 242,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 242,
+            "column": 1
+          },
+          "text": "GitLab exposes "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 242,
+            "column": 16
+          },
+          "url": "https://docs.gitlab.com/ee/ci/triggers/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 242,
+                "column": 17
+              },
+              "text": "pipeline trigger tokens"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 242,
+            "column": 82
+          },
+          "text": " that are natural webhook targets."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 244,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "# .gitlab-ci.yml fragment\ncapgo_native_webhook:\n  stage: build\n  script:\n    - npm ci && npm run build\n    - npx cap sync \"${PLATFORM:-android}\"\n    - npx @capgo/cli@latest build request com.example.app --platform \"${PLATFORM:-android}\" --build-mode \"${BUILD_MODE:-release}\"\n  rules:\n    - if: '$CI_PIPELINE_SOURCE == \"trigger\"'"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 256,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 256,
+            "column": 1
+          },
+          "text": "Create a trigger token under "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 256,
+            "column": 30
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 256,
+                "column": 32
+              },
+              "text": "Settings → CI/CD → Pipeline trigger tokens"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 256,
+            "column": 76
+          },
+          "text": ", then from the admin backend:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 258,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "curl -X POST \\\n  -F token=$GITLAB_TRIGGER_TOKEN \\\n  -F ref=main \\\n  -F \"variables[PLATFORM]=android\" \\\n  -F \"variables[BUILD_MODE]=release\" \\\n  https://gitlab.com/api/v4/projects/PROJECT_ID/trigger/pipeline"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 267,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 267,
+            "column": 1
+          },
+          "text": "For both platforms, either fire two triggers or expand the job into a parallel matrix the same way as the GitHub example."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 269,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 269,
+            "column": 4
+          },
+          "text": "Bitbucket and Azure"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 271,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 271,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 271,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 271,
+                    "column": 3
+                  },
+                  "text": "Platform"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 271,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 271,
+                    "column": 14
+                  },
+                  "text": "Webhook mechanism"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 273,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 273,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 273,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 273,
+                        "column": 5
+                      },
+                      "text": "Bitbucket"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 273,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 273,
+                    "column": 19
+                  },
+                  "url": "https://support.atlassian.com/bitbucket-cloud/docs/pipeline-triggers/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 273,
+                        "column": 20
+                      },
+                      "text": "Pipeline trigger URL"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 273,
+                    "column": 112
+                  },
+                  "text": " or custom pipeline + app password "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 273,
+                    "column": 147
+                  },
+                  "text": "POST"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 274,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 274,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 274,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 274,
+                        "column": 5
+                      },
+                      "text": "Azure DevOps"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 274,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 274,
+                    "column": 22
+                  },
+                  "url": "https://learn.microsoft.com/en-us/rest/api/azure/devops/pipelines/runs/run-pipeline",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 274,
+                        "column": 23
+                      },
+                      "text": "Pipeline run REST API"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 274,
+                    "column": 130
+                  },
+                  "text": " with a PAT; use the manual pipeline from "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 274,
+                    "column": 172
+                  },
+                  "url": "/docs/builder/ci-ui-trigger/#azure-devops",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 274,
+                        "column": 173
+                      },
+                      "text": "Trigger from CI UI"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 276,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 276,
+            "column": 1
+          },
+          "text": "Pattern is identical: admin → your secret check → host API → Capgo Build job."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 278,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 278,
+            "column": 4
+          },
+          "text": "Payload Checklist for Admin Tools"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 280,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 1
+          },
+          "text": "When the dashboard form is built, collect at least:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 282,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 282,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 282,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 282,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 282,
+                        "column": 5
+                      },
+                      "text": "Platform"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 282,
+                    "column": 15
+                  },
+                  "text": " — ios / android / both"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 283,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 283,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 283,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 283,
+                        "column": 5
+                      },
+                      "text": "Mode"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 283,
+                    "column": 11
+                  },
+                  "text": " — debug (QA) or release (store)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 284,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 284,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 284,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 284,
+                        "column": 5
+                      },
+                      "text": "Git ref"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 284,
+                    "column": 14
+                  },
+                  "text": " — branch or tag to build"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 285,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 285,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 285,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 285,
+                        "column": 5
+                      },
+                      "text": "Actor"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 285,
+                    "column": 12
+                  },
+                  "text": " — email or user id for audit logs (pass through "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 285,
+                    "column": 61
+                  },
+                  "text": "client_payload"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 285,
+                    "column": 77
+                  },
+                  "text": ")"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 287,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 287,
+            "column": 1
+          },
+          "text": "Optional: after the run, have CI post back to the admin API with the download URL from "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 287,
+            "column": 88
+          },
+          "url": "/docs/builder/github-actions/#read-the-build-output-url-and-qr-code",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 287,
+                "column": 89
+              },
+              "text": "--output-record"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 287,
+                "column": 106
+              },
+              "text": " / "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 287,
+                "column": 109
+              },
+              "text": "build last-output"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 287,
+            "column": 198
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 289,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 289,
+            "column": 4
+          },
+          "text": "Security"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 291,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 291,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 291,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 291,
+                    "column": 3
+                  },
+                  "text": "Authenticate every webhook ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 291,
+                    "column": 31
+                  },
+                  "text": "x-webhook-secret"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 291,
+                    "column": 49
+                  },
+                  "text": ", HMAC signature, or mTLS)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 292,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 292,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 3
+                  },
+                  "text": "Allowlist "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 292,
+                    "column": 13
+                  },
+                  "text": "platform"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 23
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 292,
+                    "column": 25
+                  },
+                  "text": "mode"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 31
+                  },
+                  "text": ", and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 292,
+                    "column": 37
+                  },
+                  "text": "ref"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 42
+                  },
+                  "text": " in both the proxy and the workflow "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 292,
+                    "column": 78
+                  },
+                  "text": "validate"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 88
+                  },
+                  "text": " job — treat "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 292,
+                    "column": 101
+                  },
+                  "text": "client_payload"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 117
+                  },
+                  "text": " as untrusted input."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 293,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 293,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 293,
+                    "column": 3
+                  },
+                  "text": "Pass accepted values through env vars / job outputs; do not interpolate payload fields into "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 293,
+                    "column": 95
+                  },
+                  "text": "run:"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 293,
+                    "column": 101
+                  },
+                  "text": " scripts."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 294,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 294,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 3
+                  },
+                  "text": "Keep GitHub/GitLab tokens server-side only."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 295,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 295,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 295,
+                    "column": 3
+                  },
+                  "text": "Prefer tokens scoped to a single repository."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 296,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 296,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 296,
+                    "column": 3
+                  },
+                  "text": "Rate-limit the proxy; native builds cost build minutes."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 297,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 297,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 3
+                  },
+                  "text": "For store-submitting releases, map "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 297,
+                    "column": 38
+                  },
+                  "text": "release"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 47
+                  },
+                  "text": " to a protected GitHub Environment (as in the sample) or require an extra confirmation flag checked in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 297,
+                    "column": 150
+                  },
+                  "text": "validate"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 160
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 299,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 299,
+            "column": 4
+          },
+          "text": "Related Guides"
+        }
+      ]
+    },
+    {
+      "type": "component",
+      "name": "CardGrid",
+      "props": {},
+      "blocks": [
+        {
+          "type": "component",
+          "name": "LinkCard",
+          "props": {
+            "title": "Trigger from CI UI",
+            "description": "Same Capgo Build job, started from the Actions / Pipelines tab.",
+            "href": "/docs/builder/ci-ui-trigger/"
+          },
+          "blocks": [],
+          "location": {
+            "line": 302,
+            "column": 3
+          }
+        },
+        {
+          "type": "component",
+          "name": "LinkCard",
+          "props": {
+            "title": "GitHub Actions setup",
+            "description": "Credential export and secret names used by these workflows.",
+            "href": "/docs/builder/github-actions/"
+          },
+          "blocks": [],
+          "location": {
+            "line": 307,
+            "column": 3
+          }
+        },
+        {
+          "type": "component",
+          "name": "LinkCard",
+          "props": {
+            "title": "Auto OTA or Native",
+            "description": "On git push, choose live update vs native automatically.",
+            "href": "/docs/builder/ci-ota-or-native/"
+          },
+          "blocks": [],
+          "location": {
+            "line": 312,
+            "column": 3
+          }
+        }
+      ],
+      "location": {
+        "line": 301,
+        "column": 1
+      }
+    }
+  ]
+}

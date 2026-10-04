@@ -1,0 +1,3626 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-sign-and-build-capacitor-app-in-the-cloud/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-sign-and-build-capacitor-app-in-the-cloud.md",
+  "sourceSha256": "08eea746fab2f581a12cb6dd84d387cb7faaf33e51c7eb6bca35ad3524a89475",
+  "metadata": {
+    "slug": "how-to-sign-and-build-capacitor-app-in-the-cloud",
+    "title": "How to Sign and Build a Capacitor App in the Cloud",
+    "description": "Sign and build your Capacitor app in the cloud: create the Android keystore and iOS certificate, store credentials safely, and run signed builds from CI.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/certificates.webp",
+    "head_image_alt": "iOS certificates and Android keystore used to sign a Capacitor app in a cloud build",
+    "keywords": "sign Capacitor app, Capacitor cloud build, Capacitor code signing, iOS certificate CI, Android keystore CI, build Capacitor without Mac, Capgo Build, TestFlight upload Capacitor",
+    "tag": "Tutorial, Cloud, Security",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "What files do I need to sign a Capacitor app in the cloud?",
+        "answer": "For Android, a keystore (.jks or .keystore) with its alias and passwords, plus a Google Play service account JSON if you want automatic uploads. For iOS, an Apple Distribution certificate exported as .p12, a provisioning profile for each app target, and an App Store Connect API key (.p8) for uploads."
+      },
+      {
+        "question": "Can I create an iOS distribution certificate without a Mac?",
+        "answer": "Yes. Generate a private key and certificate signing request with OpenSSL or a browser tool, upload the request in the Apple Developer portal, then combine the downloaded certificate with your key into a .p12. Capgo's onboarding can also create the certificate and profile for you."
+      },
+      {
+        "question": "Does Capgo store my signing keys?",
+        "answer": "No. The Capgo CLI keeps credentials on your machine or in your CI secrets. They are sent over HTTPS for each build, used only during that build, and deleted when it completes."
+      },
+      {
+        "question": "What happens when my iOS certificate expires?",
+        "answer": "Apps already on the App Store keep working, but new builds fail to sign. Create a new Apple Distribution certificate, regenerate the provisioning profiles that reference it, save the new files with the Capgo CLI, and update your CI secrets."
+      },
+      {
+        "question": "Do I need separate credentials for development and production?",
+        "answer": "For iOS, yes: App Store builds use an App Store Connect profile, test builds on registered devices use an Ad Hoc profile, both signed with the same distribution certificate. For Android, one upload keystore covers all Play tracks, and debug builds use the default debug key."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To sign and build a Capacitor app in the cloud, you create your signing material once (an Android keystore, an iOS distribution certificate and provisioning profile), give it to a cloud build service, and then trigger builds from your terminal or CI. The service compiles the native project, signs it, and can upload it straight to TestFlight or Google Play. This guide covers each signing file, how to create it without a Mac, how to set it up with Capgo Build, and how to automate signed builds safely."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "What \"signing in the cloud\" means"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "Both stores only accept signed binaries. Signing proves the build came from you and that nobody changed it afterwards. Locally, Xcode and Android Studio hide most of this. In the cloud, nothing is implicit, so you need to know exactly which files are involved:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "Platform"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 14
+                  },
+                  "text": "File"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 21
+                  },
+                  "text": "What it is"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 34
+                  },
+                  "text": "Used for"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 13
+                  },
+                  "text": ".jks"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 19
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 22
+                  },
+                  "text": ".keystore"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 36
+                  },
+                  "text": "Keystore holding your upload key"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 69
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 71
+                  },
+                  "text": "Signing the AAB or APK"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 13
+                  },
+                  "text": "Service account "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 29
+                  },
+                  "text": ".json"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 39
+                  },
+                  "text": "Google Cloud credentials"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 64
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 66
+                  },
+                  "text": "Uploading to Google Play"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 9
+                  },
+                  "text": ".p12"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 18
+                  },
+                  "text": "Apple Distribution certificate plus private key"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 68
+                  },
+                  "text": "Signing the IPA"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 9
+                  },
+                  "text": ".mobileprovision"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 30
+                  },
+                  "text": "Provisioning profile tying bundle ID, certificate, and capabilities"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 98
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 100
+                  },
+                  "text": "Allowing the app to run and be distributed"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 14,
+                    "column": 9
+                  },
+                  "text": ".p8"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 14
+                  },
+                  "text": " + key ID + issuer ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 38
+                  },
+                  "text": "App Store Connect API key"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 64
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 66
+                  },
+                  "text": "Uploading to TestFlight, reading build numbers"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "text": "Keep these out of Git. Everything below stores them in your local credential file or your CI's secret store."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 4
+          },
+          "text": "Android signing"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 20,
+            "column": 5
+          },
+          "text": "Create the upload keystore"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "text": "If the app is already on Google Play, reuse the existing keystore. Signing an update with a different key is rejected unless you go through Play Console's upload key reset."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "text": "For a new app:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "keytool -genkeypair -v \\\n  -storetype PKCS12 \\\n  -keystore release.jks \\\n  -alias upload \\\n  -keyalg RSA -keysize 2048 \\\n  -validity 10000"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 35,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "text": "Notes:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 37,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 37,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 3
+                  },
+                  "text": "Google Play requires the key to be valid until at least October 22, 2033. "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 37,
+                    "column": 77
+                  },
+                  "text": "-validity 10000"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 94
+                  },
+                  "text": " (about 27 years) covers that."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 38,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 3
+                  },
+                  "text": "With the PKCS12 store type, the key password is the same as the store password."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 39,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 39,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 3
+                  },
+                  "text": "No JDK at hand? The "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 39,
+                    "column": 23
+                  },
+                  "url": "/tools/android-keystore-generator/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 39,
+                        "column": 24
+                      },
+                      "text": "Android keystore generator"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 87
+                  },
+                  "text": " produces the same file in the browser."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 5
+          },
+          "text": "Play App Signing and the upload key"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "text": "New apps on Google Play use Play App Signing. Google holds the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 43,
+            "column": 64
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 43,
+                "column": 66
+              },
+              "text": "app signing key"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 83
+          },
+          "text": " and re-signs what users download. Your keystore is the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 43,
+            "column": 139
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 43,
+                "column": 141
+              },
+              "text": "upload key"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 153
+          },
+          "text": ". If you lose it, Play Console support can register a new upload key, which is why losing it is a delay, not a disaster. Back it up anyway."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 5
+          },
+          "text": "Service account for uploads"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 47,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 47,
+            "column": 1
+          },
+          "text": "To upload from the cloud, create a service account in Google Cloud, enable the Google Play Android Developer API, download its JSON key, and invite the service account in Play Console under "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 47,
+            "column": 191
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 47,
+                "column": 193
+              },
+              "text": "Users and permissions"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 47,
+            "column": 216
+          },
+          "text": " with release permissions for your app. Capgo's onboarding can do this through Google sign-in, as shown below."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 49,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 4
+          },
+          "text": "iOS signing"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 51,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 51,
+            "column": 5
+          },
+          "text": "The three Apple pieces"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 53,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 53,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 53,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 53,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 53,
+                        "column": 5
+                      },
+                      "text": "Apple Distribution certificate."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 53,
+                    "column": 38
+                  },
+                  "text": " One per team is enough, valid for a year. Apple limits how many you can have, so do not create one per developer."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 54,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 54,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 54,
+                        "column": 5
+                      },
+                      "text": "Provisioning profile."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 54,
+                    "column": 28
+                  },
+                  "text": " Links the bundle ID, the certificate, and capabilities such as push notifications. Use an "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 54,
+                    "column": 119
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 54,
+                        "column": 121
+                      },
+                      "text": "App Store Connect"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 54,
+                    "column": 140
+                  },
+                  "text": " profile for TestFlight and the App Store, and an "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 54,
+                    "column": 190
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 54,
+                        "column": 192
+                      },
+                      "text": "Ad Hoc"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 54,
+                    "column": 200
+                  },
+                  "text": " profile for installs on registered devices. Each app extension (widget, share extension, notification service) needs its own profile."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 55,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 55,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 55,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 55,
+                        "column": 5
+                      },
+                      "text": "App Store Connect API key."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 33
+                  },
+                  "text": " Created under "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 55,
+                    "column": 48
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 55,
+                        "column": 50
+                      },
+                      "text": "Users and Access > Integrations"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 83
+                  },
+                  "text": " with App Manager access. The "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 55,
+                    "column": 113
+                  },
+                  "text": ".p8"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 118
+                  },
+                  "text": " file downloads only once."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 57,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 57,
+            "column": 1
+          },
+          "text": "You need admin or account holder rights on the Apple Developer team to create these."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 59,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 5
+          },
+          "text": "Create a certificate without a Mac"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 61,
+            "column": 1
+          },
+          "text": "The Keychain Access flow needs macOS, but OpenSSL works anywhere:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 63,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "# 1. Private key and certificate signing request\nopenssl req -new -newkey rsa:2048 -nodes \\\n  -keyout dist.key -out dist.csr \\\n  -subj \"/emailAddress=dev@example.com/CN=Example Inc/C=US\"\n\n# 2. Upload dist.csr at developer.apple.com > Certificates > + > Apple Distribution\n#    and download distribution.cer\n\n# 3. Convert and bundle into a .p12\nopenssl x509 -inform DER -in distribution.cer -out distribution.pem\nopenssl pkcs12 -export -legacy \\\n  -inkey dist.key -in distribution.pem \\\n  -out distribution.p12 -passout pass:choose-a-password"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 79,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 79,
+            "column": 5
+          },
+          "text": "-legacy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 14
+          },
+          "text": " flag matters with OpenSSL 3: without it, macOS build machines may fail to import the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 79,
+            "column": 100
+          },
+          "text": ".p12"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 106
+          },
+          "text": " with \"MAC verification failed\". The browser-based "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 79,
+            "column": 157
+          },
+          "url": "/tools/ios-certificate-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 79,
+                "column": 158
+              },
+              "text": "iOS certificate generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 219
+          },
+          "text": " does the same steps if you prefer not to use a terminal."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 1
+          },
+          "text": "Then create the provisioning profile in the developer portal ("
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 81,
+            "column": 63
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 81,
+                "column": 65
+              },
+              "text": "Profiles > + > App Store Connect"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 99
+          },
+          "text": "), select your app ID and the new certificate, and download it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 4
+          },
+          "text": "Set up signing with Capgo Build"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "link",
+          "location": {
+            "line": 85,
+            "column": 1
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 85,
+                "column": 2
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 85,
+            "column": 30
+          },
+          "text": " compiles and signs Capacitor apps on Capgo-managed machines, so you can build iOS from Windows or Linux. Start by logging in and registering the app:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 87,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx @capgo/cli@latest login\nbunx @capgo/cli@latest app add"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 5
+          },
+          "text": "Option A: guided onboarding (recommended)"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 94,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx @capgo/cli@latest build init --platform ios\nbunx @capgo/cli@latest build init --platform android"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 99,
+            "column": 1
+          },
+          "text": "On iOS, the onboarding creates or reuses the distribution certificate and the App Store provisioning profile with your App Store Connect API key. On macOS it can also walk you through creating that API key. On Android, it creates or imports the keystore and can provision the Google Cloud service account and the Play Console invite through Google sign-in. At the end it offers to start the first build."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 101,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 5
+          },
+          "text": "Option B: save existing files"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 1
+          },
+          "text": "If you already have the files from the previous sections:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "# iOS\nbunx @capgo/cli@latest build credentials save \\\n  --platform ios \\\n  --certificate ./distribution.p12 \\\n  --p12-password \"choose-a-password\" \\\n  --ios-provisioning-profile ./AppStore.mobileprovision \\\n  --apple-key ./AuthKey_ABC1234567.p8 \\\n  --apple-key-id ABC1234567 \\\n  --apple-issuer-id 00000000-0000-0000-0000-000000000000 \\\n  --apple-team-id TEAM123456\n\n# Android\nbunx @capgo/cli@latest build credentials save \\\n  --platform android \\\n  --keystore ./release.jks \\\n  --keystore-alias upload \\\n  --keystore-key-password \"store-password\" \\\n  --keystore-store-password \"store-password\" \\\n  --play-config ./play-service-account.json"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 127,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 1
+          },
+          "text": "For apps with extensions, repeat "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 127,
+            "column": 34
+          },
+          "text": "--ios-provisioning-profile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 62
+          },
+          "text": " with a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 127,
+            "column": 70
+          },
+          "text": "bundleId=path"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 85
+          },
+          "text": " mapping for each target:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "  --ios-provisioning-profile com.example.app=./App.mobileprovision \\\n  --ios-provisioning-profile com.example.app.widget=./Widget.mobileprovision"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 134,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 134,
+            "column": 1
+          },
+          "text": "Credentials are stored in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 134,
+            "column": 27
+          },
+          "text": "~/.capgo-credentials/credentials.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 134,
+            "column": 66
+          },
+          "text": ", keyed by app ID and platform. Add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 134,
+            "column": 102
+          },
+          "text": "--local"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 134,
+            "column": 111
+          },
+          "text": " to store them in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 134,
+            "column": 129
+          },
+          "text": ".capgo-credentials.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 134,
+            "column": 154
+          },
+          "text": " in the project instead, and add that file to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 134,
+            "column": 200
+          },
+          "text": ".gitignore"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 134,
+            "column": 212
+          },
+          "text": ". Check what is saved with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 134,
+            "column": 239
+          },
+          "text": "bunx @capgo/cli@latest build credentials list"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 134,
+            "column": 286
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 136,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 136,
+            "column": 4
+          },
+          "text": "Trigger a signed build"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 138,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 1
+          },
+          "text": "Prepare the native project, then request the build:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 140,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun run build\nbunx cap sync\n\n# iOS: sign with the App Store profile and upload to TestFlight\nbunx @capgo/cli@latest build request com.example.app --platform ios --build-mode release\n\n# Android: sign the AAB and upload to the internal track\nbunx @capgo/cli@latest build request com.example.app --platform android --build-mode release --android-track internal"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 151,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 1
+          },
+          "text": "Logs stream into your terminal. A pre-build scan checks certificate expiry, passwords, and profile pairing before anything is uploaded, so most signing mistakes fail in seconds instead of minutes. Run it on its own with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 151,
+            "column": 221
+          },
+          "text": "bunx @capgo/cli@latest build prescan --platform ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 274
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 153,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 153,
+            "column": 1
+          },
+          "text": "Useful variations:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 155,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 155,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 155,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 155,
+                    "column": 3
+                  },
+                  "text": "Goal"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 155,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 155,
+                    "column": 10
+                  },
+                  "text": "Flags"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 157,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 157,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 157,
+                    "column": 3
+                  },
+                  "text": "Test build on registered iPhones"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 157,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 157,
+                    "column": 38
+                  },
+                  "text": "--ios-distribution ad_hoc --ios-provisioning-profile ./adhoc.mobileprovision --output-upload"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 158,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 158,
+                    "column": 3
+                  },
+                  "text": "APK for MDM or kiosk devices"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 158,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 158,
+                    "column": 34
+                  },
+                  "text": "--platform android --no-playstore-upload --output-upload"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 159,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 159,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 159,
+                    "column": 3
+                  },
+                  "text": "Submit straight to App Review"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 159,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 159,
+                    "column": 35
+                  },
+                  "text": "--submit-to-store-review --store-release-name 2.4.0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 160,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 160,
+                    "column": 3
+                  },
+                  "text": "Keep your own build number"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 160,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 160,
+                    "column": 32
+                  },
+                  "text": "--skip-build-number-bump"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 161,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 161,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 161,
+                    "column": 3
+                  },
+                  "text": "Clean build without cache"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 161,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 161,
+                    "column": 31
+                  },
+                  "text": "--no-cache"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 1
+          },
+          "text": "For ad hoc builds, collect device UDIDs first with the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 163,
+            "column": 56
+          },
+          "url": "/tools/ios-udid-finder/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 163,
+                "column": 57
+              },
+              "text": "iOS UDID finder"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 98
+          },
+          "text": " and add them to the profile."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 165,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 165,
+            "column": 4
+          },
+          "text": "Automate signed builds in CI"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 167,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "text": "In CI, pass credentials as environment variables instead of a credentials file. The CLI exports exactly what you need:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx @capgo/cli@latest build credentials manage --appId com.example.app\n# choose \"Export to .env\""
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "text": "On GitHub, push every line to repository secrets in one command, then delete the file:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "gh secret set -f .env.capgo.com.example.app\ngh secret set CAPGO_TOKEN --body \"your-capgo-api-key\"\nrm .env.capgo.com.example.app"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "text": "A release workflow that signs and ships both platforms on a tag:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "name: Signed release\non:\n  push:\n    tags: ['v*']\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    strategy:\n      fail-fast: false\n      matrix:\n        platform: [ios, android]\n    steps:\n      - uses: actions/checkout@v6\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - run: bun run build\n      - run: bunx cap sync ${{ matrix.platform }}\n      - run: bunx @capgo/cli@latest build request com.example.app --platform ${{ matrix.platform }} --build-mode release\n        env:\n          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}\n          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}\n          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}\n          CAPGO_IOS_PROVISIONING_MAP_BASE64: ${{ secrets.CAPGO_IOS_PROVISIONING_MAP_BASE64 }}\n          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}\n          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}\n          APPLE_KEY_CONTENT: ${{ secrets.APPLE_KEY_CONTENT }}\n          APP_STORE_CONNECT_TEAM_ID: ${{ secrets.APP_STORE_CONNECT_TEAM_ID }}\n          ANDROID_KEYSTORE_FILE: ${{ secrets.ANDROID_KEYSTORE_FILE }}\n          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}\n          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}\n          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}\n          PLAY_CONFIG_JSON: ${{ secrets.PLAY_CONFIG_JSON }}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 220,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 220,
+            "column": 1
+          },
+          "text": "The job runs on Linux. No macOS runner, no keychain commands, no fastlane. The same environment variables work in any CI: GitLab CI/CD variables, Bitbucket secured variables, Gitea secrets, or Azure DevOps variable groups. Platform-specific walkthroughs: "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 220,
+            "column": 256
+          },
+          "url": "/blog/build-and-deploy-ios-apps-with-bitbucket-pipelines/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 220,
+                "column": 257
+              },
+              "text": "Bitbucket Pipelines"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 220,
+            "column": 336
+          },
+          "text": ", "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 220,
+            "column": 338
+          },
+          "url": "/blog/build-and-deploy-ios-apps-with-gitea-actions/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 220,
+                "column": 339
+              },
+              "text": "Gitea Actions"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 220,
+            "column": 406
+          },
+          "text": ", and the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 220,
+            "column": 416
+          },
+          "url": "/docs/builder/github-actions/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 220,
+                "column": 417
+              },
+              "text": "GitHub Actions docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 220,
+            "column": 468
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 222,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 222,
+            "column": 4
+          },
+          "text": "How your keys are handled"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 224,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 224,
+            "column": 1
+          },
+          "text": "A fair question before you hand signing keys to any cloud service. With Capgo Build:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 226,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 226,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 226,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 226,
+                    "column": 3
+                  },
+                  "text": "Credentials live on your machine ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 226,
+                    "column": 37
+                  },
+                  "text": "~/.capgo-credentials/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 226,
+                    "column": 60
+                  },
+                  "text": ") or in your CI secret store. Capgo does not keep a vault of your keys."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 227,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 227,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 227,
+                    "column": 3
+                  },
+                  "text": "For each build, the CLI sends them over HTTPS. They are used only during that build and deleted when it completes."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 228,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 228,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 228,
+                    "column": 3
+                  },
+                  "text": "Only the prepared native project is uploaded. Your web source, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 228,
+                    "column": 66
+                  },
+                  "text": ".git"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 228,
+                    "column": 72
+                  },
+                  "text": ", and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 228,
+                    "column": 78
+                  },
+                  "text": ".env"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 228,
+                    "column": 84
+                  },
+                  "text": " files are not."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 229,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 229,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 229,
+                    "column": 3
+                  },
+                  "text": "Built apps go to App Store Connect or Google Play directly, or to a time-limited download link if you ask for one."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 231,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 231,
+            "column": 1
+          },
+          "text": "The trade-off: rotating a credential means updating your CI secrets yourself. Re-export with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 231,
+            "column": 94
+          },
+          "text": "build credentials manage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 231,
+            "column": 120
+          },
+          "text": " and push the file again."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 233,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 233,
+            "column": 4
+          },
+          "text": "Expiry and rotation"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 235,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 235,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 235,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 235,
+                    "column": 3
+                  },
+                  "text": "Item"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 235,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 235,
+                    "column": 10
+                  },
+                  "text": "Lifetime"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 235,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 235,
+                    "column": 21
+                  },
+                  "text": "What to do"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 237,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 237,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 237,
+                    "column": 3
+                  },
+                  "text": "Apple Distribution certificate"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 237,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 237,
+                    "column": 36
+                  },
+                  "text": "1 year"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 237,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 237,
+                    "column": 45
+                  },
+                  "text": "Create a new one, regenerate profiles, re-save, update CI"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 238,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 238,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 238,
+                    "column": 3
+                  },
+                  "text": "Provisioning profile"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 238,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 238,
+                    "column": 26
+                  },
+                  "text": "1 year, or until its certificate is revoked"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 238,
+                "column": 70
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 238,
+                    "column": 72
+                  },
+                  "text": "Regenerate and re-save"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 239,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 239,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 239,
+                    "column": 3
+                  },
+                  "text": "App Store Connect API key"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 239,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 239,
+                    "column": 31
+                  },
+                  "text": "Until revoked"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 239,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 239,
+                    "column": 47
+                  },
+                  "text": "Revoke when someone with access leaves"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 240,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 240,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 240,
+                    "column": 3
+                  },
+                  "text": "Android upload keystore"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 240,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 240,
+                    "column": 29
+                  },
+                  "text": "As long as its validity (set it to decades)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 240,
+                "column": 73
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 240,
+                    "column": 75
+                  },
+                  "text": "Back it up; reset via Play Console if lost"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 241,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 241,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 241,
+                    "column": 3
+                  },
+                  "text": "Play service account key"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 241,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 241,
+                    "column": 30
+                  },
+                  "text": "Until deleted"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 241,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 241,
+                    "column": 46
+                  },
+                  "text": "Rotate yearly or when access changes"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 1
+          },
+          "text": "Put the Apple dates in a shared calendar. An expired certificate does not affect apps already on users' devices, but it blocks every new build."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 247,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 247,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 247,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 247,
+                    "column": 3
+                  },
+                  "text": "Error"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 247,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 247,
+                    "column": 11
+                  },
+                  "text": "Cause and fix"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 249,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 249,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 249,
+                    "column": 3
+                  },
+                  "text": "Provisioning profile doesn't include signing certificate"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 249,
+                "column": 62
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 249,
+                    "column": 64
+                  },
+                  "text": "Profile was generated for a different certificate. Regenerate it with the current one."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 250,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 250,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 250,
+                    "column": 3
+                  },
+                  "text": "Provisioning profile doesn't match bundle ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 250,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 250,
+                    "column": 52
+                  },
+                  "text": "Profile created for another app ID or missing an extension target. Add a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 250,
+                    "column": 125
+                  },
+                  "text": "bundleId=path"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 250,
+                    "column": 140
+                  },
+                  "text": " mapping for each target."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 251,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 251,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 251,
+                    "column": 3
+                  },
+                  "text": "MAC verification failed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 251,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 251,
+                    "column": 31
+                  },
+                  "text": "Wrong "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 251,
+                    "column": 37
+                  },
+                  "text": ".p12"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 251,
+                    "column": 43
+                  },
+                  "text": " password, or OpenSSL 3 export without "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 251,
+                    "column": 82
+                  },
+                  "text": "-legacy"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 251,
+                    "column": 91
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 252,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 252,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 252,
+                    "column": 3
+                  },
+                  "text": "Keystore was tampered with, or password was incorrect"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 252,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 252,
+                    "column": 61
+                  },
+                  "text": "Wrong store password, or the file was corrupted by base64 line breaks."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 253,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 253,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 253,
+                    "column": 3
+                  },
+                  "text": "Key alias not found"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 253,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 253,
+                    "column": 27
+                  },
+                  "text": "Alias differs from the one in the keystore. List it with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 253,
+                    "column": 84
+                  },
+                  "text": "keytool -list -keystore release.jks"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 253,
+                    "column": 121
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 254,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 254,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 254,
+                    "column": 3
+                  },
+                  "text": "App Store Connect authentication failed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 254,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 254,
+                    "column": 45
+                  },
+                  "text": "Wrong key ID or issuer ID, revoked key, or a skewed system clock on the machine that signs the token."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 255,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 255,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 255,
+                    "column": 3
+                  },
+                  "text": "Play upload: caller does not have permission"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 255,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 255,
+                    "column": 50
+                  },
+                  "text": "Service account not invited in Play Console, or the Android Developer API not enabled."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 257,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 1
+          },
+          "text": "More fixes are in the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 257,
+            "column": 23
+          },
+          "url": "/docs/builder/troubleshooting/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 257,
+                "column": 24
+              },
+              "text": "Capgo Build troubleshooting guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 90
+          },
+          "text": " and "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 257,
+            "column": 95
+          },
+          "url": "/blog/ci-cd-for-capacitor-common-pitfalls/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 257,
+                "column": 96
+              },
+              "text": "CI/CD for Capacitor: common pitfalls"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 177
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 259,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 259,
+            "column": 4
+          },
+          "text": "After the first signed build"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 261,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 261,
+            "column": 1
+          },
+          "text": "Signed native builds are only needed when native code changes. For JavaScript, CSS, and HTML changes, ship a "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 261,
+            "column": 110
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 261,
+                "column": 111
+              },
+              "text": "live update"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 261,
+            "column": 138
+          },
+          "text": " to installed apps instead and keep store builds for releases that touch plugins or native configuration. If you are coming from a Mac-based setup, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 261,
+            "column": 286
+          },
+          "url": "/blog/build-ios-app-from-windows-capacitor-capgo-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 261,
+                "column": 287
+              },
+              "text": "Build an iOS app from Windows with Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 261,
+            "column": 391
+          },
+          "text": " shows the full workflow without macOS."
+        }
+      ]
+    }
+  ]
+}

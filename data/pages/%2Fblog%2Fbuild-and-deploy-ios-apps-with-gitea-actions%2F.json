@@ -1,0 +1,4070 @@
+{
+  "version": 1,
+  "route": "/blog/build-and-deploy-ios-apps-with-gitea-actions/",
+  "source": "corpus/source/apps/web/src/content/blog/en/build-and-deploy-ios-apps-with-gitea-actions.md",
+  "sourceSha256": "015d20808c138881eae994e6eb43f2d3ea8bc96f890fab524792cb3d035405be",
+  "metadata": {
+    "slug": "build-and-deploy-ios-apps-with-gitea-actions",
+    "title": "Build and Deploy iOS Apps with Gitea Actions",
+    "description": "Build, sign, and upload iOS apps to TestFlight from Gitea Actions: a self-hosted Mac runner with act_runner, or cloud builds from a Linux runner.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/build_result.webp",
+    "head_image_alt": "Gitea Actions workflow building a signed iOS app for TestFlight",
+    "keywords": "Gitea Actions iOS, Gitea iOS build, act_runner macOS, Gitea TestFlight, Forgejo Actions iOS, Capacitor iOS CI/CD, Capgo Build",
+    "tag": "CI/CD, iOS, Tutorial",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Does Gitea Actions have hosted macOS runners?",
+        "answer": "No. Gitea Actions runs jobs on runners you register yourself with act_runner. To build iOS you either register a Mac with a host label, or keep the job on a Linux runner and send the build to a cloud service that owns Macs."
+      },
+      {
+        "question": "Which folder does Gitea read workflows from?",
+        "answer": "Gitea reads .gitea/workflows first. If that folder does not exist, it falls back to .github/workflows, so most GitHub workflow files can be reused with small changes. Forgejo uses .forgejo/workflows with the same fallback idea."
+      },
+      {
+        "question": "Does a cloud build need access to my private Gitea server?",
+        "answer": "Not with Capgo Build. Your runner checks out the code, builds the web layer, runs cap sync, and uploads the prepared native project. Capgo never pulls from your Gitea instance, so no inbound firewall rule or repository token is needed."
+      },
+      {
+        "question": "Can I require approval before an upload to TestFlight?",
+        "answer": "Gitea does not implement GitHub's environment protection rules. Split the work instead: build on push without uploading, then run a manually dispatched workflow to ship, and protect version tags so only release managers can push them."
+      },
+      {
+        "question": "Does this work for Capacitor apps that use Cordova plugins?",
+        "answer": "Yes. Capgo Build compiles the synced Capacitor native project, which includes any Cordova plugins Capacitor installed. Capgo Build's docs cover Capacitor projects, so pure Cordova apps build on a Mac runner with the Cordova CLI, and can still get Capgo live updates through @capgo/cordova-updater."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "Gitea Actions can build iOS apps, but only on a Mac you register yourself, because Gitea has no hosted runners and Xcode only runs on macOS. The two practical setups are a Mac running "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 185
+          },
+          "text": "act_runner"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 197
+          },
+          "text": " in host mode, or a normal Linux runner that sends the iOS build to a cloud build service. This guide walks through both for a Capacitor app, with workflow files you can drop into "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 377
+          },
+          "text": ".gitea/workflows/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 396
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "Teams pick Gitea because they want their code on infrastructure they control. That should not change just because the app needs Xcode. Both setups below keep your source on your server."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "How Gitea Actions runs jobs"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "Gitea Actions uses a GitHub Actions compatible syntax, and jobs run on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 72
+          },
+          "text": "act_runner"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 84
+          },
+          "text": " instances that you register against your Gitea server. Each runner advertises labels such as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 178
+          },
+          "text": "ubuntu-latest:docker://docker.gitea.com/runner-images:ubuntu-latest"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 247
+          },
+          "text": ". The part after the colon decides how jobs run:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "docker://image"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 19
+                  },
+                  "text": " runs the job in a container. This is the default for Linux runners."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "host"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 9
+                  },
+                  "text": " runs the job directly on the machine, with whatever is installed there."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 13,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "text": "macOS cannot run in a Docker container, so a Mac runner has to use a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 13,
+            "column": 70
+          },
+          "text": "host"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 13,
+            "column": 76
+          },
+          "text": " label. That has consequences we will get to."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 15,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "text": "Two compatibility notes before you copy a workflow from GitHub:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 17,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 17,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 3
+                  },
+                  "text": "Gitea reads "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 17,
+                    "column": 15
+                  },
+                  "text": ".gitea/workflows/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 34
+                  },
+                  "text": " and falls back to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 17,
+                    "column": 53
+                  },
+                  "text": ".github/workflows/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 73
+                  },
+                  "text": " when the first folder does not exist."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 18,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "text": "uses: actions/checkout@v4"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 30
+                  },
+                  "text": " works because Gitea resolves actions from GitHub by default (the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 18,
+                    "column": 96
+                  },
+                  "text": "DEFAULT_ACTIONS_URL"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 117
+                  },
+                  "text": " setting). Air-gapped instances need to mirror the actions they use and reference them by full URL."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 20,
+            "column": 4
+          },
+          "text": "Option 1: A Mac runner with act_runner"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 22,
+            "column": 5
+          },
+          "text": "Register the Mac"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "text": "Download the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 24,
+            "column": 14
+          },
+          "text": "act_runner"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 26
+          },
+          "text": " binary for macOS (arm64 for Apple Silicon) from the Gitea releases page, then get a registration token from "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 24,
+            "column": 135
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 24,
+                "column": 137
+              },
+              "text": "Site Administration > Actions > Runners"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 178
+          },
+          "text": " (instance-wide), or from the organization or repository settings."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "./act_runner register --no-interactive \\\n  --instance https://gitea.example.com \\\n  --token <registration_token> \\\n  --name mac-mini-01 \\\n  --labels macos-arm64:host\n\n./act_runner daemon"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "text": "Run the daemon as a launch agent under a dedicated user so it restarts after reboots and has its own login keychain."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 5
+          },
+          "text": "Install the toolchain on the host"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 1
+          },
+          "text": "Host mode means the job uses the Mac's own tools. Install:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 42,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 3
+                  },
+                  "text": "Xcode 26 (required for App Store Connect uploads since April 28, 2026) and run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 42,
+                    "column": 82
+                  },
+                  "text": "sudo xcodebuild -license accept"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 43,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 3
+                  },
+                  "text": "Node.js 22 or newer and Bun (Capacitor 8 requires Node 22)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 44,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 3
+                  },
+                  "text": "Ruby and fastlane, or use a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 31
+                  },
+                  "text": "Gemfile"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 40
+                  },
+                  "text": " with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 46
+                  },
+                  "text": "bundle exec"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 45,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 45,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 3
+                  },
+                  "text": "CocoaPods, only if your iOS project still uses it. New Capacitor 8 projects use Swift Package Manager."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 47,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 47,
+            "column": 5
+          },
+          "text": "The workflow"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 49,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "# .gitea/workflows/ios-mac.yaml\nname: iOS release (Mac runner)\n\non:\n  push:\n    tags:\n      - 'v*'\n\njobs:\n  ios:\n    runs-on: macos-arm64\n    env:\n      APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}\n      APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}\n      APPLE_KEY_CONTENT: ${{ secrets.APPLE_KEY_CONTENT }}\n      P12_PASSWORD: ${{ secrets.P12_PASSWORD }}\n      APP_STORE_CONNECT_TEAM_ID: ${{ vars.APP_STORE_CONNECT_TEAM_ID }}\n      PROFILE_NAME: ${{ vars.IOS_PROFILE_NAME }}\n    steps:\n      - uses: actions/checkout@v4\n      - run: bun install --frozen-lockfile\n      - run: bun run build\n      - run: bunx cap sync ios\n      - name: Decode signing files\n        run: |\n          echo \"${{ secrets.IOS_CERTIFICATE_BASE64 }}\" | base64 --decode > dist.p12\n          echo \"${{ secrets.IOS_PROFILE_BASE64 }}\" | base64 --decode > profile.mobileprovision\n      - run: bundle exec fastlane ios beta\n      - name: Clean up\n        if: always()\n        run: rm -f dist.p12 profile.mobileprovision"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 83,
+            "column": 5
+          },
+          "text": "beta"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 11
+          },
+          "text": " lane imports the certificate into a temporary keychain, switches the project to manual signing, bumps the build number from TestFlight, archives, and uploads. A full Fastfile for a Capacitor project is in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 83,
+            "column": 217
+          },
+          "url": "/blog/build-and-deploy-ios-apps-with-bitbucket-pipelines/#a-minimal-fastfile",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 83,
+                "column": 218
+              },
+              "text": "Build and deploy iOS apps with Bitbucket Pipelines"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 347
+          },
+          "text": "; it works unchanged on Gitea. For the fastlane background, see the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 83,
+            "column": 415
+          },
+          "url": "/blog/automatic-capacitor-ios-build-github-action/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 83,
+                "column": 416
+              },
+              "text": "GitHub Actions iOS guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 493
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 85,
+            "column": 5
+          },
+          "text": "The cost of host mode"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 87,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 87,
+            "column": 5
+          },
+          "text": "act_runner"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 17
+          },
+          "text": " documentation is direct about this: host jobs are not isolated. In practice:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 89,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 89,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 89,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 89,
+                    "column": 3
+                  },
+                  "text": "Every job shares the same user, disk, and keychain. A job that dies halfway can leave a temporary keychain or a stale provisioning profile that breaks the next one."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 90,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 90,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 90,
+                    "column": 3
+                  },
+                  "text": "Any workflow that targets the label runs code on that Mac with that user's access. Only register host runners for repositories you trust, and avoid running them on pull requests from forks."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 91,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 91,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 91,
+                    "column": 3
+                  },
+                  "text": "DerivedData, archives, and simulator runtimes grow until the disk is full."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 92,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 92,
+                    "column": 3
+                  },
+                  "text": "Xcode upgrades are on you, and Apple raises the minimum SDK every spring."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 93,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 93,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 93,
+                    "column": 3
+                  },
+                  "text": "One Mac builds one job at a time. Release day queues."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 95,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 95,
+            "column": 1
+          },
+          "text": "If your team runs Macs already and someone owns them, this works. If not, the next option removes the Mac from your infrastructure."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 4
+          },
+          "text": "Option 2: Build iOS from a Linux runner with Capgo Build"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "link",
+          "location": {
+            "line": 99,
+            "column": 1
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 99,
+                "column": 2
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 99,
+            "column": 30
+          },
+          "text": " compiles and signs Capacitor apps on Capgo-managed Macs. Your Gitea job stays on the Linux runner you already have. It checks out the code, builds the web layer, runs "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 99,
+            "column": 198
+          },
+          "text": "cap sync ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 99,
+            "column": 212
+          },
+          "text": ", and calls "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 99,
+            "column": 224
+          },
+          "text": "build request"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 99,
+            "column": 239
+          },
+          "text": ". The Capgo CLI uploads the prepared native project, streams the Xcode logs back into the Gitea job log, and exits non-zero on failure."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 101,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 1
+          },
+          "text": "This model fits self-hosted Gitea well:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 103,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 103,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 103,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 103,
+                        "column": 5
+                      },
+                      "text": "No inbound access."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 103,
+                    "column": 25
+                  },
+                  "text": " Capgo does not clone your repository. Your runner pushes the prepared project out over HTTPS, so a Gitea server behind a firewall or VPN works without changes."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 104,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 104,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 104,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 104,
+                        "column": 5
+                      },
+                      "text": "No repository token."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 104,
+                    "column": 27
+                  },
+                  "text": " There is no Git connection to configure on the Capgo side."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 105,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 105,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 105,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 105,
+                        "column": 5
+                      },
+                      "text": "Your web source stays home."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 105,
+                    "column": 34
+                  },
+                  "text": " Only the native "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 105,
+                    "column": 51
+                  },
+                  "text": "ios/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 105,
+                    "column": 57
+                  },
+                  "text": " folder, Capacitor config, and the native parts of plugins are uploaded. "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 105,
+                    "column": 130
+                  },
+                  "text": "src/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 105,
+                    "column": 136
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 105,
+                    "column": 138
+                  },
+                  "text": ".git/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 105,
+                    "column": 145
+                  },
+                  "text": ", and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 105,
+                    "column": 151
+                  },
+                  "text": ".env"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 105,
+                    "column": 157
+                  },
+                  "text": " files are not."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 107,
+            "column": 5
+          },
+          "text": "One-time setup"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 109,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 109,
+            "column": 1
+          },
+          "text": "On a developer machine:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 111,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx @capgo/cli@latest login\nbunx @capgo/cli@latest app add\nbunx @capgo/cli@latest build init --platform ios"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 1
+          },
+          "text": "build init"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 13
+          },
+          "text": " creates or reuses your distribution certificate and App Store provisioning profile and stores the App Store Connect API key. Run one build locally to confirm everything signs:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 119,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun run build && bunx cap sync ios\nbunx @capgo/cli@latest build request com.example.app --platform ios --build-mode release"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 124,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 124,
+            "column": 1
+          },
+          "text": "Then export the credentials:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 126,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx @capgo/cli@latest build credentials manage --appId com.example.app --platform ios\n# select \"Export to .env\""
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 131,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 5
+          },
+          "text": "Add secrets to Gitea"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 133,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 133,
+            "column": 1
+          },
+          "text": "Open "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 133,
+            "column": 6
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 133,
+                "column": 8
+              },
+              "text": "Repository Settings > Actions > Secrets"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 133,
+            "column": 49
+          },
+          "text": " and add each key from the exported file, plus your Capgo API key:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 135,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 135,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 135,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 135,
+                    "column": 3
+                  },
+                  "text": "Secret"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 135,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 135,
+                    "column": 12
+                  },
+                  "text": "Purpose"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 137,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 137,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 137,
+                    "column": 3
+                  },
+                  "text": "CAPGO_TOKEN"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 137,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 137,
+                    "column": 19
+                  },
+                  "text": "Capgo API key with upload permission"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 138,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 138,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 138,
+                    "column": 3
+                  },
+                  "text": "BUILD_CERTIFICATE_BASE64"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 138,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 138,
+                    "column": 32
+                  },
+                  "text": "Distribution certificate ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 138,
+                    "column": 58
+                  },
+                  "text": ".p12"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 138,
+                    "column": 64
+                  },
+                  "text": ")"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 139,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 139,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 139,
+                    "column": 3
+                  },
+                  "text": "P12_PASSWORD"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 139,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 139,
+                    "column": 20
+                  },
+                  "text": "Certificate password"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 140,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 140,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 140,
+                    "column": 3
+                  },
+                  "text": "CAPGO_IOS_PROVISIONING_MAP_BASE64"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 140,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 140,
+                    "column": 41
+                  },
+                  "text": "Provisioning profile mapping"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 141,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 141,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 141,
+                    "column": 3
+                  },
+                  "text": "APPLE_KEY_ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 141,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 141,
+                    "column": 20
+                  },
+                  "text": "App Store Connect API key ID"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 142,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 142,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 142,
+                    "column": 3
+                  },
+                  "text": "APPLE_ISSUER_ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 142,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 142,
+                    "column": 23
+                  },
+                  "text": "App Store Connect issuer ID"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 143,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 143,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 143,
+                    "column": 3
+                  },
+                  "text": "APPLE_KEY_CONTENT"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 143,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 143,
+                    "column": 25
+                  },
+                  "text": "Base64 "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 143,
+                    "column": 32
+                  },
+                  "text": ".p8"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 143,
+                    "column": 37
+                  },
+                  "text": " key"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 144,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 144,
+                    "column": 3
+                  },
+                  "text": "APP_STORE_CONNECT_TEAM_ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 144,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 144,
+                    "column": 33
+                  },
+                  "text": "Apple team ID"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 1
+          },
+          "text": "Gitea rejects secret and variable names that start with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 57
+          },
+          "text": "GITEA_"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 65
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 69
+          },
+          "text": "GITHUB_"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 78
+          },
+          "text": ", so keep these names as they are. Put non-secret values such as the app ID under "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 146,
+            "column": 160
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 146,
+                "column": 162
+              },
+              "text": "Variables"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 173
+          },
+          "text": " and read them with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 193
+          },
+          "text": "${{ vars.NAME }}"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 211
+          },
+          "text": ". Secrets set at the organization level are shared by every repository in it, which is handy when you ship several apps from one Apple team. Delete the exported file when you are done."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 5
+          },
+          "text": "Release on tag push"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 150,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "# .gitea/workflows/ios-release.yaml\nname: iOS release\n\non:\n  push:\n    tags:\n      - 'v*'\n\njobs:\n  release-ios:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - run: bun run build\n      - run: bunx cap sync ios\n      - name: Build, sign, and upload to TestFlight\n        env:\n          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}\n          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}\n          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}\n          CAPGO_IOS_PROVISIONING_MAP_BASE64: ${{ secrets.CAPGO_IOS_PROVISIONING_MAP_BASE64 }}\n          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}\n          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}\n          APPLE_KEY_CONTENT: ${{ secrets.APPLE_KEY_CONTENT }}\n          APP_STORE_CONNECT_TEAM_ID: ${{ secrets.APP_STORE_CONNECT_TEAM_ID }}\n        run: |\n          bunx @capgo/cli@latest build request ${{ vars.APP_ID }} \\\n            --platform ios \\\n            --build-mode release \\\n            --ios-distribution app_store \\\n            --store-release-name \"${{ gitea.ref_name }}\""
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 1
+          },
+          "text": "Notes:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 188,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 188,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 188,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 188,
+                    "column": 3
+                  },
+                  "text": "${{ gitea.ref_name }}"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 188,
+                    "column": 26
+                  },
+                  "text": " is the tag name. The "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 188,
+                    "column": 48
+                  },
+                  "text": "github.*"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 188,
+                    "column": 58
+                  },
+                  "text": " context also works as an alias, which helps when you port workflows."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 189,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 189,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 189,
+                    "column": 3
+                  },
+                  "text": "Gitea sets "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 189,
+                    "column": 14
+                  },
+                  "text": "CI=true"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 189,
+                    "column": 23
+                  },
+                  "text": " in every job, so the Capgo CLI never waits for interactive input."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 190,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 190,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 190,
+                    "column": 3
+                  },
+                  "text": "Capgo increments the build number from the latest TestFlight build, so two tags in a row never collide."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 191,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 191,
+                    "column": 3
+                  },
+                  "text": "Without "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 191,
+                    "column": 11
+                  },
+                  "text": "--submit-to-store-review"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 191,
+                    "column": 37
+                  },
+                  "text": ", the build lands in TestFlight and stops. Add the flag when you want CI to submit for App Review too."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 193,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 1
+          },
+          "text": "Releasing is now "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 193,
+            "column": 18
+          },
+          "text": "git tag v2.3.0 && git push origin v2.3.0"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 60
+          },
+          "text": ". Anyone who can push a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 193,
+            "column": 84
+          },
+          "text": "v*"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 88
+          },
+          "text": " tag can ship, so add a protected tag rule for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 193,
+            "column": 135
+          },
+          "text": "v*"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 139
+          },
+          "text": " under "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 193,
+            "column": 146
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 193,
+                "column": 148
+              },
+              "text": "Settings > Tags"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 165
+          },
+          "text": " and limit it to release managers."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 195,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 5
+          },
+          "text": "Ad hoc builds for testers"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 197,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 197,
+            "column": 1
+          },
+          "text": "For QA builds that install directly on registered devices, build in ad hoc mode and get a download link:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 199,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "# .gitea/workflows/ios-adhoc.yaml\nname: iOS ad hoc build\n\non:\n  workflow_dispatch:\n\njobs:\n  adhoc:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile && bun run build\n      - run: bunx cap sync ios\n      - name: Ad hoc build\n        env:\n          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}\n          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}\n          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}\n          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}\n          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}\n          APPLE_KEY_CONTENT: ${{ secrets.APPLE_KEY_CONTENT }}\n          APP_STORE_CONNECT_TEAM_ID: ${{ secrets.APP_STORE_CONNECT_TEAM_ID }}\n        run: |\n          echo \"${{ secrets.ADHOC_PROFILE_BASE64 }}\" | base64 --decode > adhoc.mobileprovision\n          bunx @capgo/cli@latest build request ${{ vars.APP_ID }} \\\n            --platform ios \\\n            --ios-distribution ad_hoc \\\n            --ios-provisioning-profile ./adhoc.mobileprovision \\\n            --output-upload --output-retention 3d \\\n            --output-record /tmp/build.json\n          bunx @capgo/cli@latest build last-output --path /tmp/build.json --field outputUrl"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 234,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 234,
+            "column": 1
+          },
+          "text": "Ad hoc builds need an ad hoc provisioning profile that lists the test devices. Store that profile base64-encoded as a secret ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 234,
+            "column": 127
+          },
+          "text": "ADHOC_PROFILE_BASE64"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 234,
+            "column": 149
+          },
+          "text": " above), decode it in the job, and pass it with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 234,
+            "column": 197
+          },
+          "text": "--ios-provisioning-profile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 234,
+            "column": 225
+          },
+          "text": ". CLI flags take precedence over environment variables, so this overrides the App Store profile for this build only. Collect UDIDs with the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 234,
+            "column": 365
+          },
+          "url": "/tools/ios-udid-finder/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 234,
+                "column": 366
+              },
+              "text": "iOS UDID finder"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 234,
+            "column": 407
+          },
+          "text": ". For most testers, TestFlight internal testing is simpler, because it does not need UDIDs."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 236,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 236,
+            "column": 5
+          },
+          "text": "Manual release approval"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 238,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 1
+          },
+          "text": "GitHub lets you require reviewers on an environment. Gitea Actions does not implement environment protection rules, so a job that names an environment will not pause for approval. Two patterns work instead:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 240,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 240,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 240,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 240,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 240,
+                        "column": 6
+                      },
+                      "text": "Protected tags."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 240,
+                    "column": 23
+                  },
+                  "text": " Only release managers can push "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 240,
+                    "column": 55
+                  },
+                  "text": "v*"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 240,
+                    "column": 59
+                  },
+                  "text": " tags, and the tag workflow ships."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 241,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 241,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 241,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 241,
+                        "column": 6
+                      },
+                      "text": "Build, then promote."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 241,
+                    "column": 28
+                  },
+                  "text": " Build on every push to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 241,
+                    "column": 52
+                  },
+                  "text": "main"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 241,
+                    "column": 58
+                  },
+                  "text": " with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 241,
+                    "column": 64
+                  },
+                  "text": "--ios-distribution ad_hoc"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 241,
+                    "column": 91
+                  },
+                  "text": " or upload to TestFlight internal testing only, then use a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 241,
+                    "column": 150
+                  },
+                  "text": "workflow_dispatch"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 241,
+                    "column": 169
+                  },
+                  "text": " workflow (available in current Gitea releases) to rebuild the approved commit with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 241,
+                    "column": 253
+                  },
+                  "text": "--submit-to-store-review"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 241,
+                    "column": 279
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 5
+          },
+          "text": "Ship web changes without a new binary"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 1
+          },
+          "text": "Most commits to a Capacitor app only change JavaScript, CSS, and HTML. Rebuilding iOS for those wastes minutes and App Review time. With "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 245,
+            "column": 138
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 245,
+                "column": 139
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 173
+          },
+          "text": ", one job can pick the right path:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 247,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "      - name: Live update or native build\n        env:\n          CAPGO_TOKEN: ${{ secrets.CAPGO_TOKEN }}\n          # plus the iOS signing secrets from above\n        run: |\n          if bunx @capgo/cli@latest build needed ${{ vars.APP_ID }} --channel production; then\n            bunx @capgo/cli@latest bundle upload ${{ vars.APP_ID }} --channel production\n          else\n            bunx cap sync ios\n            bunx @capgo/cli@latest build request ${{ vars.APP_ID }} --platform ios --build-mode release\n          fi"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 261,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 261,
+            "column": 1
+          },
+          "text": "build needed"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 261,
+            "column": 15
+          },
+          "text": " exits 0 when native dependencies match what is live on the channel, and 1 when a new binary is required. Also force the native path when files under "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 261,
+            "column": 165
+          },
+          "text": "ios/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 261,
+            "column": 171
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 261,
+            "column": 175
+          },
+          "text": "capacitor.config.*"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 261,
+            "column": 195
+          },
+          "text": " change, since those are not part of the dependency comparison. See "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 261,
+            "column": 263
+          },
+          "url": "/docs/builder/ci-ota-or-native/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 261,
+                "column": 264
+              },
+              "text": "Auto choose live update or native build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 261,
+            "column": 337
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 263,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 263,
+            "column": 4
+          },
+          "text": "Mac runner vs cloud build"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 265,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 265,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 265,
+                "column": 1
+              },
+              "blocks": []
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 265,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 265,
+                    "column": 5
+                  },
+                  "text": "act_runner on your Mac"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 265,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 265,
+                    "column": 30
+                  },
+                  "text": "Capgo Build from Linux"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 267,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 267,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 267,
+                    "column": 3
+                  },
+                  "text": "Hardware"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 267,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 267,
+                    "column": 14
+                  },
+                  "text": "You buy and host it"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 267,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 267,
+                    "column": 36
+                  },
+                  "text": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 268,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 268,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 268,
+                    "column": 3
+                  },
+                  "text": "Xcode upgrades"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 268,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 268,
+                    "column": 20
+                  },
+                  "text": "Manual, per machine"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 268,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 268,
+                    "column": 42
+                  },
+                  "text": "Handled by Capgo"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 269,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 269,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 269,
+                    "column": 3
+                  },
+                  "text": "Isolation between jobs"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 269,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 269,
+                    "column": 28
+                  },
+                  "text": "None in host mode"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 269,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 269,
+                    "column": 48
+                  },
+                  "text": "Fresh build environment per job"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 270,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 270,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 270,
+                    "column": 3
+                  },
+                  "text": "Parallel builds"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 270,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 270,
+                    "column": 21
+                  },
+                  "text": "One per Mac"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 270,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 270,
+                    "column": 35
+                  },
+                  "text": "Multiple, from any runner"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 271,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 271,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 271,
+                    "column": 3
+                  },
+                  "text": "Signing files"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 271,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 271,
+                    "column": 19
+                  },
+                  "text": "In Gitea secrets, decoded on the Mac"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 271,
+                "column": 56
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 271,
+                    "column": 58
+                  },
+                  "text": "In Gitea secrets, sent per build"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 272,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 272,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 272,
+                    "column": 3
+                  },
+                  "text": "Works behind a firewall"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 272,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 272,
+                    "column": 29
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 272,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 272,
+                    "column": 35
+                  },
+                  "text": "Yes, outbound HTTPS only"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 273,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 273,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 273,
+                    "column": 3
+                  },
+                  "text": "Native Swift apps (no Capacitor)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 273,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 273,
+                    "column": 38
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 273,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 273,
+                    "column": 44
+                  },
+                  "text": "No, Capacitor apps only"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 274,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 274,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 274,
+                    "column": 3
+                  },
+                  "text": "Build time limit"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 274,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 274,
+                    "column": 22
+                  },
+                  "text": "Yours to set"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 274,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 274,
+                    "column": 37
+                  },
+                  "text": "10 minutes per build"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 276,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 276,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 278,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 278,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 278,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 278,
+                    "column": 3
+                  },
+                  "text": "Symptom"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 278,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 278,
+                    "column": 13
+                  },
+                  "text": "Fix"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 280,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 280,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 280,
+                    "column": 3
+                  },
+                  "text": "Job stays queued forever"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 280,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 280,
+                    "column": 30
+                  },
+                  "text": "No online runner has the label in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 280,
+                    "column": 64
+                  },
+                  "text": "runs-on"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 280,
+                    "column": 73
+                  },
+                  "text": ". Check the runner list and label spelling."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 281,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 281,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 281,
+                    "column": 3
+                  },
+                  "text": "uses: actions/checkout@v4"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 281,
+                    "column": 30
+                  },
+                  "text": " fails to download"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 281,
+                "column": 49
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 281,
+                    "column": 51
+                  },
+                  "text": "The runner cannot reach GitHub. Mirror the action on your Gitea and reference it by full URL."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 282,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 282,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 282,
+                    "column": 3
+                  },
+                  "text": "Secret value is empty in the job"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 282,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 282,
+                    "column": 38
+                  },
+                  "text": "The name starts with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 282,
+                    "column": 59
+                  },
+                  "text": "GITEA_"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 282,
+                    "column": 67
+                  },
+                  "text": "/"
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 282,
+                    "column": 68
+                  },
+                  "text": "GITHUB_"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 282,
+                    "column": 77
+                  },
+                  "text": ", or the secret is defined on another repository."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 283,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 283,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 283,
+                    "column": 3
+                  },
+                  "text": "security: SecKeychainItemImport: MAC verification failed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 283,
+                "column": 62
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 283,
+                    "column": 64
+                  },
+                  "text": "Wrong "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 283,
+                    "column": 70
+                  },
+                  "text": ".p12"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 283,
+                    "column": 76
+                  },
+                  "text": " password, or a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 283,
+                    "column": 92
+                  },
+                  "text": ".p12"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 283,
+                    "column": 98
+                  },
+                  "text": " created by OpenSSL 3 without "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 283,
+                    "column": 128
+                  },
+                  "text": "-legacy"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 283,
+                    "column": 137
+                  },
+                  "text": ". Re-export it."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 284,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 284,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 284,
+                    "column": 3
+                  },
+                  "text": "No profiles for 'com.example.app' were found"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 284,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 284,
+                    "column": 52
+                  },
+                  "text": "The profile in secrets does not match the bundle ID or certificate. Re-run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 284,
+                    "column": 127
+                  },
+                  "text": "build init"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 284,
+                    "column": 139
+                  },
+                  "text": " and re-export."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 285,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 285,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 285,
+                    "column": 3
+                  },
+                  "text": "Upload rejected for SDK version"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 285,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 285,
+                    "column": 37
+                  },
+                  "text": "The Mac runner still has an Xcode older than 26."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 286,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 286,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 286,
+                    "column": 3
+                  },
+                  "text": "cap sync ios"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 286,
+                    "column": 17
+                  },
+                  "text": " warns about CocoaPods on Linux"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 286,
+                "column": 49
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 286,
+                    "column": 51
+                  },
+                  "text": "Expected. The Capgo build machine installs pods."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 288,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 1
+          },
+          "text": "For more failure modes, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 288,
+            "column": 29
+          },
+          "url": "/blog/ci-cd-for-capacitor-common-pitfalls/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 288,
+                "column": 30
+              },
+              "text": "CI/CD for Capacitor: common pitfalls"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 111
+          },
+          "text": " and the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 288,
+            "column": 120
+          },
+          "url": "/docs/builder/troubleshooting/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 288,
+                "column": 121
+              },
+              "text": "Capgo Build troubleshooting guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 187
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 290,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 290,
+            "column": 4
+          },
+          "text": "Summary"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 292,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 292,
+            "column": 1
+          },
+          "text": "Gitea Actions handles iOS fine once you decide where Xcode runs. A host-mode Mac runner gives you full control and full responsibility. A Linux job that calls Capgo Build keeps your Gitea setup unchanged, needs no inbound access, and turns a TestFlight release into a tag push. Whichever you choose, keep signing material in Gitea secrets, protect your release tags, and ship web-only changes as live updates so the native pipeline only runs when it has to."
+        }
+      ]
+    }
+  ]
+}

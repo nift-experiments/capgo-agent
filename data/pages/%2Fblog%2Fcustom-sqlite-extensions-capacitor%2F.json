@@ -1,0 +1,4953 @@
+{
+  "version": 1,
+  "route": "/blog/custom-sqlite-extensions-capacitor/",
+  "source": "corpus/source/apps/web/src/content/blog/en/custom-sqlite-extensions-capacitor.md",
+  "sourceSha256": "08f655e3678dbd1835e4a10f689815246a9e188f9c49a3ad861e3775bf3b5881",
+  "metadata": {
+    "slug": "custom-sqlite-extensions-capacitor",
+    "title": "How to Use Custom SQLite Extensions in Capacitor",
+    "description": "Load custom SQLite extensions in a Capacitor app: iOS and Android limits, a C extension that builds for both, and how to register it per connection.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capacitor-guide.webp",
+    "head_image_alt": "Capacitor logo for a guide on custom SQLite extensions in Capacitor apps",
+    "keywords": "sqlite extensions capacitor, custom sqlite extension ios android, sqlite load_extension android, sqlite3_auto_extension ios, capacitor sqlite fts5, sqlite custom function mobile",
+    "tag": "Tutorial, Capacitor, Development",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Can I load SQLite extensions in a Capacitor app?",
+        "answer": "Yes, but not at runtime from JavaScript. On iOS the extension must be compiled into the app and registered on each connection with its init function. On Android the system SQLite cannot load extensions, so you bundle a SQLite build that can, such as requery sqlite-android, and ship the extension as a .so per ABI. Mainstream Capacitor SQLite plugins do not expose this yet, so you add a small native patch."
+      },
+      {
+        "question": "Does sqlite3_auto_extension work on iOS?",
+        "answer": "Do not rely on it with the system SQLite. Apple's iOS SDK header marks sqlite3_auto_extension as deprecated with the message 'Process-global auto extensions are not supported on Apple platforms'. Call your extension's init function directly on each connection handle after it opens."
+      },
+      {
+        "question": "Can I use the same extension binary on iOS and Android?",
+        "answer": "No. The C source is shared. On iOS you compile it into the app with -DSQLITE_CORE. On Android you compile it with the NDK into one shared library per ABI and load it into a bundled SQLite."
+      },
+      {
+        "question": "Do I need an extension for full-text search or JSON?",
+        "answer": "Usually not. JSON functions are built into modern SQLite, and FTS4 and often FTS5 are compiled into the system libraries. Check PRAGMA compile_options and pragma_function_list on your oldest supported devices before writing C."
+      },
+      {
+        "question": "Do custom SQLite extensions work on the web?",
+        "answer": "Not with the stock SQLite Wasm build. You would need a custom Wasm build of SQLite that includes your extension and register it from the worker. Most apps either skip the feature on the web or implement it in JavaScript there."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "You can use custom SQLite extensions in a Capacitor app, but only as native code compiled into the app: on iOS you link the extension statically and call its init function on every connection, and on Android you bundle a SQLite build that supports loading extensions and ship the extension as a native library per CPU architecture. This guide explains why the platforms differ, gives you a working extension in C, and shows the exact native changes for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 454
+          },
+          "text": "@capgo/capacitor-fast-sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 481
+          },
+          "text": " on Capacitor 8."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "Before you write C, check that you actually need it. Many \"extensions\" are already built in."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "What a SQLite extension is"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "An extension is native code that registers new things with a SQLite connection: scalar functions ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 99
+          },
+          "text": "haversine_km(...)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 118
+          },
+          "text": "), aggregate functions, collations, virtual tables, and FTS5 tokenizers. Every extension exposes one entry point:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "lang": "c",
+      "meta": null,
+      "text": "int sqlite3_<name>_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines *pApi);"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "text": "SQLite calls it once per connection. Anything you register exists only on that connection."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "text": "Typical reasons to write one in a mobile app:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 18,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "text": "a custom FTS5 tokenizer for a language the built-in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 18,
+                    "column": 55
+                  },
+                  "text": "unicode61"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 66
+                  },
+                  "text": " tokenizer handles poorly,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 19,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 3
+                  },
+                  "text": "a math or geo function you need in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 19,
+                    "column": 38
+                  },
+                  "text": "WHERE"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 45
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 19,
+                    "column": 50
+                  },
+                  "text": "ORDER BY"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 60
+                  },
+                  "text": " (distance sorting, scoring),"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 20,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "text": "a collation that sorts names the way your users expect,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 21,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 3
+                  },
+                  "text": "a vector search extension for on-device retrieval."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 4
+          },
+          "text": "Check what is already built in"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "text": "Run these through your plugin on the oldest iOS and Android versions you support:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { FastSQL } from '@capgo/capacitor-fast-sql';\n\nconst db = await FastSQL.connect({ database: 'probe' });\n\nconst [{ v }] = await db.query('SELECT sqlite_version() AS v');\nconst options = await db.query('PRAGMA compile_options');\nconst functions = await db.query('SELECT name FROM pragma_function_list ORDER BY name');\n\nconsole.log(v, options.map((r) => r.compile_options));"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 1
+          },
+          "text": "Things you often do not need an extension for:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 3
+                  },
+                  "text": "Need"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 10
+                  },
+                  "text": "Built-in feature"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 41,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 29
+                  },
+                  "text": "Check"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 3
+                  },
+                  "text": "JSON in columns"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 21
+                  },
+                  "text": "JSON functions ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 43,
+                    "column": 37
+                  },
+                  "text": "json_extract"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 51
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 43,
+                    "column": 53
+                  },
+                  "text": "->>"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 58
+                  },
+                  "text": ")"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 43,
+                "column": 60
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 62
+                  },
+                  "text": "Built in since SQLite 3.38. Older Android system SQLite may lack them"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 3
+                  },
+                  "text": "Full-text search"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 22
+                  },
+                  "text": "FTS4, FTS5"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 44,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 35
+                  },
+                  "text": "ENABLE_FTS4"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 48
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 51
+                  },
+                  "text": "ENABLE_FTS5"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 64
+                  },
+                  "text": " in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 44,
+                    "column": 68
+                  },
+                  "text": "compile_options"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 45,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 3
+                  },
+                  "text": "Spatial bounding boxes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 28
+                  },
+                  "text": "R*Tree"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 45,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 45,
+                    "column": 37
+                  },
+                  "text": "ENABLE_RTREE"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 46,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 46,
+                    "column": 3
+                  },
+                  "text": "sin"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 8
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 46,
+                    "column": 10
+                  },
+                  "text": "cos"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 15
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 46,
+                    "column": 17
+                  },
+                  "text": "sqrt"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 23
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 46,
+                    "column": 25
+                  },
+                  "text": "pow"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 46,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 33
+                  },
+                  "text": "Math functions"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 46,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 46,
+                    "column": 50
+                  },
+                  "text": "ENABLE_MATH_FUNCTIONS"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 73
+                  },
+                  "text": ", SQLite 3.35+"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 48,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 1
+          },
+          "text": "If the feature is there on every target, stop here. The web build of Fast SQL uses the official SQLite Wasm, which includes JSON, FTS5 and math functions."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 4
+          },
+          "text": "Why iOS and Android work differently"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 52,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 52,
+                "column": 3
+              },
+              "text": "iOS."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 9
+          },
+          "text": " The system "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 21
+          },
+          "text": "libsqlite3"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 33
+          },
+          "text": " is built with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 48
+          },
+          "text": "SQLITE_OMIT_LOAD_EXTENSION"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 76
+          },
+          "text": ", so "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 81
+          },
+          "text": "load_extension()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 99
+          },
+          "text": " does not exist. App Store rules also forbid downloading and executing new code (guideline 2.5.2), so loading a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 211
+          },
+          "text": ".dylib"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 219
+          },
+          "text": " at runtime is off the table anyway. The extension has to be compiled into the app binary. Many tutorials then call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 335
+          },
+          "text": "sqlite3_auto_extension()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 361
+          },
+          "text": " at launch. Do not rely on it: in the iOS SDK that ships with Xcode, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 430
+          },
+          "text": "sqlite3.h"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 441
+          },
+          "text": " declares it with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 459
+          },
+          "text": "API_DEPRECATED(\"Process-global auto extensions are not supported on Apple platforms\", ...)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 551
+          },
+          "text": ". The dependable approach is to call your init function on each connection handle right after it opens."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 54,
+                "column": 3
+              },
+              "text": "Android."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 13
+          },
+          "text": " The SQLite inside the Android framework ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 55
+          },
+          "text": "android.database.sqlite"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 80
+          },
+          "text": ") has no API to load extensions. You need a SQLite build bundled with your app that does. "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 54,
+            "column": 170
+          },
+          "url": "https://github.com/requery/sqlite-android",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 54,
+                "column": 171
+              },
+              "text": "requery/sqlite-android"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 237
+          },
+          "text": " is a drop-in replacement for the framework classes, ships a current SQLite (with FTS5 and JSON), and supports loadable extensions through "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 376
+          },
+          "text": "SQLiteCustomExtension"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 399
+          },
+          "text": ". Your extension becomes a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 426
+          },
+          "text": ".so"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 431
+          },
+          "text": " file per ABI inside the APK."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 56,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 56,
+                "column": 3
+              },
+              "text": "Web."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 9
+          },
+          "text": " The stock SQLite Wasm build cannot load native code. You would need a custom Wasm build of SQLite with your extension compiled in."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 5
+          },
+          "text": "What the plugins support today"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 60,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 60,
+                "column": 1
+              },
+              "blocks": []
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 60,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 60,
+                    "column": 5
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 60,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 60,
+                    "column": 11
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 60,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 60,
+                    "column": 21
+                  },
+                  "text": "Web"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 62,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 62,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 62,
+                    "column": 3
+                  },
+                  "text": "@capgo/capacitor-fast-sql"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 62,
+                    "column": 30
+                  },
+                  "text": " 8.2"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 62,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 62,
+                    "column": 37
+                  },
+                  "text": "No hook, patch needed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 62,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 62,
+                    "column": 61
+                  },
+                  "text": "Uses framework SQLite, patch needed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 62,
+                "column": 97
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 62,
+                    "column": 99
+                  },
+                  "text": "Stock SQLite Wasm"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 63,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 63,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 63,
+                    "column": 3
+                  },
+                  "text": "@capacitor-community/sqlite"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 63,
+                    "column": 32
+                  },
+                  "text": " 8.1"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 63,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 63,
+                    "column": 39
+                  },
+                  "text": "loadExtension()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 63,
+                    "column": 56
+                  },
+                  "text": " is declared in the JS API but not implemented natively"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 63,
+                "column": 112
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 63,
+                    "column": 114
+                  },
+                  "text": "Same"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 63,
+                "column": 119
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 63,
+                    "column": 121
+                  },
+                  "text": "Not implemented"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 65,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 65,
+            "column": 1
+          },
+          "text": "So, for now, adding an extension means a small native patch. It is a contained change, and Bun can keep it applied across installs."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 67,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 4
+          },
+          "text": "Step 1: write the extension"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 69,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 69,
+            "column": 1
+          },
+          "text": "A distance function is a good example: useful, self-contained, and easy to verify. Save it as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 69,
+            "column": 95
+          },
+          "text": "geo.c"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 69,
+            "column": 102
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "lang": "c",
+      "meta": null,
+      "text": "#include <math.h>\n#include <stddef.h>\n#include \"sqlite3ext.h\"\nSQLITE_EXTENSION_INIT1\n\nstatic void haversine_km(sqlite3_context *ctx, int argc, sqlite3_value **argv) {\n  (void)argc;\n  for (int i = 0; i < 4; i++) {\n    if (sqlite3_value_type(argv[i]) == SQLITE_NULL) {\n      sqlite3_result_null(ctx);\n      return;\n    }\n  }\n  const double earth_radius_km = 6371.0088;\n  const double to_rad = M_PI / 180.0;\n  double lat1 = sqlite3_value_double(argv[0]) * to_rad;\n  double lon1 = sqlite3_value_double(argv[1]) * to_rad;\n  double lat2 = sqlite3_value_double(argv[2]) * to_rad;\n  double lon2 = sqlite3_value_double(argv[3]) * to_rad;\n  double dlat = lat2 - lat1;\n  double dlon = lon2 - lon1;\n  double a = sin(dlat / 2) * sin(dlat / 2) +\n             cos(lat1) * cos(lat2) * sin(dlon / 2) * sin(dlon / 2);\n  sqlite3_result_double(ctx, 2 * earth_radius_km * asin(sqrt(a)));\n}\n\nint sqlite3_geo_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines *pApi) {\n  SQLITE_EXTENSION_INIT2(pApi);\n  (void)pzErrMsg;\n  return sqlite3_create_function_v2(\n      db, \"haversine_km\", 4,\n      SQLITE_UTF8 | SQLITE_DETERMINISTIC | SQLITE_INNOCUOUS,\n      NULL, haversine_km, NULL, NULL, NULL);\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 108,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 1
+          },
+          "text": "The same file builds both ways:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 110,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 110,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 110,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 110,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 110,
+                        "column": 5
+                      },
+                      "text": "As a loadable extension"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 110,
+                    "column": 30
+                  },
+                  "text": " (Android): "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 110,
+                    "column": 42
+                  },
+                  "text": "SQLITE_EXTENSION_INIT1/2"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 110,
+                    "column": 68
+                  },
+                  "text": " route every SQLite call through the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 110,
+                    "column": 105
+                  },
+                  "text": "pApi"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 110,
+                    "column": 111
+                  },
+                  "text": " pointer SQLite passes in, so the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 110,
+                    "column": 145
+                  },
+                  "text": ".so"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 110,
+                    "column": 150
+                  },
+                  "text": " does not link against SQLite."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 111,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 111,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 111,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 111,
+                        "column": 5
+                      },
+                      "text": "Statically, with "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 111,
+                        "column": 22
+                      },
+                      "text": "-DSQLITE_CORE"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 111,
+                    "column": 39
+                  },
+                  "text": " (iOS): the macros become no-ops and calls go straight to the SQLite library the app links."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 113,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 1
+          },
+          "text": "SQLITE_DETERMINISTIC"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 23
+          },
+          "text": " lets SQLite use the function in indexes on expressions. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 80
+          },
+          "text": "SQLITE_INNOCUOUS"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 98
+          },
+          "text": " marks it safe to use in views and triggers."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 115,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 1
+          },
+          "text": "I compiled this file both ways on macOS: statically with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 115,
+            "column": 58
+          },
+          "text": "-DSQLITE_CORE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 73
+          },
+          "text": " and called "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 115,
+            "column": 85
+          },
+          "text": "sqlite3_geo_init(db, NULL, NULL)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 119
+          },
+          "text": " on a system SQLite connection, and as a loadable library through "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 115,
+            "column": 185
+          },
+          "text": "load_extension"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 201
+          },
+          "text": ". Both return about 343.6 km for Paris to London."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 4
+          },
+          "text": "Step 2: iOS, compile into the app and register per connection"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 119,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 5
+          },
+          "text": "Add the source to the app target"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 121,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 121,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 4
+                  },
+                  "text": "In Xcode, drag "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 121,
+                    "column": 19
+                  },
+                  "text": "geo.c"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 26
+                  },
+                  "text": " into the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 121,
+                    "column": 36
+                  },
+                  "text": "App"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 41
+                  },
+                  "text": " group and tick the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 121,
+                    "column": 61
+                  },
+                  "text": "App"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 66
+                  },
+                  "text": " target."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 122,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 122,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 122,
+                    "column": 4
+                  },
+                  "text": "Xcode offers to create a bridging header. Accept, or create "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 122,
+                    "column": 64
+                  },
+                  "text": "App/App-Bridging-Header.h"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 122,
+                    "column": 91
+                  },
+                  "text": " and set it under "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 122,
+                    "column": 109
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 122,
+                        "column": 111
+                      },
+                      "text": "Build Settings > Swift Compiler - General > Objective-C Bridging Header"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 122,
+                    "column": 184
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 123,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 123,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 123,
+                    "column": 4
+                  },
+                  "text": "In "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 123,
+                    "column": 7
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 123,
+                        "column": 9
+                      },
+                      "text": "Build Phases > Compile Sources"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 123,
+                    "column": 41
+                  },
+                  "text": ", double-click "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 123,
+                    "column": 56
+                  },
+                  "text": "geo.c"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 123,
+                    "column": 63
+                  },
+                  "text": " and add the per-file flag "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 123,
+                    "column": 90
+                  },
+                  "text": "-DSQLITE_CORE"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 123,
+                    "column": 105
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 1
+          },
+          "text": "The iOS SDK ships both "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 125,
+            "column": 24
+          },
+          "text": "sqlite3.h"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 35
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 125,
+            "column": 40
+          },
+          "text": "sqlite3ext.h"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 54
+          },
+          "text": ", so no extra headers are needed."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 127,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 127,
+            "column": 1
+          },
+          "text": "App-Bridging-Header.h"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 24
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "lang": "c",
+      "meta": null,
+      "text": "#include <sqlite3.h>\n\nint sqlite3_geo_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines *pApi);"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 135,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 135,
+            "column": 5
+          },
+          "text": "Patch Fast SQL to expose an open hook"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 137,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 137,
+            "column": 1
+          },
+          "text": "The plugin opens connections inside its own module, so it needs a hook your app can set. Bun can patch a dependency and re-apply the patch on every install:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun patch @capgo/capacitor-fast-sql"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 143,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 143,
+            "column": 1
+          },
+          "text": "Edit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 143,
+            "column": 6
+          },
+          "text": "node_modules/@capgo/capacitor-fast-sql/ios/Sources/CapgoCapacitorFastSqlPlugin/SQLDatabase.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 143,
+            "column": 104
+          },
+          "text": ". Add a public hook at the top level of the file:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 145,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "public enum FastSqlExtensions {\n    /// Called with every new connection handle right after it opens.\n    /// Return SQLITE_OK (0) on success.\n    public static var onOpen: ((OpaquePointer) -> Int32)?\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 153,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 153,
+            "column": 1
+          },
+          "text": "Then in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 153,
+            "column": 9
+          },
+          "text": "init(...)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 153,
+            "column": 20
+          },
+          "text": ", after the encryption block and before "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 153,
+            "column": 60
+          },
+          "text": "try applyPerformanceOptions(...)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 153,
+            "column": 94
+          },
+          "text": ", call it:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 155,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "if let hook = FastSqlExtensions.onOpen {\n    let rc = hook(db)\n    if rc != SQLITE_OK {\n        throw SQLError.openFailed(message: \"Extension init failed with code \\(rc)\")\n    }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 164,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 1
+          },
+          "text": "Save the patch:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 166,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun patch --commit node_modules/@capgo/capacitor-fast-sql"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 1
+          },
+          "text": "Bun writes a file under "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 170,
+            "column": 25
+          },
+          "text": "patches/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 35
+          },
+          "text": " and records it in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 170,
+            "column": 54
+          },
+          "text": "package.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 68
+          },
+          "text": " under "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 170,
+            "column": 75
+          },
+          "text": "patchedDependencies"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 96
+          },
+          "text": ". Commit both. Our guide on "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 170,
+            "column": 124
+          },
+          "url": "/blog/how-to-patch-a-capacitor-plugin/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 170,
+                "column": 125
+              },
+              "text": "how to patch a Capacitor plugin"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 197
+          },
+          "text": " covers this workflow in more detail."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 5
+          },
+          "text": "Register the extension at launch"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "text": "In "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 174,
+            "column": 4
+          },
+          "text": "ios/App/App/AppDelegate.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 35
+          },
+          "text": ", import the plugin module and set the hook in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 174,
+            "column": 82
+          },
+          "text": "application(_:didFinishLaunchingWithOptions:)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 129
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "import UIKit\nimport Capacitor\nimport CapgoCapacitorFastSql // CocoaPods module name. With SPM: import CapgoCapacitorFastSqlPlugin\n\n// Inside the existing AppDelegate class:\nfunc application(_ application: UIApplication,\n                 didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {\n    FastSqlExtensions.onOpen = { db in\n        sqlite3_geo_init(db, nil, nil)\n    }\n    return true\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 191,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "text": "Because the hook runs inside the plugin's open path, every connection gets the function, including ones opened after a WebView reload. Setting it in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 191,
+            "column": 150
+          },
+          "text": "didFinishLaunching"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 170
+          },
+          "text": " guarantees it is in place before JavaScript can call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 191,
+            "column": 224
+          },
+          "text": "connect()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 235
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 193,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 193,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 193,
+                "column": 3
+              },
+              "text": "SQLCipher builds."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 22
+          },
+          "text": " If you use the plugin's SQLCipher subspec, the connection belongs to SQLCipher's SQLite, while your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 193,
+            "column": 123
+          },
+          "text": "-DSQLITE_CORE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 138
+          },
+          "text": " file may link against the system library's symbols. Test this combination explicitly before shipping, or keep extension-dependent data in an unencrypted database."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 195,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 4
+          },
+          "text": "Step 3: Android, bundle a SQLite that can load extensions"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 197,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 197,
+            "column": 5
+          },
+          "text": "Compile the extension for each ABI"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 199,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 199,
+            "column": 1
+          },
+          "text": "You need the Android NDK (install it from Android Studio's SDK Manager) and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 199,
+            "column": 77
+          },
+          "text": "sqlite3ext.h"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 199,
+            "column": 91
+          },
+          "text": " plus "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 199,
+            "column": 97
+          },
+          "text": "sqlite3.h"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 199,
+            "column": 108
+          },
+          "text": " from the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 199,
+            "column": 118
+          },
+          "url": "https://sqlite.org/download.html",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 199,
+                "column": 119
+              },
+              "text": "SQLite amalgamation"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 199,
+            "column": 173
+          },
+          "text": " next to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 199,
+            "column": 182
+          },
+          "text": "geo.c"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 199,
+            "column": 189
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 201,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "export NDK=$HOME/Library/Android/sdk/ndk/<version>\nexport TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/darwin-x86_64   # linux-x86_64 on Linux\nexport API=24   # your minSdkVersion\n\nfor pair in \\\n  aarch64-linux-android:arm64-v8a \\\n  armv7a-linux-androideabi:armeabi-v7a \\\n  x86_64-linux-android:x86_64 \\\n  i686-linux-android:x86\ndo\n  triple=${pair%%:*}\n  abi=${pair##*:}\n  mkdir -p android/app/src/main/jniLibs/$abi\n  $TOOLCHAIN/bin/clang --target=$triple$API \\\n    -shared -fPIC -O2 \\\n    -Wl,-z,max-page-size=16384 \\\n    -o android/app/src/main/jniLibs/$abi/libgeo.so \\\n    geo.c -lm\ndone"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 223,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 1
+          },
+          "text": "-Wl,-z,max-page-size=16384"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 29
+          },
+          "text": " aligns the library for devices with 16 KB memory pages. Google Play requires 16 KB support for apps targeting Android 15 and higher, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 223,
+            "column": 167
+          },
+          "url": "/blog/android-16kb-page-size-capacitor-plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 223,
+                "column": 168
+              },
+              "text": "16 KB page size and Capacitor plugins"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 255
+          },
+          "text": ". If your app only ships to 64-bit devices, you can drop the two 32-bit ABIs."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 225,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 1
+          },
+          "text": "The library is named "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 225,
+            "column": 22
+          },
+          "text": "libgeo.so"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 33
+          },
+          "text": ", so SQLite's default entry point name is "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 225,
+            "column": 75
+          },
+          "text": "sqlite3_geo_init"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 93
+          },
+          "text": ", which matches the C function."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 227,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 5
+          },
+          "text": "Extract native libraries at install time"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 229,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 229,
+            "column": 1
+          },
+          "text": "Recent Android Gradle Plugin versions keep "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 229,
+            "column": 44
+          },
+          "text": ".so"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 229,
+            "column": 49
+          },
+          "text": " files uncompressed inside the APK instead of extracting them. SQLite loads extensions with a file path, so ask for extraction in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 229,
+            "column": 179
+          },
+          "text": "android/app/build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 229,
+            "column": 205
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 231,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "android {\n    packaging {\n        jniLibs {\n            useLegacyPackaging = true\n        }\n    }\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 241,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 5
+          },
+          "text": "Add requery sqlite-android"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 1
+          },
+          "text": "In "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 243,
+            "column": 4
+          },
+          "text": "android/build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 26
+          },
+          "text": " (root), add JitPack:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "allprojects {\n    repositories {\n        google()\n        mavenCentral()\n        maven { url 'https://jitpack.io' }\n    }\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 255,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 255,
+            "column": 5
+          },
+          "text": "Patch Fast SQL to use it"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 257,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 1
+          },
+          "text": "Open the same Bun patch session ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 257,
+            "column": 34
+          },
+          "text": "bun patch @capgo/capacitor-fast-sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 71
+          },
+          "text": ") and edit two files."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 259,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 259,
+            "column": 1
+          },
+          "text": "node_modules/@capgo/capacitor-fast-sql/android/build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 259,
+            "column": 62
+          },
+          "text": ", in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 259,
+            "column": 67
+          },
+          "text": "dependencies"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 259,
+            "column": 81
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 261,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "implementation 'com.github.requery:sqlite-android:3.49.0'"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 265,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 265,
+            "column": 1
+          },
+          "text": "Use the latest version that JitPack shows as built for the repository."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 267,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 267,
+            "column": 1
+          },
+          "text": "node_modules/@capgo/capacitor-fast-sql/android/src/main/java/app/capgo/capacitor/fastsql/SQLDatabase.java"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 267,
+            "column": 108
+          },
+          "text": ": swap the framework imports for requery's and open through a configuration that carries the extensions."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 269,
+        "column": 1
+      },
+      "lang": "java",
+      "meta": null,
+      "text": "// Replace:\n// import android.database.sqlite.SQLiteDatabase;\n// import android.database.sqlite.SQLiteStatement;\nimport io.requery.android.database.sqlite.SQLiteCustomExtension;\nimport io.requery.android.database.sqlite.SQLiteDatabase;\nimport io.requery.android.database.sqlite.SQLiteDatabaseConfiguration;\nimport io.requery.android.database.sqlite.SQLiteStatement;\n\npublic class SQLDatabase implements DatabaseConnection {\n\n    /** Set from MainActivity before the first connection opens. */\n    public static final java.util.List<SQLiteCustomExtension> extensions =\n        new java.util.concurrent.CopyOnWriteArrayList<>();\n\n    private SQLiteDatabase db;\n    private volatile boolean inTransaction = false;\n\n    public SQLDatabase(String path, boolean walMode, boolean performancePresets) throws Exception {\n        SQLiteDatabaseConfiguration config = new SQLiteDatabaseConfiguration(\n            path, SQLiteDatabase.CREATE_IF_NECESSARY);\n        config.customExtensions.addAll(extensions);\n        this.db = SQLiteDatabase.openDatabase(config, null, null);\n        SQLPerformanceConfig.apply(db::execSQL, walMode, performancePresets);\n    }\n\n    // ... the rest of the class stays as it is\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 299,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 299,
+            "column": 1
+          },
+          "text": "requery's classes mirror the framework API ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 299,
+            "column": 45
+          },
+          "text": "rawQuery"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 299,
+            "column": 55
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 299,
+            "column": 57
+          },
+          "text": "compileStatement"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 299,
+            "column": 75
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 299,
+            "column": 77
+          },
+          "text": "execSQL"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 299,
+            "column": 86
+          },
+          "text": ", transactions), so the rest of the file compiles unchanged. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 299,
+            "column": 147
+          },
+          "text": "android.database.Cursor"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 299,
+            "column": 172
+          },
+          "text": " stays as it is. Commit the patch with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 299,
+            "column": 211
+          },
+          "text": "bun patch --commit node_modules/@capgo/capacitor-fast-sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 299,
+            "column": 270
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 301,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 301,
+            "column": 1
+          },
+          "text": "This changes the unencrypted path only. Encrypted connections use SQLCipher's own classes, which this patch does not touch."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 303,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 303,
+            "column": 5
+          },
+          "text": "Register the extension in MainActivity"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 305,
+        "column": 1
+      },
+      "lang": "java",
+      "meta": null,
+      "text": "package com.example.app;\n\nimport android.os.Bundle;\nimport app.capgo.capacitor.fastsql.SQLDatabase;\nimport com.getcapacitor.BridgeActivity;\nimport io.requery.android.database.sqlite.SQLiteCustomExtension;\n\npublic class MainActivity extends BridgeActivity {\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        String path = getApplicationInfo().nativeLibraryDir + \"/libgeo.so\";\n        SQLDatabase.extensions.add(new SQLiteCustomExtension(path, \"sqlite3_geo_init\"));\n        super.onCreate(savedInstanceState);\n    }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 323,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 323,
+            "column": 1
+          },
+          "text": "Register before "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 323,
+            "column": 17
+          },
+          "text": "super.onCreate"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 323,
+            "column": 33
+          },
+          "text": " so the list is filled before the WebView can run any JavaScript."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 325,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 325,
+            "column": 5
+          },
+          "text": "Android without C: Java functions"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 327,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 327,
+            "column": 1
+          },
+          "text": "If all you need is a scalar function, requery can register one written in Java, no NDK required. Inside the patched "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 327,
+            "column": 117
+          },
+          "text": "SQLDatabase"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 327,
+            "column": 130
+          },
+          "text": " constructor, after opening:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 329,
+        "column": 1
+      },
+      "lang": "java",
+      "meta": null,
+      "text": "db.addFunction(\"haversine_km\", 4, (args, result) -> {\n    double r = 6371.0088;\n    double lat1 = Math.toRadians(args.getDouble(0));\n    double lat2 = Math.toRadians(args.getDouble(2));\n    double dlat = lat2 - lat1;\n    double dlon = Math.toRadians(args.getDouble(3) - args.getDouble(1));\n    double a = Math.pow(Math.sin(dlat / 2), 2)\n             + Math.cos(lat1) * Math.cos(lat2) * Math.pow(Math.sin(dlon / 2), 2);\n    result.set(2 * r * Math.asin(Math.sqrt(a)));\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 342,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 342,
+            "column": 1
+          },
+          "text": "This is slower than C for heavy queries because every call crosses JNI, but it is far simpler to maintain. FTS5 tokenizers and virtual tables still need C."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 344,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 344,
+            "column": 4
+          },
+          "text": "Step 4: use it from JavaScript"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 346,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 346,
+            "column": 1
+          },
+          "text": "After "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 346,
+            "column": 7
+          },
+          "text": "bunx cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 346,
+            "column": 22
+          },
+          "text": " and a native rebuild:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 348,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { FastSQL } from '@capgo/capacitor-fast-sql';\n\nconst db = await FastSQL.connect({ database: 'places' });\n\nawait db.execute(`CREATE TABLE IF NOT EXISTS places (\n  id INTEGER PRIMARY KEY,\n  name TEXT NOT NULL,\n  lat REAL NOT NULL,\n  lon REAL NOT NULL\n)`);\n\nconst nearby = await db.query(\n  `SELECT id, name, haversine_km(?, ?, lat, lon) AS km\n   FROM places\n   WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?\n   ORDER BY km\n   LIMIT 20`,\n  [userLat, userLon, userLat - 0.5, userLat + 0.5, userLon - 0.7, userLon + 0.7],\n);"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 370,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 370,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 370,
+            "column": 5
+          },
+          "text": "BETWEEN"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 370,
+            "column": 14
+          },
+          "text": " box lets SQLite use an index on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 370,
+            "column": 47
+          },
+          "text": "(lat, lon)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 370,
+            "column": 59
+          },
+          "text": " to narrow candidates before the function computes exact distances. Without it the function runs on every row."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 372,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 372,
+            "column": 5
+          },
+          "text": "A JavaScript fallback for the web"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 374,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 374,
+            "column": 1
+          },
+          "text": "The web build cannot load your C code, so detect it and fall back:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 376,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Capacitor } from '@capacitor/core';\n\nexport const hasGeoExtension = Capacitor.isNativePlatform();\n\n// On the web: query the bounding box, then sort in JS with the same formula."
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 384,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 384,
+            "column": 4
+          },
+          "text": "Custom FTS5 tokenizers"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 386,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 386,
+            "column": 1
+          },
+          "text": "The same mechanism registers FTS5 tokenizers. In your init function, get the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 386,
+            "column": 78
+          },
+          "text": "fts5_api"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 386,
+            "column": 88
+          },
+          "text": " pointer with the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 386,
+            "column": 106
+          },
+          "text": "SELECT fts5(?1)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 386,
+            "column": 123
+          },
+          "text": " pattern from the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 386,
+            "column": 141
+          },
+          "url": "https://www.sqlite.org/fts5.html#extending_fts5",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 386,
+                "column": 142
+              },
+              "text": "FTS5 documentation"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 386,
+            "column": 210
+          },
+          "text": ", then call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 386,
+            "column": 222
+          },
+          "text": "xCreateTokenizer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 386,
+            "column": 240
+          },
+          "text": ". Two extra requirements:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 388,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 388,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 388,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 388,
+                    "column": 3
+                  },
+                  "text": "The SQLite library must include FTS5. requery's build does. On iOS, check "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 388,
+                    "column": 77
+                  },
+                  "text": "PRAGMA compile_options"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 388,
+                    "column": 101
+                  },
+                  "text": " for "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 388,
+                    "column": 106
+                  },
+                  "text": "ENABLE_FTS5"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 388,
+                    "column": 119
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 389,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 389,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 389,
+                    "column": 3
+                  },
+                  "text": "Every connection that writes to or reads from the FTS table must have the tokenizer registered, because FTS5 stores the tokenizer name in the table definition. This is why the per-connection hook matters."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 391,
+        "column": 1
+      },
+      "lang": "sql",
+      "meta": null,
+      "text": "CREATE VIRTUAL TABLE docs USING fts5(title, body, tokenize = 'my_tokenizer');"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 395,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 395,
+            "column": 4
+          },
+          "text": "Shipping and maintaining it"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 397,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 397,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 397,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 397,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 397,
+                        "column": 5
+                      },
+                      "text": "Native rebuild required."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 397,
+                    "column": 31
+                  },
+                  "text": " Extensions, patches and Gradle changes are native. They need a new App Store and Play Store build. "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 397,
+                    "column": 131
+                  },
+                  "url": "/native-build/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 397,
+                        "column": 132
+                      },
+                      "text": "Capgo Build"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 397,
+                    "column": 160
+                  },
+                  "text": " can build and sign both in the cloud. Since April 2026, iOS uploads must be built with Xcode 26 or later."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 398,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 398,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 398,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 398,
+                        "column": 5
+                      },
+                      "text": "JavaScript can still move fast."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 398,
+                    "column": 38
+                  },
+                  "text": " SQL that calls "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 398,
+                    "column": 54
+                  },
+                  "text": "haversine_km"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 398,
+                    "column": 68
+                  },
+                  "text": " lives in your web bundle and can ship with "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 398,
+                    "column": 112
+                  },
+                  "url": "/live-update/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 398,
+                        "column": 113
+                      },
+                      "text": "live updates"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 398,
+                    "column": 141
+                  },
+                  "text": ", as long as the native build that contains the extension is already installed. Gate new SQL on a native version check if users may still run an older binary."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 399,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 399,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 399,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 399,
+                        "column": 5
+                      },
+                      "text": "Plugin upgrades."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 399,
+                    "column": 23
+                  },
+                  "text": " When you update Fast SQL, Bun re-applies the patch. If the patched lines moved, the install fails loudly instead of silently dropping your hook. Re-create the patch on the new version."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 401,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 401,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 403,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 403,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 403,
+                "column": 3
+              },
+              "text": "no such function: haversine_km"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 403,
+                "column": 35
+              },
+              "text": " on iOS."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 403,
+            "column": 45
+          },
+          "text": " The hook was not set before "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 403,
+            "column": 74
+          },
+          "text": "connect()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 403,
+            "column": 85
+          },
+          "text": ", or the database was opened before "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 403,
+            "column": 121
+          },
+          "text": "didFinishLaunching"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 403,
+            "column": 141
+          },
+          "text": " ran. Log inside the hook to confirm it is called."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 405,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 405,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 405,
+                "column": 3
+              },
+              "text": "Crash inside "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 405,
+                "column": 16
+              },
+              "text": "sqlite3_geo_init"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 405,
+                "column": 34
+              },
+              "text": " on iOS."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 405,
+            "column": 44
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 405,
+            "column": 45
+          },
+          "text": "-DSQLITE_CORE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 405,
+            "column": 60
+          },
+          "text": " is missing, so the file compiled as a loadable extension that dereferences the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 405,
+            "column": 140
+          },
+          "text": "pApi"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 405,
+            "column": 146
+          },
+          "text": " pointer, which is "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 405,
+            "column": 165
+          },
+          "text": "nil"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 405,
+            "column": 170
+          },
+          "text": " here. Add the per-file flag in Compile Sources."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 407,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 407,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 407,
+                "column": 3
+              },
+              "text": "no such function"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 407,
+                "column": 21
+              },
+              "text": " on Android."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 407,
+            "column": 35
+          },
+          "text": " The patched "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 407,
+            "column": 48
+          },
+          "text": "SQLDatabase"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 407,
+            "column": 61
+          },
+          "text": " still imports "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 407,
+            "column": 76
+          },
+          "text": "android.database.sqlite.SQLiteDatabase"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 407,
+            "column": 116
+          },
+          "text": ", or the extension was added to the list after the first connection. Log "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 407,
+            "column": 189
+          },
+          "text": "SQLDatabase.extensions.size()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 407,
+            "column": 220
+          },
+          "text": " when connecting."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 409,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 409,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 409,
+                "column": 3
+              },
+              "text": "dlopen failed: library \"…/libgeo.so\" not found"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 409,
+                "column": 51
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 409,
+            "column": 54
+          },
+          "text": " The library is missing for the device ABI (most phones are "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 409,
+            "column": 114
+          },
+          "text": "arm64-v8a"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 409,
+            "column": 125
+          },
+          "text": "), or native libraries were not extracted. Check "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 409,
+            "column": 174
+          },
+          "text": "useLegacyPackaging"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 409,
+            "column": 194
+          },
+          "text": " and inspect the APK with Android Studio's APK Analyzer."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 411,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 411,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 411,
+                "column": 3
+              },
+              "text": "undefined symbol: sqlite3_geo_init"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 411,
+                "column": 39
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 411,
+            "column": 42
+          },
+          "text": " The entry point name passed to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 411,
+            "column": 74
+          },
+          "text": "SQLiteCustomExtension"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 411,
+            "column": 97
+          },
+          "text": " does not match the C function, or the function was declared "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 411,
+            "column": 158
+          },
+          "text": "static"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 411,
+            "column": 166
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 413,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 413,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 413,
+                "column": 3
+              },
+              "text": "Play Console warns about 16 KB alignment."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 413,
+            "column": 46
+          },
+          "text": " Rebuild the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 413,
+            "column": 59
+          },
+          "text": ".so"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 413,
+            "column": 64
+          },
+          "text": " files with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 413,
+            "column": 76
+          },
+          "text": "-Wl,-z,max-page-size=16384"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 413,
+            "column": 104
+          },
+          "text": " and a recent NDK, and update requery to a version built with 16 KB alignment."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 415,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 415,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 415,
+                "column": 3
+              },
+              "text": "The function works on Android but not in the iOS simulator."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 415,
+            "column": 64
+          },
+          "text": " Make sure "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 415,
+            "column": 75
+          },
+          "text": "geo.c"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 415,
+            "column": 82
+          },
+          "text": " is a member of the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 415,
+            "column": 102
+          },
+          "text": "App"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 415,
+            "column": 107
+          },
+          "text": " target, not only present in the file tree."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 417,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 417,
+            "column": 4
+          },
+          "text": "Summary"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 419,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 419,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 419,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 419,
+                    "column": 3
+                  },
+                  "text": "Platform"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 419,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 419,
+                    "column": 14
+                  },
+                  "text": "How the extension gets in"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 419,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 419,
+                    "column": 42
+                  },
+                  "text": "Where it is registered"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 421,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 421,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 421,
+                    "column": 3
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 421,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 421,
+                    "column": 9
+                  },
+                  "text": "Compiled into the app with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 421,
+                    "column": 36
+                  },
+                  "text": "-DSQLITE_CORE"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 421,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 421,
+                    "column": 54
+                  },
+                  "text": "Plugin hook that calls "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 421,
+                    "column": 77
+                  },
+                  "text": "sqlite3_geo_init"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 421,
+                    "column": 95
+                  },
+                  "text": " on every new connection"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 422,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 422,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 422,
+                    "column": 3
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 422,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 422,
+                    "column": 13
+                  },
+                  "text": ".so"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 422,
+                    "column": 18
+                  },
+                  "text": " per ABI in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 422,
+                    "column": 30
+                  },
+                  "text": "jniLibs"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 422,
+                    "column": 39
+                  },
+                  "text": ", loaded by requery sqlite-android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 422,
+                "column": 74
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 422,
+                    "column": 76
+                  },
+                  "text": "SQLiteCustomExtension"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 422,
+                    "column": 99
+                  },
+                  "text": " list read when each connection opens"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 423,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 423,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 423,
+                    "column": 3
+                  },
+                  "text": "Web"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 423,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 423,
+                    "column": 9
+                  },
+                  "text": "Not supported by stock SQLite Wasm"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 423,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 423,
+                    "column": 46
+                  },
+                  "text": "JavaScript fallback"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 425,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 425,
+            "column": 1
+          },
+          "text": "Start by checking the built-in features. If you still need an extension, write it once in C, keep the native patches small, and test on the oldest devices you support. For the general plugin setup, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 425,
+            "column": 203
+          },
+          "url": "/blog/how-to-use-sqlite-in-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 425,
+                "column": 204
+              },
+              "text": "How to use SQLite in a Capacitor app"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 425,
+            "column": 285
+          },
+          "text": "."
+        }
+      ]
+    }
+  ]
+}

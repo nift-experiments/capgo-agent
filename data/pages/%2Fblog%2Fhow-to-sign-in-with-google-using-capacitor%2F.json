@@ -1,0 +1,4620 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-sign-in-with-google-using-capacitor/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-sign-in-with-google-using-capacitor.md",
+  "sourceSha256": "07db791b5af48535e673079e92232a199e8373a6b4f9ae0adf77b8423f96dee5",
+  "metadata": {
+    "slug": "how-to-sign-in-with-google-using-capacitor",
+    "title": "How to Sign In with Google Using Capacitor (2026)",
+    "description": "Set up Google Sign-In in a Capacitor 8 app: client IDs, SHA-1, iOS URL scheme, Android Credential Manager, ID token checks, and fixes for error 28444.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/social_login_plugin_blog.webp",
+    "head_image_alt": "Google Sign-In account picker inside a Capacitor app using the Capgo Social Login plugin",
+    "keywords": "google sign in capacitor, capacitor google login, ionic google auth, credential manager capacitor, google id token, capacitor social login, 28444 developer console is not set up correctly",
+    "tag": "Tutorial, Android, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Why do I need a web client ID for Google Sign-In on Android?",
+        "answer": "Android Credential Manager issues the ID token for a server audience, and that audience is the Web application client ID. The Android client ID is never passed to the plugin. It only tells Google that an app with a given package name and SHA-1 is allowed to request tokens for your project."
+      },
+      {
+        "question": "Do I need a backend for Google Sign-In in Capacitor?",
+        "answer": "Not to sign the user in. Online mode returns an ID token and profile directly to the app. You still need a server, or a service like Firebase or Supabase, to verify the ID token before you trust the user. Offline mode, which returns a serverAuthCode for long-lived server access to Google APIs, always requires a backend."
+      },
+      {
+        "question": "Why does Google Sign-In work in debug but fail after publishing to Google Play?",
+        "answer": "Google Play re-signs your app with the Play App Signing key, so the SHA-1 on users' devices differs from your upload or debug key. Create an extra Android OAuth client with the SHA-1 from Play Console > App integrity > App signing key certificate."
+      },
+      {
+        "question": "Can I request extra Google scopes like Calendar or Drive?",
+        "answer": "Yes. Pass them in options.scopes when calling login. On Android, custom scopes require the MainActivity change described in this guide, otherwise the plugin rejects the call. Sensitive and restricted scopes also require Google verification before you can ship to the public."
+      },
+      {
+        "question": "Does this work with Firebase Authentication or Supabase?",
+        "answer": "Yes. Take result.idToken from the plugin and pass it to signInWithCredential in Firebase or signInWithIdToken in Supabase. Use the Web client ID as webClientId, since that is the audience those services expect."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To add Google Sign-In to a Capacitor app, create a Web, an iOS and one or more Android OAuth client IDs in Google Cloud, install "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 130
+          },
+          "text": "@capgo/capacitor-social-login"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 161
+          },
+          "text": ", call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 168
+          },
+          "text": "SocialLogin.initialize({ google: { webClientId, iOSClientId } })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 234
+          },
+          "text": ", then "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 241
+          },
+          "text": "SocialLogin.login({ provider: 'google' })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 284
+          },
+          "text": ". Android uses Google's Credential Manager, iOS uses the Google Sign-In SDK, and the web uses Google Identity Services. All three return an ID token you verify on your server."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide walks through every step for Capacitor 8 in October 2026, including the parts that usually break: SHA-1 fingerprints, the Play App Signing key, and the iOS URL scheme."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "How Google Sign-In works in a Capacitor app"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "Platform"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 14
+                  },
+                  "text": "Native API used by the plugin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 46
+                  },
+                  "text": "Client ID passed to the plugin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 77
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 79
+                  },
+                  "text": "Other console setup"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 13
+                  },
+                  "text": "Credential Manager ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 33
+                  },
+                  "text": "androidx.credentials"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 55
+                  },
+                  "text": ")"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 57
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 59
+                  },
+                  "text": "Web client ID as "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 76
+                  },
+                  "text": "webClientId"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 90
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 92
+                  },
+                  "text": "Android client with package name and SHA-1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 9
+                  },
+                  "text": "Google Sign-In SDK"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 30
+                  },
+                  "text": "iOS client ID as "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 47
+                  },
+                  "text": "iOSClientId"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 63
+                  },
+                  "text": "Reversed client ID URL scheme in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 96
+                  },
+                  "text": "Info.plist"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Web"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 9
+                  },
+                  "text": "Google Identity Services"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 36
+                  },
+                  "text": "Web client ID as "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 53
+                  },
+                  "text": "webClientId"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 67
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 69
+                  },
+                  "text": "Authorized JavaScript origins"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "text": "Google blocks OAuth inside embedded WebViews with the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 14,
+            "column": 55
+          },
+          "text": "disallowed_useragent"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 77
+          },
+          "text": " error, which is why loading Google's login page inside your Capacitor WebView does not work. The plugin uses the native account picker instead."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 4
+          },
+          "text": "Step 1: Configure Google Cloud"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 5
+          },
+          "text": "Create a project and the Google Auth Platform"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 20,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 4
+                  },
+                  "text": "Open "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 20,
+                    "column": 9
+                  },
+                  "url": "https://console.cloud.google.com/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 20,
+                        "column": 10
+                      },
+                      "text": "Google Cloud Console"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 66
+                  },
+                  "text": " and create a project, or pick an existing one. All client IDs must live in the same project."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 21,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 4
+                  },
+                  "text": "Open "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 21,
+                    "column": 9
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 21,
+                        "column": 11
+                      },
+                      "text": "Google Auth Platform"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 33
+                  },
+                  "text": " (the screen formerly called \"OAuth consent screen\")."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 22,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 4
+                  },
+                  "text": "Under "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 22,
+                    "column": 10
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 22,
+                        "column": 12
+                      },
+                      "text": "Branding"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 22
+                  },
+                  "text": ", set the app name users will see, a support email, and your domains and privacy policy URL."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 23,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 4
+                  },
+                  "text": "Under "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 23,
+                    "column": 10
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 23,
+                        "column": 12
+                      },
+                      "text": "Audience"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 22
+                  },
+                  "text": ", choose "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 23,
+                    "column": 31
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 23,
+                        "column": 33
+                      },
+                      "text": "External"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 43
+                  },
+                  "text": " for consumer apps. While the app is in "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 23,
+                    "column": 83
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 23,
+                        "column": 85
+                      },
+                      "text": "Testing"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 94
+                  },
+                  "text": ", only the accounts listed under "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 23,
+                    "column": 127
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 23,
+                        "column": 129
+                      },
+                      "text": "Test users"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 141
+                  },
+                  "text": " can sign in."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 24,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 4
+                  },
+                  "text": "Under "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 24,
+                    "column": 10
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 24,
+                        "column": 12
+                      },
+                      "text": "Data Access"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 25
+                  },
+                  "text": ", keep the default "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 24,
+                    "column": 44
+                  },
+                  "text": "openid"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 52
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 24,
+                    "column": 54
+                  },
+                  "text": "email"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 61
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 24,
+                    "column": 66
+                  },
+                  "text": "profile"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 75
+                  },
+                  "text": " scopes unless you need more."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "text": "You do not need to publish to production or pass verification for the basic scopes. Sensitive scopes (Calendar, Drive, Gmail) need verification before public release."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 5
+          },
+          "text": "Create the client IDs"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "text": "Go to "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 30,
+            "column": 7
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 30,
+                "column": 9
+              },
+              "text": "Google Auth Platform > Clients"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 41
+          },
+          "text": " (or "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 30,
+            "column": 46
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 30,
+                "column": 48
+              },
+              "text": "APIs & Services > Credentials"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 79
+          },
+          "text": ") and create:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 3
+                  },
+                  "text": "Client type"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 17
+                  },
+                  "text": "What to enter"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 33
+                  },
+                  "text": "Where the ID goes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 3
+                  },
+                  "text": "Web application"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 21
+                  },
+                  "text": "Authorized JavaScript origins for your web build (for example "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 34,
+                    "column": 83
+                  },
+                  "text": "https://app.example.com"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 108
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 34,
+                    "column": 110
+                  },
+                  "text": "http://localhost:5173"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 133
+                  },
+                  "text": ")"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 135
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 34,
+                    "column": 137
+                  },
+                  "text": "webClientId"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 3
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 9
+                  },
+                  "text": "Your bundle ID, plus App Store ID and Team ID once you have them"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 74
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 76
+                  },
+                  "text": "iOSClientId"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 3
+                  },
+                  "text": "Android (debug)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 21
+                  },
+                  "text": "Package name plus debug SHA-1"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 51
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 53
+                  },
+                  "text": "Console only"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 3
+                  },
+                  "text": "Android (release)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 23
+                  },
+                  "text": "Package name plus upload key SHA-1"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 58
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 60
+                  },
+                  "text": "Console only"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 3
+                  },
+                  "text": "Android (Play)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 20
+                  },
+                  "text": "Package name plus Play App Signing SHA-1"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 63
+                  },
+                  "text": "Console only"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 1
+          },
+          "text": "Get the SHA-1 values:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "# Debug key and any signing config in build.gradle\ncd android && ./gradlew signingReport\n\n# From a signed APK you actually install\nkeytool -printcert -jarfile android/app/build/outputs/apk/release/app-release.apk"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 1
+          },
+          "text": "For Play Store builds, copy the SHA-1 from "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 50,
+            "column": 44
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 50,
+                "column": 46
+              },
+              "text": "Play Console > Test and release > App integrity > App signing key certificate"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 125
+          },
+          "text": ". If you need a release keystore first, the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 50,
+            "column": 169
+          },
+          "url": "/tools/android-keystore-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 50,
+                "column": 170
+              },
+              "text": "Android keystore generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 233
+          },
+          "text": " creates one in the browser. Our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 50,
+            "column": 266
+          },
+          "url": "/blog/client-id-google/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 50,
+                "column": 267
+              },
+              "text": "Google client ID guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 315
+          },
+          "text": " goes deeper on the console screens."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 4
+          },
+          "text": "Step 2: Install the plugin"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-social-login\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 59,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 1
+          },
+          "text": "Disable providers you do not use so their SDKs stay out of the binary:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// capacitor.config.ts\nimport type { CapacitorConfig } from '@capacitor/cli';\n\nconst config: CapacitorConfig = {\n  appId: 'com.example.app',\n  appName: 'Example',\n  webDir: 'dist',\n  plugins: {\n    SocialLogin: {\n      providers: {\n        google: true,\n        apple: true,\n        facebook: false,\n        twitter: false,\n      },\n    },\n  },\n};\n\nexport default config;"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 84,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 84,
+            "column": 1
+          },
+          "text": "Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 84,
+            "column": 5
+          },
+          "text": "bunx cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 84,
+            "column": 20
+          },
+          "text": " after changing providers."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 86,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 86,
+            "column": 4
+          },
+          "text": "Step 3: iOS configuration"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 88,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 5
+          },
+          "text": "Add the reversed client ID URL scheme"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 90,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 90,
+            "column": 1
+          },
+          "text": "Open the iOS client in Google Cloud and copy the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 90,
+            "column": 50
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 90,
+                "column": 52
+              },
+              "text": "iOS URL scheme"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 90,
+            "column": 68
+          },
+          "text": ", which looks like "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 90,
+            "column": 87
+          },
+          "text": "com.googleusercontent.apps.1234567890-abcdef"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 90,
+            "column": 133
+          },
+          "text": ". Add it to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 90,
+            "column": 145
+          },
+          "text": "ios/App/App/Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 90,
+            "column": 169
+          },
+          "text": " before the closing "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 90,
+            "column": 189
+          },
+          "text": "</dict>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 90,
+            "column": 198
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<key>CFBundleURLTypes</key>\n<array>\n  <dict>\n    <key>CFBundleURLSchemes</key>\n    <array>\n      <string>com.googleusercontent.apps.1234567890-abcdef</string>\n    </array>\n  </dict>\n</array>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 104,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 104,
+            "column": 1
+          },
+          "text": "If you already have a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 104,
+            "column": 23
+          },
+          "text": "CFBundleURLTypes"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 104,
+            "column": 41
+          },
+          "text": " array for deep links, add a new "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 104,
+            "column": 74
+          },
+          "text": "<dict>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 104,
+            "column": 82
+          },
+          "text": " entry to it instead of creating a second key."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 106,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 106,
+            "column": 5
+          },
+          "text": "Let the Google SDK handle the callback URL"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 108,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 1
+          },
+          "text": "In "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 108,
+            "column": 4
+          },
+          "text": "ios/App/App/AppDelegate.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 35
+          },
+          "text": ", import the SDK and route the URL to it before Capacitor:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 110,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "import GoogleSignIn // add at the top of the file\n\n// Replace the generated application(_:open:options:) method\nfunc application(_ app: UIApplication, open url: URL,\n                 options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {\n    if GIDSignIn.sharedInstance.handle(url) {\n        return true\n    }\n    return ApplicationDelegateProxy.shared.application(app, open: url, options: options)\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 123,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 123,
+            "column": 1
+          },
+          "text": "Keep the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 123,
+            "column": 10
+          },
+          "text": "ApplicationDelegateProxy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 123,
+            "column": 36
+          },
+          "text": " call so "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 123,
+            "column": 45
+          },
+          "text": "@capacitor/app"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 123,
+            "column": 61
+          },
+          "text": " still receives your other deep links."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 4
+          },
+          "text": "Step 4: Android configuration"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 127,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 1
+          },
+          "text": "Basic sign-in with the default scopes works without native changes. If you request "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 127,
+            "column": 84
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 127,
+                "column": 86
+              },
+              "text": "extra scopes"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 100
+          },
+          "text": " or use "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 127,
+            "column": 108
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 127,
+                "column": 110
+              },
+              "text": "offline mode"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 124
+          },
+          "text": ", the plugin needs to receive activity results, so "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 127,
+            "column": 175
+          },
+          "text": "MainActivity"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 189
+          },
+          "text": " must implement the plugin's marker interface:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "lang": "java",
+      "meta": null,
+      "text": "package com.example.app;\n\nimport android.content.Intent;\nimport com.getcapacitor.BridgeActivity;\nimport com.getcapacitor.Plugin;\nimport com.getcapacitor.PluginHandle;\nimport ee.forgr.capacitor.social.login.GoogleProvider;\nimport ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;\nimport ee.forgr.capacitor.social.login.SocialLoginPlugin;\n\npublic class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {\n\n    @Override\n    public void onActivityResult(int requestCode, int resultCode, Intent data) {\n        super.onActivityResult(requestCode, resultCode, data);\n        if (requestCode >= GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MIN\n                && requestCode < GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MAX) {\n            PluginHandle handle = getBridge().getPlugin(\"SocialLogin\");\n            if (handle == null) return;\n            Plugin plugin = handle.getInstance();\n            if (plugin instanceof SocialLoginPlugin) {\n                ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);\n            }\n        }\n    }\n\n    @Override\n    public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {}\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 161,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 1
+          },
+          "text": "Without it, calls with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 161,
+            "column": 24
+          },
+          "text": "scopes"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 32
+          },
+          "text": " reject with \"You CANNOT use scopes without modifying the main activity\"."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 1
+          },
+          "text": "For the emulator, use a system image with the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 163,
+            "column": 47
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 163,
+                "column": 49
+              },
+              "text": "Google Play"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 62
+          },
+          "text": " label and sign in to a Google account in device settings. Images without Play services return "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 163,
+            "column": 157
+          },
+          "text": "NoCredentialException"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 180
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 165,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 165,
+            "column": 4
+          },
+          "text": "Step 5: Web configuration"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 167,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "text": "Add every origin you serve the web build from to the Web client's "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 167,
+            "column": 67
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 167,
+                "column": 69
+              },
+              "text": "Authorized JavaScript origins"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 100
+          },
+          "text": ", including the port ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 167,
+            "column": 122
+          },
+          "text": "http://localhost:5173"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 145
+          },
+          "text": "). Call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 167,
+            "column": 153
+          },
+          "text": "initialize"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 165
+          },
+          "text": " early: the plugin injects Google's script tag and the login fails if it runs before the script is ready."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 4
+          },
+          "text": "Step 6: Initialize and sign in"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 171,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { SocialLogin } from '@capgo/capacitor-social-login';\n\nconst WEB_CLIENT_ID = '1234567890-web.apps.googleusercontent.com';\nconst IOS_CLIENT_ID = '1234567890-ios.apps.googleusercontent.com';\n\nexport async function initAuth() {\n  await SocialLogin.initialize({\n    google: {\n      webClientId: WEB_CLIENT_ID, // Android + web\n      iOSClientId: IOS_CLIENT_ID, // iOS\n      iOSServerClientId: WEB_CLIENT_ID, // same as webClientId, required for offline mode on iOS\n      mode: 'online',\n    },\n  });\n}\n\nexport async function signInWithGoogle() {\n  try {\n    const { result } = await SocialLogin.login({\n      provider: 'google',\n      options: {},\n    });\n\n    if (result.responseType !== 'online' || !result.idToken) {\n      throw new Error('Expected an ID token from Google');\n    }\n\n    const res = await fetch('https://api.example.com/auth/google', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({ idToken: result.idToken }),\n    });\n    return res.json();\n  } catch (error: any) {\n    if (error?.code === 'USER_CANCELLED') return null;\n    throw error;\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 212,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 212,
+            "column": 1
+          },
+          "text": "The online response contains:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 214,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 214,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 214,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 214,
+                    "column": 3
+                  },
+                  "text": "Field"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 214,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 214,
+                    "column": 11
+                  },
+                  "text": "Notes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 216,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 216,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 216,
+                    "column": 3
+                  },
+                  "text": "idToken"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 216,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 216,
+                    "column": 15
+                  },
+                  "text": "OpenID Connect JWT. Send this to your server"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 217,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 217,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 217,
+                    "column": 3
+                  },
+                  "text": "accessToken"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 217,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 217,
+                    "column": 19
+                  },
+                  "text": "For calling Google APIs from the client. Can be "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 217,
+                    "column": 67
+                  },
+                  "text": "null"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 217,
+                    "column": 73
+                  },
+                  "text": " on Android when only default scopes are requested"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 218,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 218,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 218,
+                    "column": 3
+                  },
+                  "text": "profile"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 218,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 218,
+                    "column": 15
+                  },
+                  "text": "email"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 218,
+                    "column": 22
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 218,
+                    "column": 24
+                  },
+                  "text": "name"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 218,
+                    "column": 30
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 218,
+                    "column": 32
+                  },
+                  "text": "givenName"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 218,
+                    "column": 43
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 218,
+                    "column": 45
+                  },
+                  "text": "familyName"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 218,
+                    "column": 57
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 218,
+                    "column": 59
+                  },
+                  "text": "imageUrl"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 218,
+                    "column": 69
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 218,
+                    "column": 71
+                  },
+                  "text": "id"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 219,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 219,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 219,
+                    "column": 3
+                  },
+                  "text": "responseType"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 219,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 219,
+                    "column": 20
+                  },
+                  "text": "'online'"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 221,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 5
+          },
+          "text": "Android-only display options"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 223,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 5
+          },
+          "text": "options"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 14
+          },
+          "text": " object accepts "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 30
+          },
+          "text": "style: 'bottom'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 47
+          },
+          "text": " for the bottom sheet UI, plus "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 78
+          },
+          "text": "filterByAuthorizedAccounts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 106
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 111
+          },
+          "text": "autoSelectEnabled"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 130
+          },
+          "text": " for returning users. Leave "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 158
+          },
+          "text": "filterByAuthorizedAccounts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 186
+          },
+          "text": " off if you support Family Link accounts. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 228
+          },
+          "text": "forceRefreshToken: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 253
+          },
+          "text": " asks Android for a fresh access token instead of a cached one."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 225,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 5
+          },
+          "text": "Requesting extra scopes"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 227,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const { result } = await SocialLogin.login({\n  provider: 'google',\n  options: {\n    scopes: ['https://www.googleapis.com/auth/calendar.readonly'],\n  },\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 236,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 236,
+            "column": 1
+          },
+          "text": "Remember the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 236,
+            "column": 14
+          },
+          "text": "MainActivity"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 236,
+            "column": 28
+          },
+          "text": " change on Android, and add the scope under "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 236,
+            "column": 72
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 236,
+                "column": 74
+              },
+              "text": "Data Access"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 236,
+            "column": 87
+          },
+          "text": " in Google Cloud."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 238,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 5
+          },
+          "text": "Online vs offline mode"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 240,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 240,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 240,
+                "column": 1
+              },
+              "blocks": []
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 240,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 240,
+                    "column": 5
+                  },
+                  "text": "Online (default)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 240,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 240,
+                    "column": 24
+                  },
+                  "text": "Offline"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 242,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 242,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 242,
+                    "column": 3
+                  },
+                  "text": "Returns"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 242,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 242,
+                    "column": 13
+                  },
+                  "text": "ID token, access token, profile"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 242,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 242,
+                    "column": 47
+                  },
+                  "text": "serverAuthCode"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 242,
+                    "column": 63
+                  },
+                  "text": " only"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 243,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 243,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 243,
+                    "column": 3
+                  },
+                  "text": "Backend needed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 243,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 243,
+                    "column": 20
+                  },
+                  "text": "Only to verify the token"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 243,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 243,
+                    "column": 47
+                  },
+                  "text": "Yes, to exchange the code"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 244,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 244,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 244,
+                    "column": 3
+                  },
+                  "text": "Google refresh token"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 244,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 244,
+                    "column": 26
+                  },
+                  "text": "Stays with Google SDK on device"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 244,
+                "column": 58
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 244,
+                    "column": 60
+                  },
+                  "text": "Stored on your server"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 245,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 245,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 245,
+                    "column": 3
+                  },
+                  "text": "Use when"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 245,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 245,
+                    "column": 14
+                  },
+                  "text": "You only need to know who the user is"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 245,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 245,
+                    "column": 54
+                  },
+                  "text": "Your server calls Google APIs while the user is away"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 246,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 246,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 246,
+                    "column": 3
+                  },
+                  "text": "logout"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 246,
+                    "column": 11
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 246,
+                    "column": 13
+                  },
+                  "text": "isLoggedIn"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 246,
+                    "column": 25
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 246,
+                    "column": 27
+                  },
+                  "text": "refresh"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 246,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 246,
+                    "column": 39
+                  },
+                  "text": "Supported"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 246,
+                "column": 49
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 246,
+                    "column": 51
+                  },
+                  "text": "Not supported"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 248,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 1
+          },
+          "text": "Offline mode on iOS requires "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 248,
+            "column": 30
+          },
+          "text": "iOSServerClientId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 49
+          },
+          "text": ", and on Android it requires the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 248,
+            "column": 82
+          },
+          "text": "MainActivity"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 248,
+            "column": 96
+          },
+          "text": " change."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 250,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 250,
+            "column": 5
+          },
+          "text": "Logout and session checks"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 252,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await SocialLogin.isLoggedIn({ provider: 'google' }); // { isLoggedIn: boolean }\nawait SocialLogin.logout({ provider: 'google' });"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 257,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 1
+          },
+          "text": "On Android, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 257,
+            "column": 13
+          },
+          "text": "logout"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 21
+          },
+          "text": " also clears the Credential Manager state, so the account picker appears again next time."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 259,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 259,
+            "column": 4
+          },
+          "text": "Step 7: Verify the ID token on your server"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 261,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { OAuth2Client } from 'google-auth-library';\n\nconst client = new OAuth2Client();\n\nexport async function verifyGoogleToken(idToken: string) {\n  const ticket = await client.verifyIdToken({\n    idToken,\n    audience: [\n      '1234567890-web.apps.googleusercontent.com',\n      '1234567890-ios.apps.googleusercontent.com',\n    ],\n  });\n  const payload = ticket.getPayload();\n  if (!payload) throw new Error('Empty token payload');\n\n  return {\n    googleUserId: payload.sub,\n    email: payload.email,\n    emailVerified: payload.email_verified === true,\n    name: payload.name,\n  };\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 286,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 1
+          },
+          "text": "Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 286,
+            "column": 5
+          },
+          "text": "sub"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 10
+          },
+          "text": " as the stable user key. Only link an existing account by email when "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 286,
+            "column": 79
+          },
+          "text": "email_verified"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 95
+          },
+          "text": " is "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 286,
+            "column": 99
+          },
+          "text": "true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 105
+          },
+          "text": ". Accepting both client IDs as audience keeps tokens from every platform valid. Then issue your own session. If you use a managed backend, follow "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 286,
+            "column": 251
+          },
+          "url": "/blog/setup-supabase-with-capacitor-social-login/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 286,
+                "column": 252
+              },
+              "text": "Supabase with Capacitor Social Login"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 340
+          },
+          "text": " or the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 286,
+            "column": 348
+          },
+          "url": "/docs/plugins/social-login/firebase/introduction/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 286,
+                "column": 349
+              },
+              "text": "Firebase Google guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 422
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 288,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 290,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 290,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 290,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 290,
+                    "column": 3
+                  },
+                  "text": "Error"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 290,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 290,
+                    "column": 11
+                  },
+                  "text": "Cause"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 290,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 290,
+                    "column": 19
+                  },
+                  "text": "Fix"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 292,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 292,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 292,
+                    "column": 3
+                  },
+                  "text": "[28444] Developer console is not set up correctly"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 292,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 57
+                  },
+                  "text": "Package name, SHA-1 or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 292,
+                    "column": 80
+                  },
+                  "text": "webClientId"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 93
+                  },
+                  "text": " mismatch"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 292,
+                "column": 103
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 292,
+                    "column": 105
+                  },
+                  "text": "Use the Web client ID, register the SHA-1 of the installed build, keep all clients in one project"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 293,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 293,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 293,
+                    "column": 3
+                  },
+                  "text": "Works in debug, fails from Play Store"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 293,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 293,
+                    "column": 43
+                  },
+                  "text": "Play re-signs the app"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 293,
+                "column": 65
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 293,
+                    "column": 67
+                  },
+                  "text": "Add an Android client with the Play App Signing SHA-1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 294,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 294,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 294,
+                    "column": 3
+                  },
+                  "text": "[16] Account reauth failed"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 294,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 34
+                  },
+                  "text": "Cached account state is stale, account not a test user, or user disabled the app"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 294,
+                "column": 115
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 117
+                  },
+                  "text": "The plugin retries once automatically. Check test users, External audience, and Play signing SHA-1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 295,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 295,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 295,
+                    "column": 3
+                  },
+                  "text": "NoCredentialException"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 295,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 295,
+                    "column": 29
+                  },
+                  "text": "No Google account on device, or emulator without Play services"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 295,
+                "column": 92
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 295,
+                    "column": 94
+                  },
+                  "text": "Use a Google Play system image and sign in"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 296,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 296,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 296,
+                    "column": 3
+                  },
+                  "text": "USER_CANCELLED"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 296,
+                    "column": 19
+                  },
+                  "text": " right after picking an account"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 296,
+                "column": 51
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 296,
+                    "column": 53
+                  },
+                  "text": "Usually still a SHA-1 or client ID mismatch"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 296,
+                "column": 97
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 296,
+                    "column": 99
+                  },
+                  "text": "Fix console setup before treating it as a real cancel"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 297,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 297,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 3
+                  },
+                  "text": "iOS crash: \"missing support for the following URL schemes\""
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 297,
+                "column": 62
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 64
+                  },
+                  "text": "Reversed client ID missing in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 297,
+                    "column": 94
+                  },
+                  "text": "Info.plist"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 297,
+                "column": 107
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 109
+                  },
+                  "text": "Add the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 297,
+                    "column": 117
+                  },
+                  "text": "com.googleusercontent.apps..."
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 148
+                  },
+                  "text": " scheme"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 298,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 298,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 298,
+                    "column": 3
+                  },
+                  "text": "Web: \"The given origin is not allowed for the given client ID\""
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 298,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 298,
+                    "column": 68
+                  },
+                  "text": "Origin missing on the Web client"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 298,
+                "column": 101
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 298,
+                    "column": 103
+                  },
+                  "text": "Add the exact origin, including port"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 299,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 299,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 299,
+                    "column": 3
+                  },
+                  "text": "access_denied"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 299,
+                    "column": 18
+                  },
+                  "text": " with \"app has not completed the Google verification process\""
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 299,
+                "column": 80
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 299,
+                    "column": 82
+                  },
+                  "text": "Account is not a test user while in Testing"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 299,
+                "column": 126
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 299,
+                    "column": 128
+                  },
+                  "text": "Add it under Audience > Test users"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 300,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 300,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 3
+                  },
+                  "text": "Google login screen interrupted on iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 300,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 300,
+                    "column": 44
+                  },
+                  "text": "@capacitor/privacy-screen"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 71
+                  },
+                  "text": " covers the SDK view"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 300,
+                "column": 92
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 94
+                  },
+                  "text": "Call "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 300,
+                    "column": 99
+                  },
+                  "text": "PrivacyScreen.disable()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 124
+                  },
+                  "text": " before "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 300,
+                    "column": 132
+                  },
+                  "text": "login"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 302,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 302,
+            "column": 1
+          },
+          "text": "On Android, filter Logcat by "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 302,
+            "column": 30
+          },
+          "text": "GoogleProvider"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 302,
+            "column": 46
+          },
+          "text": ". The plugin logs the package name, signing SHA-1 and a masked "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 302,
+            "column": 109
+          },
+          "text": "webClientId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 302,
+            "column": 122
+          },
+          "text": ", which you can compare against the console in a minute."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 304,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 304,
+            "column": 4
+          },
+          "text": "Shipping and maintaining"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 306,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 306,
+            "column": 1
+          },
+          "text": "Console changes can take a few hours to propagate, so do not rotate client IDs on release day. Once the native setup is in a store build, client-side changes such as scopes, error handling or the backend URL can go out through "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 306,
+            "column": 228
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 306,
+                "column": 229
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 306,
+            "column": 263
+          },
+          "text": ". If your team does not have a Mac for iOS releases, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 306,
+            "column": 316
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 306,
+                "column": 317
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 306,
+            "column": 345
+          },
+          "text": " builds and signs the iOS binary in the cloud."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 308,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 308,
+            "column": 4
+          },
+          "text": "Related guides"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 310,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 310,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 310,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 310,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-sign-in-with-apple-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 310,
+                        "column": 4
+                      },
+                      "text": "How to sign in with Apple using Capacitor"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 310,
+                    "column": 96
+                  },
+                  "text": ", which you will need on iOS if Google is your main login."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 311,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 311,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 311,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-add-authentication-to-a-capacitor-app/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 311,
+                        "column": 4
+                      },
+                      "text": "How to add authentication to a Capacitor app"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 311,
+                    "column": 102
+                  },
+                  "text": " for choosing between social login, OIDC, passkeys and Better Auth."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 312,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 312,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 312,
+                    "column": 3
+                  },
+                  "url": "/plugins/capacitor-social-login/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 312,
+                        "column": 4
+                      },
+                      "text": "Social Login plugin page"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 312,
+                    "column": 63
+                  },
+                  "text": " and the "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 312,
+                    "column": 72
+                  },
+                  "url": "/docs/plugins/social-login/google/android/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 312,
+                        "column": 73
+                      },
+                      "text": "Google Android setup docs"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 312,
+                    "column": 143
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

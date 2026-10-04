@@ -1,0 +1,2589 @@
+{
+  "version": 1,
+  "route": "/blog/why-ios-stops-background-location-updates-capacitor/",
+  "source": "corpus/source/apps/web/src/content/blog/en/why-ios-stops-background-location-updates-capacitor.md",
+  "sourceSha256": "025b18a431504d7b43819ca63003c5cc588793329ba7463bb7fc2df1d6a05f49",
+  "metadata": {
+    "slug": "why-ios-stops-background-location-updates-capacitor",
+    "title": "Why iOS Stops Background Location Updates",
+    "description": "Why iOS stops background location updates in Capacitor apps: suspension, background modes, authorization, auto pause, accuracy and how to fix each cause.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/blog-images/how-background-tasks-work-in-capacitor.webp",
+    "head_image_alt": "Illustration of an iPhone app running background tasks while tracking location",
+    "keywords": "ios stops background location updates, ios background location capacitor, allowsBackgroundLocationUpdates, pausesLocationUpdatesAutomatically, capacitor background geolocation ios, location updates stop when app in background",
+    "tag": "iOS, Capacitor, Tutorial",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Why does iOS stop sending location updates a few minutes after my app goes to the background?",
+        "answer": "iOS suspends most apps shortly after they leave the foreground. Location keeps flowing only if the app declares the location background mode, sets allowsBackgroundLocationUpdates to true, and starts updates while it is still in the foreground."
+      },
+      {
+        "question": "Do I need Always authorization for background location on iOS?",
+        "answer": "No. An app with When In Use authorization keeps receiving standard location updates in the background if background updates are enabled and started in the foreground. Always is needed for region monitoring, significant-change and visits, which can relaunch a terminated app."
+      },
+      {
+        "question": "Does iOS deliver location updates after the user force quits the app?",
+        "answer": "Standard location updates stop when the user terminates the app from the app switcher. Only region monitoring, significant-change and visit services can relaunch an app, and only with Always authorization."
+      },
+      {
+        "question": "Why do I get location in the background but not in JavaScript?",
+        "answer": "Native code can receive locations while the WebView is suspended or throttled. Send points from native code with the url option of @capgo/background-geolocation, so delivery does not depend on JavaScript running."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "iOS stops background location updates because it suspends your app, not because Core Location fails. Unless the app declares the location background mode, enables background updates on its "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 190
+          },
+          "text": "CLLocationManager"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 209
+          },
+          "text": ", and starts them while it is still in the foreground, iOS freezes the process a few seconds after the user leaves and queues or drops the fixes. This guide lists every cause we see in Capacitor apps, with the fix for each, and shows how "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 2,
+            "column": 447
+          },
+          "url": "/plugins/capacitor-background-geolocation/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 2,
+                "column": 448
+              },
+              "text": "@capgo/background-geolocation"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 524
+          },
+          "text": " handles them."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "How iOS treats a backgrounded app"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "When a user swipes home or locks the phone, iOS gives the app a short window, then suspends it. A suspended app gets no CPU time. For a Capacitor app this means both the native side and the WebView stop running, so your JavaScript callback stops firing too."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "Apple makes an exception for apps that are actively using location. If the app is configured for background location and has an active location session started in the foreground, iOS keeps it running and keeps delivering updates. Everything below is about meeting that contract, and about the cases where the system breaks it on purpose."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 10,
+            "column": 4
+          },
+          "text": "Cause 1: the location background mode is missing"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 12,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "text": "Without "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 12,
+            "column": 9
+          },
+          "text": "location"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 19
+          },
+          "text": " in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 12,
+            "column": 23
+          },
+          "text": "UIBackgroundModes"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 42
+          },
+          "text": ", no amount of code will keep updates flowing. Add it to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 12,
+            "column": 99
+          },
+          "text": "ios/App/App/Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 123
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<key>UIBackgroundModes</key>\n<array>\n  <string>location</string>\n</array>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 21,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "text": "You can also enable it in Xcode under Signing & Capabilities, Background Modes, Location updates. It is a plist key, not an entitlement, so no provisioning profile change is needed."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "text": "The native property behind it is "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 23,
+            "column": 34
+          },
+          "text": "allowsBackgroundLocationUpdates"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 67
+          },
+          "text": ". Setting it to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 23,
+            "column": 83
+          },
+          "text": "true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 89
+          },
+          "text": " without the background mode in the plist crashes the app. The Capgo plugin sets it for you when you pass "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 23,
+            "column": 195
+          },
+          "text": "backgroundMessage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 214
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 23,
+            "column": 218
+          },
+          "text": "start()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 227
+          },
+          "text": ", so the plist key must be there before you ship."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "text": "App Review checks that the background mode is justified. Explain in the review notes which feature uses it, and make sure the feature is visible to the reviewer."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 4
+          },
+          "text": "Cause 2: updates were started from the background"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "text": "Apple's rule: background updates continue if they were started while the app was in the foreground. Trying to start a session from a silent push, a background fetch or a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 29,
+            "column": 171
+          },
+          "text": "BGTaskScheduler"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 188
+          },
+          "text": " task does not work for standard location updates."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 31,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 31,
+            "column": 1
+          },
+          "text": "Start tracking from a user action or on app resume:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 33,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "import { App } from '@capacitor/app';\nimport { BackgroundGeolocation } from '@capgo/background-geolocation';\n\nlet tracking = false;\n\nexport async function startTracking() {\n  if (tracking) return;\n  tracking = true;\n  await BackgroundGeolocation.start(\n    {\n      backgroundMessage: 'Recording your route',\n      backgroundTitle: 'Route recording',\n      requestPermissions: true,\n      distanceFilter: 10,\n      url: 'https://api.example.com/v1/points',\n    },\n    (location, error) => {\n      if (error) return console.error(error);\n      if (location) console.log(location.latitude, location.longitude);\n    },\n  );\n}\n\n// Re-arm when the user comes back, if the session should be active\nApp.addListener('appStateChange', ({ isActive }) => {\n  if (isActive && shouldBeTracking()) startTracking();\n});\n\ndeclare function shouldBeTracking(): boolean;"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 65,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 65,
+            "column": 4
+          },
+          "text": "Cause 3: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 65,
+            "column": 13
+          },
+          "text": "backgroundMessage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 65,
+            "column": 32
+          },
+          "text": " was not passed"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 67,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 1
+          },
+          "text": "This is specific to the Capgo plugin and the most common bug report. If "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 67,
+            "column": 73
+          },
+          "text": "backgroundMessage"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 92
+          },
+          "text": " is undefined, the plugin configures the location manager for foreground use only: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 67,
+            "column": 175
+          },
+          "text": "allowsBackgroundLocationUpdates"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 208
+          },
+          "text": " stays "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 67,
+            "column": 215
+          },
+          "text": "false"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 222
+          },
+          "text": " and updates stop when the app is suspended. Pass a message on both platforms. On Android it also becomes the text of the foreground service notification."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 69,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 69,
+            "column": 4
+          },
+          "text": "Cause 4: the wrong authorization level, or Allow Once"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 1
+          },
+          "text": "Many developers think they need Always to track in the background. They do not. Apple documents that an app with When In Use authorization keeps running in the background while it has active location services, as long as background updates are enabled."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 1
+          },
+          "text": "Always matters for something else: relaunching a terminated app. Only region monitoring, significant-change location and visits can relaunch an app, and only with Always."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 75,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "text": "Two user choices quietly break background tracking:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 77,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 77,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 77,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 77,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 77,
+                        "column": 5
+                      },
+                      "text": "Allow Once."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 18
+                  },
+                  "text": " This is a temporary When In Use grant that expires when the app stops being used. The next session starts from \"not determined\" again."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 78,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 78,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 78,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 78,
+                        "column": 5
+                      },
+                      "text": "While Using, then Always prompt never shown."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 51
+                  },
+                  "text": " When you request Always, iOS may show the upgrade prompt later, at a moment it chooses, often when the app is not on screen."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 1
+          },
+          "text": "Check the real state before you start a session:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "import { BackgroundGeolocation } from '@capgo/background-geolocation';\n\nconst status = await BackgroundGeolocation.checkPermissions();\n\nif (status.location !== 'granted') {\n  await BackgroundGeolocation.requestPermissions({ permissions: ['location'] });\n}\n\nif (status.backgroundLocation === 'when_in_use') {\n  // Background tracking still works for standard updates.\n  // Explain why Always helps if you also rely on geofences.\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "text": "On iOS, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 9
+          },
+          "text": "backgroundLocation"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 29
+          },
+          "text": " returns "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 38
+          },
+          "text": "when_in_use"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 51
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 55
+          },
+          "text": "granted"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 64
+          },
+          "text": " / "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 67
+          },
+          "text": "always"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 75
+          },
+          "text": ", so you can show the right explanation instead of guessing."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 99,
+            "column": 4
+          },
+          "text": "Cause 5: Core Location paused updates automatically"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 101,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 101,
+            "column": 1
+          },
+          "text": "CLLocationManager.pausesLocationUpdatesAutomatically"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 55
+          },
+          "text": " defaults to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 101,
+            "column": 68
+          },
+          "text": "true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 74
+          },
+          "text": ". When iOS decides the user is not moving, it pauses updates to save battery. For a When In Use app, a pause ends location access until the app is launched again, and Core Location does not resume on its own."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 1
+          },
+          "text": "The Capgo plugin sets "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 103,
+            "column": 23
+          },
+          "text": "pausesLocationUpdatesAutomatically = false"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 67
+          },
+          "text": " in its native code, so this one is handled. If you write your own native code, or use another plugin, check this property first."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 4
+          },
+          "text": "Cause 6: the device is stationary and the filter is large"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 107,
+            "column": 1
+          },
+          "text": "With a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 107,
+            "column": 8
+          },
+          "text": "distanceFilter"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 107,
+            "column": 24
+          },
+          "text": " of 50 meters, a phone sitting on a desk produces no updates. That looks like \"tracking stopped\" in your logs but it is working as designed."
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 109,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 109,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 109,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 109,
+                    "column": 3
+                  },
+                  "text": "If you need heartbeats while stationary, use a small or zero "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 109,
+                    "column": 64
+                  },
+                  "text": "distanceFilter"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 109,
+                    "column": 80
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 110,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 110,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 110,
+                    "column": 3
+                  },
+                  "text": "Use "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 110,
+                    "column": 7
+                  },
+                  "text": "minIntervalMs"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 110,
+                    "column": 22
+                  },
+                  "text": " to cap how often native POSTs are sent, rather than a large distance filter."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 112,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "await BackgroundGeolocation.start(\n  {\n    backgroundMessage: 'Vehicle tracking active',\n    distanceFilter: 0,\n    minIntervalMs: 120_000, // at most one native POST every 2 minutes\n    url: 'https://api.example.com/v1/vehicle-points',\n  },\n  () => {},\n);"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 124,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 124,
+            "column": 4
+          },
+          "text": "Cause 7: Precise Location is off"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 126,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 126,
+            "column": 1
+          },
+          "text": "Since iOS 14 users can turn off Precise Location for your app. You still get updates, but they are approximate (several kilometers) and arrive much less often. Detect this in your data (large "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 126,
+            "column": 193
+          },
+          "text": "accuracy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 126,
+            "column": 203
+          },
+          "text": " values) and explain to the user why precise location matters for your feature. If you ship a delivery or fitness app, show this in onboarding, not after a bad trip."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 128,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 128,
+            "column": 4
+          },
+          "text": "Cause 8: the user terminated the app"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 130,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 130,
+            "column": 1
+          },
+          "text": "If the user swipes the app away in the app switcher, iOS stops standard location updates. No plugin can keep them running. This is a common surprise for teams coming from Android, where a foreground service can keep running after the task is removed."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 132,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 132,
+            "column": 1
+          },
+          "text": "Options:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 134,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 134,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 134,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 134,
+                    "column": 3
+                  },
+                  "text": "Tell users not to force quit during a session. Most fleet apps do this in onboarding."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 135,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 135,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 135,
+                    "column": 3
+                  },
+                  "text": "Add geofences with Always authorization around important places so iOS can relaunch the app in the background on enter or exit."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 136,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 136,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 136,
+                    "column": 3
+                  },
+                  "text": "Send a push to remind the user to reopen the app when your server stops receiving points for a session."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 138,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 4
+          },
+          "text": "Cause 9: JavaScript is not running even though native is"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 140,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 140,
+            "column": 1
+          },
+          "text": "A subtle one. Native code can receive a location while the WebView is suspended, or while it is still alive but not processing timers or network calls quickly. If you send points with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 140,
+            "column": 185
+          },
+          "text": "fetch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 140,
+            "column": 192
+          },
+          "text": " from the callback, they can arrive late or not at all."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 142,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 1
+          },
+          "text": "Use the plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 142,
+            "column": 18
+          },
+          "text": "url"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 23
+          },
+          "text": " option. Each point is POSTed from native code with the same JSON as the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 142,
+            "column": 96
+          },
+          "text": "Location"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 106
+          },
+          "text": " type plus "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 142,
+            "column": 117
+          },
+          "text": "\"source\": \"native\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 137
+          },
+          "text": ", independent of the WebView. Keep the callback for UI updates only. Delivery is best effort with no on-disk queue, so if you cannot lose a point, also store it locally when the callback fires and reconcile later."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 144,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "text": "For background work beyond location, read "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 144,
+            "column": 43
+          },
+          "url": "/blog/how-background-tasks-work-in-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 144,
+                "column": 44
+              },
+              "text": "how background tasks work in Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 130
+          },
+          "text": " and see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 144,
+            "column": 139
+          },
+          "url": "/plugins/capacitor-background-task/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 144,
+                "column": 140
+              },
+              "text": "@capgo/capacitor-background-task"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 212
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 4
+          },
+          "text": "Cause 10: Low Power Mode and thermal state"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 1
+          },
+          "text": "Low Power Mode reduces background activity across the system. Location still works, but other things your session depends on (network retries, background refresh) slow down. Test with Low Power Mode on before you sign off a release."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 150,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 150,
+            "column": 4
+          },
+          "text": "The blue indicator"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 152,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 1
+          },
+          "text": "When an app with When In Use authorization uses location in the background, iOS shows a blue pill in the status bar. The Capgo plugin sets "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 152,
+            "column": 140
+          },
+          "text": "showsBackgroundLocationIndicator"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 174
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 152,
+            "column": 178
+          },
+          "text": "true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 184
+          },
+          "text": " for background sessions, which is what users expect and what reviewers look for. Do not try to hide it, users trust it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 4
+          },
+          "text": "A test plan that catches these bugs"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 156,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "text": "Simulator testing is not enough for background location. Use a real iPhone and:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 158,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 158,
+                    "column": 4
+                  },
+                  "text": "Build a release configuration, not just debug. Debug builds attached to Xcode get different lifecycle treatment."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 159,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 159,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 159,
+                    "column": 4
+                  },
+                  "text": "Start a session in the foreground, lock the phone, walk or drive for 20 minutes."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 160,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 160,
+                    "column": 4
+                  },
+                  "text": "Repeat with \"Allow Once\", with Precise Location off, with Low Power Mode on."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 161,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 161,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 161,
+                    "column": 4
+                  },
+                  "text": "Check your server logs for "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 161,
+                    "column": 31
+                  },
+                  "text": "source: \"native\""
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 161,
+                    "column": 49
+                  },
+                  "text": " points, not just your in-app log."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 162,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 162,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 162,
+                    "column": 4
+                  },
+                  "text": "Force quit during a session and confirm your app explains what happened on next launch."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 164,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 1
+          },
+          "text": "If you need a device UDID for ad hoc builds, the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 164,
+            "column": 50
+          },
+          "url": "/tools/ios-udid-finder/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 164,
+                "column": 51
+              },
+              "text": "iOS UDID finder"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 92
+          },
+          "text": " gets it from Safari. If you do not have a Mac with Xcode 26 for builds, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 164,
+            "column": 165
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 164,
+                "column": 166
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 194
+          },
+          "text": " can produce signed iOS builds in the cloud."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 166,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 4
+          },
+          "text": "Troubleshooting checklist"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 168,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 168,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 168,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 3
+                  },
+                  "text": "Symptom"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 168,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 13
+                  },
+                  "text": "Likely cause"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 168,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 28
+                  },
+                  "text": "Fix"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 170,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 170,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 170,
+                    "column": 3
+                  },
+                  "text": "Stops seconds after locking"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 170,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 170,
+                    "column": 33
+                  },
+                  "text": "No "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 170,
+                    "column": 36
+                  },
+                  "text": "location"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 170,
+                    "column": 46
+                  },
+                  "text": " background mode or no "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 170,
+                    "column": 69
+                  },
+                  "text": "backgroundMessage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 170,
+                "column": 89
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 170,
+                    "column": 91
+                  },
+                  "text": "Add the plist key and pass "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 170,
+                    "column": 118
+                  },
+                  "text": "backgroundMessage"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 171,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 171,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 171,
+                    "column": 3
+                  },
+                  "text": "Crash on start"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 171,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 171,
+                    "column": 20
+                  },
+                  "text": "allowsBackgroundLocationUpdates"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 171,
+                    "column": 53
+                  },
+                  "text": " without background mode"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 171,
+                "column": 78
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 171,
+                    "column": 80
+                  },
+                  "text": "Add "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 171,
+                    "column": 84
+                  },
+                  "text": "UIBackgroundModes"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 171,
+                    "column": 103
+                  },
+                  "text": " → "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 171,
+                    "column": 106
+                  },
+                  "text": "location"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 172,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 172,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 172,
+                    "column": 3
+                  },
+                  "text": "Works once, then not"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 172,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 172,
+                    "column": 26
+                  },
+                  "text": "User chose Allow Once"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 172,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 172,
+                    "column": 50
+                  },
+                  "text": "Explain and ask again, or send to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 172,
+                    "column": 84
+                  },
+                  "text": "openSettings()"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 173,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 173,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 173,
+                    "column": 3
+                  },
+                  "text": "Stops when parked"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 173,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 173,
+                    "column": 23
+                  },
+                  "text": "Large "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 173,
+                    "column": 29
+                  },
+                  "text": "distanceFilter"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 173,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 173,
+                    "column": 48
+                  },
+                  "text": "Lower it, use "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 173,
+                    "column": 62
+                  },
+                  "text": "minIntervalMs"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 174,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 174,
+                    "column": 3
+                  },
+                  "text": "Points far apart, low accuracy"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 174,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 174,
+                    "column": 36
+                  },
+                  "text": "Precise Location off"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 174,
+                "column": 57
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 174,
+                    "column": 59
+                  },
+                  "text": "Ask the user to enable it"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 175,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 175,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 175,
+                    "column": 3
+                  },
+                  "text": "Stops after swipe away"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 175,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 175,
+                    "column": 28
+                  },
+                  "text": "User terminated the app"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 175,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 175,
+                    "column": 54
+                  },
+                  "text": "Expected on iOS, use geofences for relaunch"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 176,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 176,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 3
+                  },
+                  "text": "Native gets points, server does not"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 176,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 41
+                  },
+                  "text": "JavaScript "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 176,
+                    "column": 52
+                  },
+                  "text": "fetch"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 59
+                  },
+                  "text": " in callback"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 176,
+                "column": 72
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 74
+                  },
+                  "text": "Use the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 176,
+                    "column": 82
+                  },
+                  "text": "url"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 87
+                  },
+                  "text": " option"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 178,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 4
+          },
+          "text": "Shipping fixes"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 180,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 180,
+            "column": 1
+          },
+          "text": "Most of these fixes touch "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 180,
+            "column": 27
+          },
+          "text": "Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 180,
+            "column": 39
+          },
+          "text": " or native configuration, so they need a new App Store build. The JavaScript parts, such as permission explanations, onboarding copy and retry logic, can be shipped to existing users with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 180,
+            "column": 227
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 180,
+                "column": 228
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 180,
+            "column": 262
+          },
+          "text": " once the native build is out."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "text": "If you are deciding between plugins, our comparison of "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 182,
+            "column": 56
+          },
+          "url": "/blog/transistorsoft-background-geolocation-alternative/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 182,
+                "column": 57
+              },
+              "text": "Transistorsoft and the free Capgo plugin"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 156
+          },
+          "text": " covers the trade-offs."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2971 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-patch-a-capacitor-plugin/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-patch-a-capacitor-plugin.md",
+  "sourceSha256": "04af09af29f32d4feb85c09180dff4ef9b1c753bf2c4171661f20f1e81a51c1c",
+  "metadata": {
+    "slug": "how-to-patch-a-capacitor-plugin",
+    "title": "How to Patch a Capacitor Plugin (Bun, npm, pnpm)",
+    "description": "How to patch a Capacitor plugin with bun patch, patch-package or pnpm patch, apply native iOS and Android fixes, and decide when to fork or upstream.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_plugins.webp",
+    "head_image_alt": "Capgo plugins logo on a dark blue background for the guide on patching Capacitor plugins",
+    "keywords": "patch Capacitor plugin, bun patch, patch-package Capacitor, pnpm patch, fork Capacitor plugin, fix Capacitor plugin bug, capacitor-patch",
+    "tag": "Capacitor, Development, Tutorial",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Can I patch the native iOS and Android code of a Capacitor plugin?",
+        "answer": "Yes. Capacitor builds plugin native code straight from node_modules (Gradle includes the plugin's android folder, CocoaPods and SPM point to the plugin path). Patch the Swift, Kotlin, Java, Gradle, podspec or Package.swift files, then run cap sync and rebuild the app."
+      },
+      {
+        "question": "Do I need patch-package if I use Bun?",
+        "answer": "No. Bun has built-in patching: bun patch <pkg>, edit the files, then bun patch --commit. Bun stores the diff in patches/ and records it under patchedDependencies in package.json, and reapplies it on every bun install."
+      },
+      {
+        "question": "Can I ship a plugin patch with a live update?",
+        "answer": "Only if the change is in the plugin's JavaScript, which ends up in your web bundle. Native changes in Swift, Kotlin, Gradle or podspec files require a new App Store and Google Play build."
+      },
+      {
+        "question": "What happens to my patch when I upgrade the plugin?",
+        "answer": "Patches are tied to an exact version. With Bun the key includes the version, so an upgrade needs a fresh patch. patch-package tries to apply the old diff and fails loudly if it no longer fits. Check whether the upstream release already contains the fix first."
+      },
+      {
+        "question": "When should I fork instead of patching?",
+        "answer": "Fork when the change is large, touches many files, adds features, or must live for months. A long patch is hard to review and breaks on every upgrade. A fork published under your own npm scope is easier to version and test."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To patch a Capacitor plugin, edit the plugin's files in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 57
+          },
+          "text": "node_modules"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 71
+          },
+          "text": ", save the change as a diff with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 104
+          },
+          "text": "bun patch --commit"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 124
+          },
+          "text": " (or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 129
+          },
+          "text": "patch-package"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 144
+          },
+          "text": " on npm and Yarn, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 162
+          },
+          "text": "pnpm patch-commit"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 181
+          },
+          "text": " on pnpm), commit the generated file in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 221
+          },
+          "text": "patches/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 231
+          },
+          "text": ", then run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 242
+          },
+          "text": "bunx cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 257
+          },
+          "text": " so the native projects pick it up. The package manager reapplies the patch on every install, for your team and in CI."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "Patching is the right move when a plugin has a small bug, a version constraint that blocks your build, or an upstream fix that's merged but not released. This guide covers the workflow for each package manager, how native patches reach Xcode and Gradle, and when a fork or an upstream PR is the better call."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "Why patching works for native plugin code"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "A Capacitor plugin is an npm package with three parts: JavaScript in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 70
+          },
+          "text": "dist/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 77
+          },
+          "text": ", Android code in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 95
+          },
+          "text": "android/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 105
+          },
+          "text": ", and iOS code in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 123
+          },
+          "text": "ios/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 129
+          },
+          "text": " plus a podspec and/or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 152
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 167
+          },
+          "text": ". Capacitor compiles the native parts directly from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 219
+          },
+          "text": "node_modules"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 233
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 10,
+                        "column": 5
+                      },
+                      "text": "Android"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 14
+                  },
+                  "text": ": "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 16
+                  },
+                  "text": "android/capacitor.settings.gradle"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 51
+                  },
+                  "text": " includes each plugin's "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 75
+                  },
+                  "text": "android"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 84
+                  },
+                  "text": " folder from "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 97
+                  },
+                  "text": "node_modules"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 111
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 11,
+                        "column": 5
+                      },
+                      "text": "iOS with CocoaPods"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 25
+                  },
+                  "text": ": the Podfile references each plugin with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 67
+                  },
+                  "text": ":path => '../../node_modules/...'"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 102
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 12,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 12,
+                        "column": 5
+                      },
+                      "text": "iOS with SPM"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 19
+                  },
+                  "text": ": "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 21
+                  },
+                  "text": "CapApp-SPM/Package.swift"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 47
+                  },
+                  "text": " references each plugin by local path in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 88
+                  },
+                  "text": "node_modules"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 102
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "text": "So a change to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 14,
+            "column": 16
+          },
+          "text": "node_modules/@scope/plugin/ios/Sources/..."
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 60
+          },
+          "text": " ends up in your app binary after "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 14,
+            "column": 94
+          },
+          "text": "cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 104
+          },
+          "text": " and a rebuild. Nothing needs to be published."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 4
+          },
+          "text": "Before you patch"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 18,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 18,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 18,
+                        "column": 6
+                      },
+                      "text": "Check for a release."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 28
+                  },
+                  "text": " Look at the plugin's changelog and open PRs. Upgrading is better than patching."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 19,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 19,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 19,
+                        "column": 6
+                      },
+                      "text": "Read the license."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 25
+                  },
+                  "text": " MIT and Apache-2.0 allow private modifications. Copyleft licenses such as GPL or MPL-2.0 can require you to publish modified source when you distribute the app. Check before you ship."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 20,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 20,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 20,
+                        "column": 6
+                      },
+                      "text": "Write down why."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 23
+                  },
+                  "text": " Put the issue URL or a one-line reason in your commit message. Six months later nobody remembers why "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 20,
+                    "column": 125
+                  },
+                  "text": "patches/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 135
+                  },
+                  "text": " has a file in it."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 22,
+            "column": 4
+          },
+          "text": "Patching with Bun"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "text": "Bun has patching built in. No extra package, no "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 24,
+            "column": 49
+          },
+          "text": "postinstall"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 62
+          },
+          "text": " script."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "# 1. Prepare the package for editing\nbun patch @capacitor/haptics\n\n# 2. Edit files under node_modules/@capacitor/haptics\n\n# 3. Save the patch\nbun patch --commit node_modules/@capacitor/haptics"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "text": "Step 1 makes Bun give you a private copy of the package in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 36,
+            "column": 60
+          },
+          "text": "node_modules"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 74
+          },
+          "text": ", so edits don't touch Bun's global cache. Step 3 writes a diff and records it in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 36,
+            "column": 156
+          },
+          "text": "package.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 170
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "lang": "json",
+      "meta": null,
+      "text": "{\n  \"patchedDependencies\": {\n    \"@capacitor/haptics@8.0.2\": \"patches/@capacitor%2Fhaptics@8.0.2.patch\"\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 46,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "text": "Commit both "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 46,
+            "column": 13
+          },
+          "text": "package.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 27
+          },
+          "text": " and the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 46,
+            "column": 36
+          },
+          "text": "patches/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 46
+          },
+          "text": " folder. Every "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 46,
+            "column": 61
+          },
+          "text": "bun install"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 74
+          },
+          "text": ", including "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 46,
+            "column": 86
+          },
+          "text": "bun install --frozen-lockfile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 46,
+            "column": 117
+          },
+          "text": " in CI, applies the patch."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 48,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 1
+          },
+          "text": "The key contains the exact version. If you bump the plugin, Bun no longer matches the patch, so recreate it for the new version or delete it if the fix shipped."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 4
+          },
+          "text": "Patching with npm or Yarn: patch-package"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "npm install --save-dev patch-package"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 1
+          },
+          "text": "Add a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 56,
+            "column": 7
+          },
+          "text": "postinstall"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 20
+          },
+          "text": " script so patches apply after every install:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "lang": "json",
+      "meta": null,
+      "text": "{\n  \"scripts\": {\n    \"postinstall\": \"patch-package\"\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "text": "Then edit the files in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 66,
+            "column": 24
+          },
+          "text": "node_modules"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 38
+          },
+          "text": " and generate the patch:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "npx patch-package @capacitor/haptics"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 72,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 72,
+            "column": 1
+          },
+          "text": "This writes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 72,
+            "column": 13
+          },
+          "text": "patches/@capacitor+haptics+8.0.2.patch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 72,
+            "column": 53
+          },
+          "text": ". Commit it. If the patch stops applying after an upgrade, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 72,
+            "column": 112
+          },
+          "text": "patch-package"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 72,
+            "column": 127
+          },
+          "text": " fails the install with a clear message."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 74,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 74,
+            "column": 1
+          },
+          "text": "Yarn Berry has its own "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 74,
+            "column": 24
+          },
+          "text": "yarn patch <pkg>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 74,
+            "column": 42
+          },
+          "text": " / "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 74,
+            "column": 45
+          },
+          "text": "yarn patch-commit -s <path>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 74,
+            "column": 74
+          },
+          "text": " flow that stores the patch in the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 74,
+            "column": 109
+          },
+          "text": "resolutions"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 74,
+            "column": 122
+          },
+          "text": " field."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 76,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 4
+          },
+          "text": "Patching with pnpm"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 78,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "pnpm patch @capacitor/haptics\n# edit the temporary folder pnpm prints\npnpm patch-commit <path-printed-above>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 84,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 84,
+            "column": 1
+          },
+          "text": "pnpm records the patch under "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 84,
+            "column": 30
+          },
+          "text": "patchedDependencies"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 84,
+            "column": 51
+          },
+          "text": " and applies it on install."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 86,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 86,
+            "column": 4
+          },
+          "text": "Example: fix a native build error in a plugin"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 88,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 1
+          },
+          "text": "A common case: your app uses AGP 9, and an older plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 88,
+            "column": 59
+          },
+          "text": "android/build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 81
+          },
+          "text": " still references "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 88,
+            "column": 99
+          },
+          "text": "proguard-android.txt"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 121
+          },
+          "text": ", which AGP 9 rejects. You can't wait for a release."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 90,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun patch some-capacitor-plugin"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 94,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 94,
+            "column": 1
+          },
+          "text": "Edit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 94,
+            "column": 6
+          },
+          "text": "node_modules/some-capacitor-plugin/android/build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 94,
+            "column": 63
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 96,
+        "column": 1
+      },
+      "lang": "diff",
+      "meta": null,
+      "text": " buildTypes {\n     release {\n         minifyEnabled false\n-        proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'\n+        proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'\n     }\n }"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 106,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 106,
+            "column": 1
+          },
+          "text": "Save and sync:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 108,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun patch --commit node_modules/some-capacitor-plugin\nbunx cap sync android\ncd android && ./gradlew assembleDebug"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 114,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 1
+          },
+          "text": "The full background on this error is in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 114,
+            "column": 41
+          },
+          "url": "/blog/fix-capacitor-plugin-build-errors-with-agp-9/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 114,
+                "column": 42
+              },
+              "text": "fix Capacitor plugin build errors with AGP 9"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 140
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 116,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 116,
+            "column": 4
+          },
+          "text": "Example: relax an iOS dependency constraint"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 118,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 1
+          },
+          "text": "Two plugins pin different versions of the same SDK and CocoaPods can't resolve them. If you've verified the plugin works with the newer SDK, relax its podspec:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 120,
+        "column": 1
+      },
+      "lang": "diff",
+      "meta": null,
+      "text": "-  s.dependency 'FirebaseMessaging', '11.15.0'\n+  s.dependency 'FirebaseMessaging', '>= 11.15.0', '< 13.0'"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 1
+          },
+          "text": "For SPM apps, the same constraint lives in the plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 125,
+            "column": 57
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 72
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 127,
+        "column": 1
+      },
+      "lang": "diff",
+      "meta": null,
+      "text": "-  .package(url: \"https://github.com/firebase/firebase-ios-sdk.git\", exact: \"11.15.0\")\n+  .package(url: \"https://github.com/firebase/firebase-ios-sdk.git\", \"11.15.0\"..<\"13.0.0\")"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 132,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 132,
+            "column": 1
+          },
+          "text": "Then:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 134,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx cap sync ios"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 138,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 1
+          },
+          "text": "With CocoaPods you may need "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 138,
+            "column": 29
+          },
+          "text": "cd ios/App && pod update FirebaseMessaging"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 73
+          },
+          "text": " once, because "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 138,
+            "column": 88
+          },
+          "text": "Podfile.lock"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 102
+          },
+          "text": " still holds the old version. With SPM, use "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 138,
+            "column": 146
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 138,
+                "column": 148
+              },
+              "text": "File > Packages > Resolve Package Versions"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 138,
+            "column": 192
+          },
+          "text": " in Xcode."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 140,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 140,
+            "column": 4
+          },
+          "text": "Patching Capacitor core itself"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 142,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 1
+          },
+          "text": "Sometimes the bug is in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 142,
+            "column": 25
+          },
+          "text": "@capacitor/android"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 45
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 142,
+            "column": 47
+          },
+          "text": "@capacitor/ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 63
+          },
+          "text": " or the CLI, and the fix sits in an upstream pull request. You can patch those packages the same way, but every team ends up maintaining the same diffs."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 144,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "text": "Capgo publishes "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 144,
+            "column": 17
+          },
+          "url": "/plugins/capacitor-patch/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 144,
+                "column": 18
+              },
+              "text": "@capgo/capacitor-patch"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 70
+          },
+          "text": " for this. It's a hook-only package with a catalog of small, version-gated patches that link back to their upstream PRs. It does nothing until you opt in:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-patch\nbunx capgo-capacitor-patch list --all"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 151,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "import type { CapacitorConfig } from '@capacitor/cli';\n\nconst config: CapacitorConfig = {\n  appId: 'com.example.app',\n  appName: 'Example',\n  webDir: 'dist',\n  plugins: {\n    CapacitorPatch: {\n      patches: ['upstream-pr-8418-android'],\n      strict: true,\n    },\n  },\n};\n\nexport default config;"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 1
+          },
+          "text": "Package patches run before "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 169,
+            "column": 28
+          },
+          "text": "cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 38
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 169,
+            "column": 43
+          },
+          "text": "cap update"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 55
+          },
+          "text": ", and native project patches run after. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 169,
+            "column": 95
+          },
+          "text": "bunx capgo-capacitor-patch doctor"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 130
+          },
+          "text": " does a dry run. With "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 169,
+            "column": 152
+          },
+          "text": "strict: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 166
+          },
+          "text": ", sync fails when a selected patch no longer applies, which tells you when an upgrade made it obsolete. See the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 169,
+            "column": 278
+          },
+          "url": "/docs/plugins/capacitor-patch/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 169,
+                "column": 279
+              },
+              "text": "plugin docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 323
+          },
+          "text": " for the full option list."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 171,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 4
+          },
+          "text": "Patch, fork, or upstream?"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 173,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 173,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 173,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 173,
+                    "column": 3
+                  },
+                  "text": "Situation"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 173,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 173,
+                    "column": 15
+                  },
+                  "text": "Best option"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 175,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 175,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 175,
+                    "column": 3
+                  },
+                  "text": "A few lines, fix already merged upstream"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 175,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 175,
+                    "column": 46
+                  },
+                  "text": "Patch, remove after next release"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 176,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 176,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 3
+                  },
+                  "text": "Version constraint too strict"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 176,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 176,
+                    "column": 35
+                  },
+                  "text": "Patch, open an issue upstream"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 177,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 177,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 177,
+                    "column": 3
+                  },
+                  "text": "Bug with no upstream fix yet"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 177,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 177,
+                    "column": 34
+                  },
+                  "text": "Patch and send a PR with the same diff"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 178,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 178,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 178,
+                    "column": 3
+                  },
+                  "text": "New feature or large refactor"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 178,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 178,
+                    "column": 35
+                  },
+                  "text": "Fork, publish under your scope"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 179,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 179,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 179,
+                    "column": 3
+                  },
+                  "text": "Plugin abandoned"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 179,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 179,
+                    "column": 22
+                  },
+                  "text": "Fork, or switch to a maintained plugin"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 181,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 5
+          },
+          "text": "Forking well"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 183,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 183,
+            "column": 1
+          },
+          "text": "If you fork, publish it so installs stay reproducible:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 185,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "# in the fork, rename to your scope in package.json: \"@acme/capacitor-foo\"\nbun run build\nbun publish --access restricted"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 191,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "text": "Installing from a git URL also works, but the plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 191,
+            "column": 56
+          },
+          "text": "dist/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 63
+          },
+          "text": " folder must exist in that branch or be built by a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 191,
+            "column": 114
+          },
+          "text": "prepare"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 123
+          },
+          "text": " script, and not every package manager runs dependency lifecycle scripts by default. A published package avoids that."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 193,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 1
+          },
+          "text": "Remember that the npm name changes the native module name the CLI generates for SPM ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 193,
+            "column": 86
+          },
+          "text": "@acme/capacitor-foo"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 107
+          },
+          "text": " becomes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 193,
+            "column": 116
+          },
+          "text": "AcmeCapacitorFoo"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 134
+          },
+          "text": "), so update the fork's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 193,
+            "column": 158
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 173
+          },
+          "text": " to match. Details are in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 193,
+            "column": 199
+          },
+          "url": "/blog/migrate-capacitor-plugin-to-swift-package-manager/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 193,
+                "column": 200
+              },
+              "text": "migrate a Capacitor plugin to SPM"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 292
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 195,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 1
+          },
+          "text": "Before you fork a plugin for a missing feature, check the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 195,
+            "column": 59
+          },
+          "url": "/plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 195,
+                "column": 60
+              },
+              "text": "Capgo plugin directory"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 94
+          },
+          "text": ". There may already be a maintained plugin that covers it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 197,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 197,
+            "column": 5
+          },
+          "text": "Upstreaming"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 199,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 199,
+            "column": 1
+          },
+          "text": "The goal is to delete your patch. Open an issue with a minimal repro, your Capacitor and plugin versions, and the patch diff. Then open a PR. Maintainers merge small, tested fixes much faster than issue reports alone."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 201,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 201,
+            "column": 4
+          },
+          "text": "Patches and live updates"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 203,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 1
+          },
+          "text": "Your web bundle includes the plugin's JavaScript from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 203,
+            "column": 55
+          },
+          "text": "dist/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 62
+          },
+          "text": ", so a patch to the JS side ships with the next web build. With "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 203,
+            "column": 126
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 203,
+                "column": 127
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 161
+          },
+          "text": " that reaches users without a store release."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 205,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 205,
+            "column": 1
+          },
+          "text": "Native patches are different. Changes to Swift, Kotlin, Java, Gradle, podspec or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 205,
+            "column": 82
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 205,
+            "column": 97
+          },
+          "text": " only take effect in a new native build submitted to the stores. Don't push a web bundle that depends on a native patch to users who still run the old binary. Capgo's "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 205,
+            "column": 264
+          },
+          "url": "/docs/live-updates/compatibility/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 205,
+                "column": 265
+              },
+              "text": "compatibility check"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 205,
+            "column": 320
+          },
+          "text": " compares native plugin versions between a bundle and a channel to catch this."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 207,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 209,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 209,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 209,
+                "column": 3
+              },
+              "text": "The patch isn't applied in CI."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 35
+          },
+          "text": " Make sure "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 209,
+            "column": 46
+          },
+          "text": "patches/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 56
+          },
+          "text": " is committed and not ignored. For patch-package, check that CI doesn't use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 209,
+            "column": 132
+          },
+          "text": "--ignore-scripts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 150
+          },
+          "text": ", which skips "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 209,
+            "column": 164
+          },
+          "text": "postinstall"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 177
+          },
+          "text": ". For Bun, check "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 209,
+            "column": 194
+          },
+          "text": "patchedDependencies"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 215
+          },
+          "text": " is in the committed "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 209,
+            "column": 236
+          },
+          "text": "package.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 250
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 211,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 211,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 211,
+                "column": 3
+              },
+              "text": "My native change has no effect."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 211,
+            "column": 36
+          },
+          "text": " You edited the file but didn't rebuild. Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 211,
+            "column": 81
+          },
+          "text": "bunx cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 211,
+            "column": 96
+          },
+          "text": ", then clean: in Xcode "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 211,
+            "column": 119
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 211,
+                "column": 121
+              },
+              "text": "Product > Clean Build Folder"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 211,
+            "column": 151
+          },
+          "text": ", on Android "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 211,
+            "column": 164
+          },
+          "text": "./gradlew clean"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 211,
+            "column": 181
+          },
+          "text": ". With SPM, also reset package caches."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 213,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 213,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 213,
+                "column": 3
+              },
+              "text": "bun patch --commit"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 213,
+                "column": 23
+              },
+              "text": " says there are no changes."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 213,
+            "column": 52
+          },
+          "text": " You edited a file that isn't part of the package (for example a hoisted copy in another folder). Edit the path Bun printed in step 1."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 215,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 215,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 215,
+                "column": 3
+              },
+              "text": "Patch fails after upgrading the plugin."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 215,
+            "column": 44
+          },
+          "text": " Check whether the fix is in the new release. If not, redo the patch against the new version."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 217,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 217,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 217,
+                "column": 3
+              },
+              "text": "The plugin builds, but the app crashes on that feature."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 217,
+            "column": 60
+          },
+          "text": " Patches skip the plugin's own test suite. Test the patched path on a real device on both platforms. The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 217,
+            "column": 165
+          },
+          "url": "/blog/troubleshooting-capacitor-ios-build-errors/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 217,
+                "column": 166
+              },
+              "text": "Capacitor iOS troubleshooting guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 217,
+            "column": 253
+          },
+          "text": " and "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 217,
+            "column": 258
+          },
+          "url": "/blog/troubleshooting-capacitor-android-build-errors/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 217,
+                "column": 259
+              },
+              "text": "Android troubleshooting guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 217,
+            "column": 344
+          },
+          "text": " cover how to read native logs."
+        }
+      ]
+    }
+  ]
+}

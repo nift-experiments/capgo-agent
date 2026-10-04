@@ -1,0 +1,3551 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-play-audio-in-the-background-in-capacitor/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-play-audio-in-the-background-in-capacitor.md",
+  "sourceSha256": "fedc5995c44e60771393f1ad32aa9f1c23bb1a905059fa540b476c4ece17e37b",
+  "metadata": {
+    "slug": "how-to-play-audio-in-the-background-in-capacitor",
+    "title": "How to Play Audio in the Background in Capacitor",
+    "description": "Play audio in the background in Capacitor: iOS audio background mode, Android foreground service, lock screen controls, playlists, and interruptions.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_plugins.webp",
+    "head_image_alt": "Background audio playback with lock screen controls in a Capacitor app",
+    "keywords": "capacitor background audio, play audio in background capacitor, ionic background audio, capacitor native audio, capacitor media session, UIBackgroundModes audio, android foreground service media playback",
+    "tag": "Tutorial, Capacitor, Mobile",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Why does audio stop when my Capacitor app goes to the background?",
+        "answer": "On iOS, the app is suspended unless it declares the audio background mode and uses a playback audio session. On Android, the system pauses the WebView and can kill the process unless playback runs inside a foreground service of type mediaPlayback with a visible notification."
+      },
+      {
+        "question": "Can I use the HTML audio element for background playback?",
+        "answer": "Yes. With the audio background mode on iOS and @capgo/capacitor-media-session on Android, which runs a mediaPlayback foreground service while the session is playing or paused, an HTML audio element keeps playing with the screen locked. Web Audio API contexts are less reliable in the background, so use an audio element for long playback."
+      },
+      {
+        "question": "Which Android permissions are needed for background audio?",
+        "answer": "FOREGROUND_SERVICE and, for apps targeting Android 14 (API 34) or higher, FOREGROUND_SERVICE_MEDIA_PLAYBACK. Add WAKE_LOCK if you stream over the network with the screen off. The service must declare android:foregroundServiceType=\"mediaPlayback\"."
+      },
+      {
+        "question": "Will Apple reject an app that uses the audio background mode?",
+        "answer": "Only if the mode is misused. Apple expects audible content the user started, such as music, podcasts, audiobooks or guided sessions. Playing silent audio to keep the app alive for other work is a common rejection reason under guideline 2.5.4."
+      },
+      {
+        "question": "How do I show play and pause buttons on the lock screen?",
+        "answer": "Set metadata and action handlers with @capgo/capacitor-media-session (setMetadata, setPlaybackState, setActionHandler), or enable showNotification in @capgo/capacitor-native-audio and pass notificationMetadata when you preload a track."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To play audio in the background in Capacitor, you need two native pieces: the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 79
+          },
+          "text": "audio"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 86
+          },
+          "text": " background mode on iOS, and a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 117
+          },
+          "text": "mediaPlayback"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 132
+          },
+          "text": " foreground service on Android. Add lock screen controls through a media session, and your music, podcast or meditation app keeps playing when the user locks the phone or switches apps. This guide shows both setups on Capacitor 8, with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 368
+          },
+          "text": "@capgo/capacitor-native-audio"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 399
+          },
+          "text": " for native playback and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 424
+          },
+          "text": "@capgo/capacitor-media-session"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 456
+          },
+          "text": " for system controls."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "Why audio stops in the background"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "A Capacitor app is a native shell around a WebView, so it follows each platform's lifecycle rules:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 1
+              },
+              "blocks": []
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 5
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 11
+                  },
+                  "text": "Android"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "What happens on background"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 32
+                  },
+                  "text": "App is suspended within seconds"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 64
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 66
+                  },
+                  "text": "Activity is paused, WebView timers throttle, process can be killed"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "What keeps audio alive"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 28
+                  },
+                  "text": "UIBackgroundModes"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 47
+                  },
+                  "text": " contains "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 57
+                  },
+                  "text": "audio"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 64
+                  },
+                  "text": ", audio session category "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 89
+                  },
+                  "text": "playback"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 100
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 102
+                  },
+                  "text": "A foreground service of type "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 131
+                  },
+                  "text": "mediaPlayback"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 146
+                  },
+                  "text": " with a notification"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Silent switch"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 19
+                  },
+                  "text": "playback"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 29
+                  },
+                  "text": " category ignores it, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 51
+                  },
+                  "text": "ambient"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 60
+                  },
+                  "text": " respects it"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 73
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 75
+                  },
+                  "text": "No equivalent"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "Lock screen controls"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 26
+                  },
+                  "text": "MPNowPlayingInfoCenter"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 50
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 55
+                  },
+                  "text": "MPRemoteCommandCenter"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 79
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 81
+                  },
+                  "text": "MediaSession"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 95
+                  },
+                  "text": " with a media style notification"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "Store rule"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 16
+                  },
+                  "text": "Must play audible content the user expects (guideline 2.5.4)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 77
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 79
+                  },
+                  "text": "Foreground service type must match real use, declared in Play Console"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "text": "Neither platform gives you background audio by default, and fixing only one side is the most common reason for \"works on iPhone, stops on Android\" bug reports."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 4
+          },
+          "text": "Choose your playback approach"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "text": "There are two good architectures:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 22,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 22,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 22,
+                        "column": 6
+                      },
+                      "text": "Native playback with "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 22,
+                        "column": 27
+                      },
+                      "text": "@capgo/capacitor-native-audio"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 60
+                  },
+                  "text": ": audio is decoded by AVFoundation on iOS and Media3 ExoPlayer on Android. Best for music players, audiobooks, meditation apps, and anything where the WebView might be throttled. It supports local files, remote URLs, HLS streams, fades, rate, and Now Playing metadata."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 23,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 23,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 23,
+                        "column": 6
+                      },
+                      "text": "HTML "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 23,
+                        "column": 11
+                      },
+                      "text": "<audio>"
+                    },
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 23,
+                        "column": 20
+                      },
+                      "text": " plus "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 23,
+                        "column": 26
+                      },
+                      "text": "@capgo/capacitor-media-session"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 60
+                  },
+                  "text": ": keep your existing web player and let the plugin publish metadata and controls to the OS. On Android it also runs the foreground service while the session is playing. Best when you already have a web player or need a single code path for web and native."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 1
+              },
+              "blocks": []
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 25,
+                    "column": 5
+                  },
+                  "text": "@capgo/capacitor-native-audio"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 25,
+                    "column": 39
+                  },
+                  "text": "<audio>"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 48
+                  },
+                  "text": " + media session"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 3
+                  },
+                  "text": "Playback engine"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 21
+                  },
+                  "text": "Native"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 30
+                  },
+                  "text": "WebView"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 3
+                  },
+                  "text": "Web support"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 17
+                  },
+                  "text": "Yes (HTML audio fallback)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 45
+                  },
+                  "text": "Yes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 3
+                  },
+                  "text": "Lock screen metadata"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 29,
+                    "column": 26
+                  },
+                  "text": "showNotification"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 44
+                  },
+                  "text": " + "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 29,
+                    "column": 47
+                  },
+                  "text": "notificationMetadata"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 70
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 29,
+                    "column": 72
+                  },
+                  "text": "setMetadata"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 30,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 3
+                  },
+                  "text": "Android foreground service"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 30,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 32
+                  },
+                  "text": "You start one"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 30,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 48
+                  },
+                  "text": "Plugin starts it while playing or paused"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 31,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 3
+                  },
+                  "text": "Remote control events"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 31,
+                    "column": 27
+                  },
+                  "text": "playbackState"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 42
+                  },
+                  "text": " listener"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 31,
+                    "column": 54
+                  },
+                  "text": "setActionHandler"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 3
+                  },
+                  "text": "Precise low-latency SFX"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 29
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 35
+                  },
+                  "text": "Limited"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 4
+          },
+          "text": "Configure iOS for background audio"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "text": "Open "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 36,
+            "column": 6
+          },
+          "text": "ios/App/App/Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 30
+          },
+          "text": " and add the background mode. You can also tick \"Audio, AirPlay, and Picture in Picture\" under Signing & Capabilities, Background Modes in Xcode, which writes the same key:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<key>UIBackgroundModes</key>\n<array>\n  <string>audio</string>\n</array>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 1
+          },
+          "text": "The audio session category matters too. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 45,
+            "column": 41
+          },
+          "text": "@capgo/capacitor-native-audio"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 72
+          },
+          "text": " sets it for you: with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 45,
+            "column": 95
+          },
+          "text": "showNotification: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 119
+          },
+          "text": " it uses "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 45,
+            "column": 128
+          },
+          "text": ".playback"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 139
+          },
+          "text": " with the default mode, which interrupts other apps (Spotify pauses) and makes your app the Now Playing app. With "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 45,
+            "column": 253
+          },
+          "text": "showNotification: false"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 278
+          },
+          "text": " it uses "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 45,
+            "column": 287
+          },
+          "text": ".playback"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 298
+          },
+          "text": " with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 45,
+            "column": 304
+          },
+          "text": "mixWithOthers"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 319
+          },
+          "text": ", which is right for sound effects but does not show lock screen controls. Pick one per app, not per track."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 47,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 47,
+            "column": 1
+          },
+          "text": "If you play through "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 47,
+            "column": 21
+          },
+          "text": "<audio>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 47,
+            "column": 30
+          },
+          "text": ", WebKit activates the playback session when media starts. Make sure playback is started from a user gesture the first time, or iOS will block it."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 49,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 1
+          },
+          "text": "Build with Xcode 26 or later before uploading to App Store Connect, which has been required since April 2026. "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 49,
+            "column": 111
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 49,
+                "column": 112
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 140
+          },
+          "text": " can do that in the cloud if you work on Windows or Linux."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 51,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 51,
+            "column": 4
+          },
+          "text": "Configure Android for background audio"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 53,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 53,
+            "column": 1
+          },
+          "text": "Add the permissions to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 53,
+            "column": 24
+          },
+          "text": "android/app/src/main/AndroidManifest.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 53,
+            "column": 66
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 55,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />\n<uses-permission android:name=\"android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK\" />\n<uses-permission android:name=\"android.permission.WAKE_LOCK\" />\n<uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 62,
+            "column": 1
+          },
+          "text": "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 36
+          },
+          "text": " is mandatory for apps targeting Android 14 (API 34) or higher, and Capacitor 8 targets API 36. Without it, starting the service throws a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 62,
+            "column": 174
+          },
+          "text": "SecurityException"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 193
+          },
+          "text": ". When you publish, Play Console asks you to declare the foreground service type and justify it. \"Media playback the user started\" is the accepted use."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 64,
+            "column": 1
+          },
+          "text": "POST_NOTIFICATIONS"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 21
+          },
+          "text": " is a runtime permission on Android 13+. Media session notifications are exempt from the notification permission and still show in the shade, but any other notification your service posts needs it."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "text": "Android 12+ blocks starting a foreground service while the app is in the background. Start it when the user presses play, while your activity is visible."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 68,
+            "column": 5
+          },
+          "text": "Option A: let the media session plugin run the service"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 70,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 70,
+            "column": 1
+          },
+          "text": "@capgo/capacitor-media-session"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 33
+          },
+          "text": " declares a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 70,
+            "column": 45
+          },
+          "text": "mediaPlayback"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 60
+          },
+          "text": " service in its own manifest and starts it when you set the playback state to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 70,
+            "column": 138
+          },
+          "text": "playing"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 147
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 70,
+            "column": 151
+          },
+          "text": "paused"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 159
+          },
+          "text": ". It stops it when the state goes back to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 70,
+            "column": 201
+          },
+          "text": "none"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 207
+          },
+          "text": " and the app is in the background. If you want the service to run for the whole app session, set the plugin config in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 70,
+            "column": 325
+          },
+          "text": "capacitor.config.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 346
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 72,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "plugins: {\n  MediaSession: {\n    foregroundService: 'always',\n  },\n},"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 1
+          },
+          "text": "The default, starting only during playback, is what most apps want."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 5
+          },
+          "text": "Option B: start your own foreground service"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 84,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 84,
+            "column": 1
+          },
+          "text": "@capgo/capacitor-native-audio"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 84,
+            "column": 32
+          },
+          "text": " handles playback, focus and the media notification, but it does not create the foreground service. If you use it without the media session plugin, add a small service and a local plugin to your Android project."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 86,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 86,
+            "column": 1
+          },
+          "text": "android/app/src/main/java/com/example/app/PlaybackService.java"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 86,
+            "column": 65
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 88,
+        "column": 1
+      },
+      "lang": "java",
+      "meta": null,
+      "text": "package com.example.app;\n\nimport android.app.Notification;\nimport android.app.NotificationChannel;\nimport android.app.NotificationManager;\nimport android.app.Service;\nimport android.content.Intent;\nimport android.content.pm.ServiceInfo;\nimport android.os.Build;\nimport android.os.IBinder;\nimport androidx.core.app.NotificationCompat;\n\npublic class PlaybackService extends Service {\n    private static final String CHANNEL_ID = \"playback\";\n\n    @Override\n    public int onStartCommand(Intent intent, int flags, int startId) {\n        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {\n            NotificationChannel channel = new NotificationChannel(\n                CHANNEL_ID, \"Playback\", NotificationManager.IMPORTANCE_LOW);\n            getSystemService(NotificationManager.class).createNotificationChannel(channel);\n        }\n        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)\n            .setContentTitle(\"Playing audio\")\n            .setSmallIcon(R.mipmap.ic_launcher)\n            .setOngoing(true)\n            .build();\n\n        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {\n            startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);\n        } else {\n            startForeground(1, notification);\n        }\n        return START_NOT_STICKY;\n    }\n\n    @Override\n    public IBinder onBind(Intent intent) {\n        return null;\n    }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 132,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 132,
+            "column": 1
+          },
+          "text": "PlaybackServicePlugin.java"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 132,
+            "column": 29
+          },
+          "text": " in the same package:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 134,
+        "column": 1
+      },
+      "lang": "java",
+      "meta": null,
+      "text": "package com.example.app;\n\nimport android.content.Intent;\nimport androidx.core.content.ContextCompat;\nimport com.getcapacitor.Plugin;\nimport com.getcapacitor.PluginCall;\nimport com.getcapacitor.PluginMethod;\nimport com.getcapacitor.annotation.CapacitorPlugin;\n\n@CapacitorPlugin(name = \"PlaybackService\")\npublic class PlaybackServicePlugin extends Plugin {\n    @PluginMethod\n    public void start(PluginCall call) {\n        ContextCompat.startForegroundService(getContext(), new Intent(getContext(), PlaybackService.class));\n        call.resolve();\n    }\n\n    @PluginMethod\n    public void stop(PluginCall call) {\n        getContext().stopService(new Intent(getContext(), PlaybackService.class));\n        call.resolve();\n    }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "text": "Register it in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 16
+          },
+          "text": "MainActivity.java"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 35
+          },
+          "text": " before "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 43
+          },
+          "text": "super.onCreate"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 59
+          },
+          "text": ", and declare the service in the manifest:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 162,
+        "column": 1
+      },
+      "lang": "java",
+      "meta": null,
+      "text": "public class MainActivity extends BridgeActivity {\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        registerPlugin(PlaybackServicePlugin.class);\n        super.onCreate(savedInstanceState);\n    }\n}"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<service\n    android:name=\".PlaybackService\"\n    android:exported=\"false\"\n    android:foregroundServiceType=\"mediaPlayback\" />"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 179,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 179,
+            "column": 1
+          },
+          "text": "From TypeScript:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 181,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Capacitor, registerPlugin } from '@capacitor/core';\n\ninterface PlaybackServicePlugin {\n  start(): Promise<void>;\n  stop(): Promise<void>;\n}\n\nexport const PlaybackService = registerPlugin<PlaybackServicePlugin>('PlaybackService');\n\nexport const isAndroid = Capacitor.getPlatform() === 'android';"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 194,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 194,
+            "column": 4
+          },
+          "text": "Play audio natively with @capgo/capacitor-native-audio"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 196,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-native-audio\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 201,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 201,
+            "column": 1
+          },
+          "text": "Configure once at startup, then preload and play:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 203,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { NativeAudio } from '@capgo/capacitor-native-audio';\nimport { PlaybackService, isAndroid } from './playback-service';\n\nawait NativeAudio.configure({\n  focus: true,               // request audio focus, pause others\n  background: true,          // keep playing in the background\n  backgroundPlayback: true,  // Android: skip auto pause on background\n  showNotification: true,    // lock screen and notification controls\n});\n\nexport async function playEpisode(id: string, url: string, title: string, artwork: string) {\n  await NativeAudio.preload({\n    assetId: id,\n    assetPath: url,\n    isUrl: true,\n    notificationMetadata: {\n      title,\n      artist: 'My Podcast',\n      artworkUrl: artwork,\n    },\n  });\n\n  if (isAndroid) await PlaybackService.start();\n  await NativeAudio.play({ assetId: id });\n}\n\nexport async function stopEpisode(id: string) {\n  await NativeAudio.stop({ assetId: id });\n  await NativeAudio.unload({ assetId: id });\n  if (isAndroid) await PlaybackService.stop();\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 237,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 237,
+            "column": 1
+          },
+          "text": "assetPath"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 237,
+            "column": 12
+          },
+          "text": " accepts a path relative to your web assets ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 237,
+            "column": 57
+          },
+          "text": "audio/intro.mp3"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 237,
+            "column": 74
+          },
+          "text": "), a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 237,
+            "column": 79
+          },
+          "text": "file://"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 237,
+            "column": 88
+          },
+          "text": " URL, an "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 237,
+            "column": 97
+          },
+          "text": "https://"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 237,
+            "column": 107
+          },
+          "text": " URL or an HLS "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 237,
+            "column": 122
+          },
+          "text": ".m3u8"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 237,
+            "column": 129
+          },
+          "text": " stream. For anything other than a bundled asset, set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 237,
+            "column": 183
+          },
+          "text": "isUrl: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 237,
+            "column": 196
+          },
+          "text": ". If your audio host requires auth, pass "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 237,
+            "column": 237
+          },
+          "text": "headers"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 237,
+            "column": 246
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 239,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 239,
+            "column": 5
+          },
+          "text": "Build a playlist that advances on its own"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 241,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 241,
+            "column": 5
+          },
+          "text": "complete"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 15
+          },
+          "text": " event fires when a track ends, even with the screen locked, because the native player keeps running:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const queue = [\n  { id: 'ep1', url: 'https://cdn.example.com/ep1.mp3', title: 'Episode 1' },\n  { id: 'ep2', url: 'https://cdn.example.com/ep2.mp3', title: 'Episode 2' },\n];\nlet index = 0;\n\nawait NativeAudio.addListener('complete', async ({ assetId }) => {\n  await NativeAudio.unload({ assetId });\n  index += 1;\n  if (index < queue.length) {\n    const next = queue[index];\n    await NativeAudio.preload({\n      assetId: next.id,\n      assetPath: next.url,\n      isUrl: true,\n      notificationMetadata: { title: next.title, artist: 'My Podcast' },\n    });\n    await NativeAudio.play({ assetId: next.id });\n  } else if (isAndroid) {\n    await PlaybackService.stop();\n  }\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 268,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 268,
+            "column": 1
+          },
+          "text": "Keep the foreground service running between tracks. If you stop it after one track and try to start it again while in the background, Android 12+ throws "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 268,
+            "column": 154
+          },
+          "text": "ForegroundServiceStartNotAllowedException"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 268,
+            "column": 197
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 270,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 270,
+            "column": 5
+          },
+          "text": "Keep your UI in sync with the lock screen"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 272,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 272,
+            "column": 1
+          },
+          "text": "Users will press pause on the lock screen, on headphones, or in the notification. Listen to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 272,
+            "column": 93
+          },
+          "text": "playbackState"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 272,
+            "column": 108
+          },
+          "text": " and treat the native player as the source of truth:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 274,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await NativeAudio.addListener('playbackState', (event) => {\n  // event.state: 'playing' | 'paused' | 'stopped'\n  // event.reason: 'play', 'pause', 'remotePlay', 'complete', ...\n  store.setPlaying(event.isPlaying);\n  if (event.currentTime !== undefined) store.setPosition(event.currentTime);\n});\n\nawait NativeAudio.addListener('currentTime', ({ currentTime }) => {\n  store.setPosition(currentTime); // every 100 ms while playing\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 287,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 287,
+            "column": 1
+          },
+          "text": "Also refresh state when the app returns to the foreground, using "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 287,
+            "column": 66
+          },
+          "text": "isPlaying"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 287,
+            "column": 77
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 287,
+            "column": 82
+          },
+          "text": "getCurrentTime"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 287,
+            "column": 98
+          },
+          "text": ", since the WebView may have been paused while events were emitted."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 289,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 289,
+            "column": 4
+          },
+          "text": "Use an HTML audio element with media session controls"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 291,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 291,
+            "column": 1
+          },
+          "text": "If you already have a web player, keep it and add the plugin:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 293,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-media-session\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 298,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { MediaSession } from '@capgo/capacitor-media-session';\n\nconst audio = new Audio();\naudio.preload = 'auto';\n\nexport async function play(track: { url: string; title: string; artist: string; cover: string }) {\n  audio.src = track.url;\n  await audio.play();\n\n  await MediaSession.setMetadata({\n    title: track.title,\n    artist: track.artist,\n    artwork: [{ src: track.cover, sizes: '512x512', type: 'image/jpeg' }],\n  });\n  await MediaSession.setPlaybackState({ playbackState: 'playing' });\n}\n\nawait MediaSession.setActionHandler({ action: 'play' }, async () => {\n  await audio.play();\n  await MediaSession.setPlaybackState({ playbackState: 'playing' });\n});\nawait MediaSession.setActionHandler({ action: 'pause' }, async () => {\n  audio.pause();\n  await MediaSession.setPlaybackState({ playbackState: 'paused' });\n});\nawait MediaSession.setActionHandler({ action: 'seekto' }, (details) => {\n  if (details.seekTime != null) audio.currentTime = details.seekTime;\n});\nawait MediaSession.setActionHandler({ action: 'nexttrack' }, () => playNext());\n\naudio.addEventListener('timeupdate', () => {\n  MediaSession.setPositionState({\n    duration: audio.duration || 0,\n    position: audio.currentTime,\n    playbackRate: audio.playbackRate,\n  });\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 338,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 338,
+            "column": 1
+          },
+          "text": "Call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 338,
+            "column": 6
+          },
+          "text": "setPositionState"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 338,
+            "column": 24
+          },
+          "text": " at most once or twice a second in production. The lock screen interpolates between updates, and flooding the bridge with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 338,
+            "column": 146
+          },
+          "text": "timeupdate"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 338,
+            "column": 158
+          },
+          "text": " events wastes battery."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 340,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 340,
+            "column": 4
+          },
+          "text": "Handle interruptions and route changes"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 342,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 342,
+            "column": 1
+          },
+          "text": "Phone calls, Siri, alarms and other apps interrupt playback. Native audio pauses on interruption and, on iOS, resumes when the system says it should. Two more cases need your attention:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 344,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 344,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 344,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 344,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 344,
+                        "column": 5
+                      },
+                      "text": "Headphones unplugged"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 344,
+                    "column": 27
+                  },
+                  "text": ": users expect playback to pause. On Android, register a receiver for "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 344,
+                    "column": 97
+                  },
+                  "text": "AudioManager.ACTION_AUDIO_BECOMING_NOISY"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 344,
+                    "column": 139
+                  },
+                  "text": " in your service if your player does not already pause. On iOS, listen for route changes with "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 344,
+                    "column": 233
+                  },
+                  "url": "/plugins/capacitor-audiosession/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 344,
+                        "column": 234
+                      },
+                      "text": "@capgo/capacitor-audio-session"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 344,
+                    "column": 301
+                  },
+                  "text": ":"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 346,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { AudioSession, RouteChangeReasons } from '@capgo/capacitor-audio-session';\n\nawait AudioSession.addListener('routeChanged', (reason) => {\n  if (reason === RouteChangeReasons.OLD_DEVICE_UNAVAILABLE) {\n    pausePlayback();\n  }\n});\n\nawait AudioSession.addListener('interruption', (type) => {\n  // 'began' or 'ended'\n});"
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 360,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 360,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 360,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 360,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 360,
+                        "column": 5
+                      },
+                      "text": "Ducking vs. pausing"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 360,
+                    "column": 26
+                  },
+                  "text": ": navigation prompts duck your audio. Spoken-word apps should pause instead, since lowered speech is hard to follow."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 362,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 362,
+            "column": 4
+          },
+          "text": "Test background playback"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 364,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 364,
+            "column": 1
+          },
+          "text": "Simulators lie about background behavior. Test on real devices:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 366,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 366,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 366,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 366,
+                    "column": 4
+                  },
+                  "text": "Start playback, lock the screen, wait two minutes. Audio must keep playing."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 367,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 367,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 367,
+                    "column": 4
+                  },
+                  "text": "Use the lock screen play, pause, next and seek controls, then unlock and check your UI matches."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 368,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 368,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 368,
+                    "column": 4
+                  },
+                  "text": "Play, switch to another app that plays audio, then come back."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 369,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 369,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 369,
+                    "column": 4
+                  },
+                  "text": "Start a phone call or FaceTime audio during playback."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 370,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 370,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 370,
+                    "column": 4
+                  },
+                  "text": "On Android, enable battery saver and test on a Samsung or Xiaomi device. Some OEMs kill background apps aggressively. A foreground service survives, a plain background task does not."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 371,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 371,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 371,
+                    "column": 4
+                  },
+                  "text": "On Android 13+, deny the notification permission and confirm playback still works."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 372,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 372,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 372,
+                    "column": 4
+                  },
+                  "text": "Let a playlist run through several tracks with the screen off."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 374,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 374,
+            "column": 1
+          },
+          "text": "adb shell dumpsys activity services | grep -A3 PlaybackService"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 374,
+            "column": 65
+          },
+          "text": " shows whether your service is running in the foreground."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 376,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 376,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 378,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 378,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 378,
+                "column": 3
+              },
+              "text": "Audio stops after about 30 seconds on iOS"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 378,
+            "column": 46
+          },
+          "text": ": "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 378,
+            "column": 48
+          },
+          "text": "UIBackgroundModes"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 378,
+            "column": 67
+          },
+          "text": " lacks "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 378,
+            "column": 74
+          },
+          "text": "audio"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 378,
+            "column": 81
+          },
+          "text": ", or the session category is "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 378,
+            "column": 110
+          },
+          "text": "ambient"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 378,
+            "column": 119
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 378,
+            "column": 123
+          },
+          "text": "soloAmbient"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 378,
+            "column": 136
+          },
+          "text": ". Check "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 378,
+            "column": 144
+          },
+          "text": "Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 378,
+            "column": 156
+          },
+          "text": " in the built app, not only in your source."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 380,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 380,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 380,
+                "column": 3
+              },
+              "text": "Audio stops after a few minutes on Android"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 380,
+            "column": 47
+          },
+          "text": ": no foreground service, or the service is not of type "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 380,
+            "column": 102
+          },
+          "text": "mediaPlayback"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 380,
+            "column": 117
+          },
+          "text": ". Also check OEM battery optimization settings."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 382,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 382,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 382,
+                "column": 3
+              },
+              "text": "SecurityException: Starting FGS with type mediaPlayback ... requires permissions"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 382,
+            "column": 87
+          },
+          "text": ": add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 382,
+            "column": 93
+          },
+          "text": "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 382,
+            "column": 128
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 384,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 384,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 384,
+                "column": 3
+              },
+              "text": "ForegroundServiceStartNotAllowedException"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 384,
+            "column": 48
+          },
+          "text": ": you started the service while the app was in the background. Start it on the user's play tap."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 386,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 386,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 386,
+                "column": 3
+              },
+              "text": "No lock screen controls on iOS"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 386,
+            "column": 35
+          },
+          "text": ": "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 386,
+            "column": 37
+          },
+          "text": "showNotification"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 386,
+            "column": 55
+          },
+          "text": " is false (mixable session), or no metadata was set. Only the app that owns a non-mixable session becomes the Now Playing app."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 388,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 388,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 388,
+                "column": 3
+              },
+              "text": "Two notifications on Android"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 388,
+            "column": 33
+          },
+          "text": ": you enabled "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 388,
+            "column": 47
+          },
+          "text": "showNotification"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 388,
+            "column": 65
+          },
+          "text": " in native audio and also posted your own service notification. Keep the service notification minimal, or use the media session plugin's service only."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 390,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 390,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 390,
+                "column": 3
+              },
+              "text": "Other music apps keep playing over yours"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 390,
+            "column": 45
+          },
+          "text": ": you configured a mixable session. Set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 390,
+            "column": 85
+          },
+          "text": "focus: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 390,
+            "column": 98
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 390,
+            "column": 103
+          },
+          "text": "showNotification: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 390,
+            "column": 127
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 392,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 392,
+            "column": 4
+          },
+          "text": "Ship player changes faster"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 394,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 394,
+            "column": 1
+          },
+          "text": "Queue logic, UI, metadata, and analytics for your player live in JavaScript. Once the native setup above is in a store build, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 394,
+            "column": 127
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 394,
+                "column": 128
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 394,
+            "column": 162
+          },
+          "text": " let you push fixes to that code without a new review cycle. The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 394,
+            "column": 227
+          },
+          "url": "/docs/plugins/native-audio/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 394,
+                "column": 228
+              },
+              "text": "native audio docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 394,
+            "column": 275
+          },
+          "text": " and "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 394,
+            "column": 280
+          },
+          "url": "/docs/plugins/media-session/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 394,
+                "column": 281
+              },
+              "text": "media session docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 394,
+            "column": 330
+          },
+          "text": " cover every option, and if your app also records audio, see the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 394,
+            "column": 395
+          },
+          "url": "/plugins/capacitor-audio-recorder/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 394,
+                "column": 396
+              },
+              "text": "Capacitor audio recorder plugin"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 394,
+            "column": 464
+          },
+          "text": "."
+        }
+      ]
+    }
+  ]
+}

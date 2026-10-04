@@ -1,0 +1,2952 @@
+{
+  "version": 1,
+  "route": "/docs/live-updates/compatibility/",
+  "source": "corpus/source/apps/docs/src/content/docs/docs/live-updates/compatibility.mdx",
+  "sourceSha256": "99f3e16f6494e09f640f3d8225a6edbe07b93a85eeda1cf3193f5dbe5805a473",
+  "metadata": {
+    "title": "Native Compatibility",
+    "description": "Why Capgo live updates can't change native code, how Capgo detects native-incompatible bundles, and how to ship native changes safely.",
+    "sidebar": {
+      "order": 3
+    }
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "A Capgo live update replaces your app's "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 4,
+            "column": 41
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 4,
+                "column": 43
+              },
+              "text": "JavaScript bundle"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 62
+          },
+          "text": " instantly, but it can't change the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 4,
+            "column": 98
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 4,
+                "column": 100
+              },
+              "text": "native"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 108
+          },
+          "text": " part of your app — the Capacitor/Cordova plugins, native dependencies, and native project configuration that are compiled into the installed binary. When a new bundle expects native code that the installed binary doesn't have, the bundle is "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 4,
+            "column": 350
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 4,
+                "column": 352
+              },
+              "text": "native-incompatible"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 373
+          },
+          "text": ": Capgo can still deliver it, but it may crash or misbehave on devices that are still running the older native build."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "This page explains how Capgo detects native compatibility, what an incompatible update means for your users, and how to ship native changes safely."
+        }
+      ]
+    },
+    {
+      "type": "component",
+      "name": "Aside",
+      "props": {},
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 9,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 9,
+                "column": 1
+              },
+              "text": "Live updates are limited to JavaScript bundle changes. If you need to update native code — adding or removing a plugin, upgrading Capacitor, or changing native project configuration — you'll need to submit a new binary build through the usual app-store distribution process."
+            }
+          ]
+        }
+      ],
+      "location": {
+        "line": 8,
+        "column": 1
+      }
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 12,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 4
+          },
+          "text": "TLDR: OTA or native?"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "text": "Capgo can send files from your generated web build folder. If the change only affects HTML, CSS, JavaScript, assets, or pure-JavaScript packages bundled into that output, ship it as a live update."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "text": "Use a native app release when a change updates "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 16,
+            "column": 48
+          },
+          "text": "capacitor.config.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 69
+          },
+          "text": ", plugin configuration stored in Capacitor config, native plugins or dependencies, Capacitor itself, or iOS/Android project files. A practical check: if the change must update the native project through "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 16,
+            "column": 272
+          },
+          "text": "npx cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 286
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 16,
+            "column": 290
+          },
+          "text": "npx cap copy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 304
+          },
+          "text": " before installed devices can use it, treat it as native."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "text": "Change"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 12
+                  },
+                  "text": "Ship with Capgo OTA?"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 35
+                  },
+                  "text": "Why"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "text": "HTML, CSS, app JavaScript, images, fonts, and other web build assets"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 72
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 74
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 78
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 80
+                  },
+                  "text": "They are loaded from the web bundle at runtime."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 3
+                  },
+                  "text": "Pure-JavaScript package changes bundled into your web output"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 64
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 66
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 70
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 72
+                  },
+                  "text": "The generated JavaScript is part of the web bundle."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 22,
+                    "column": 3
+                  },
+                  "text": "capacitor.config.ts"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 24
+                  },
+                  "text": " changes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 35
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 40
+                  },
+                  "text": "Capacitor config is read into the native app at build time."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "text": "Adding, removing, or upgrading Capacitor/Cordova plugins"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 60
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 62
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 65
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 67
+                  },
+                  "text": "The installed native binary must contain the matching native code."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "text": "iOS or Android project file changes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 41
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 46
+                  },
+                  "text": "Existing users need a new binary from the stores."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 4
+          },
+          "text": "Client plugins by stack"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "text": "Capgo ships dedicated updater clients for each hybrid runtime:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 30,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 3
+                  },
+                  "text": "Plugin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 30,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 12
+                  },
+                  "text": "Use when"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 32,
+                    "column": 3
+                  },
+                  "url": "/docs/plugins/updater/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 32,
+                        "column": 4
+                      },
+                      "text": "@capgo/capacitor-updater"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 56
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 58
+                  },
+                  "text": "Capacitor iOS/Android apps"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 33,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 33,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 33,
+                    "column": 3
+                  },
+                  "url": "/docs/plugins/cordova-updater/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 33,
+                        "column": 4
+                      },
+                      "text": "@capgo/cordova-updater"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 33,
+                "column": 62
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 64
+                  },
+                  "text": "Cordova iOS 7+ / Android 13+ apps"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 34,
+                    "column": 3
+                  },
+                  "url": "/docs/plugins/electron-updater/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 34,
+                        "column": 4
+                      },
+                      "text": "@capgo/electron-updater"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 64
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 66
+                  },
+                  "text": "Electron desktop apps"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "text": "Native compatibility checks apply regardless of client plugin — they compare the bundle's recorded native dependencies against the installed binary."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 4
+          },
+          "text": "Why native compatibility matters"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 1
+          },
+          "text": "Every Capacitor app ships in two layers:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 42,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 3
+                  },
+                  "text": "The "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 42,
+                    "column": 7
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 42,
+                        "column": 9
+                      },
+                      "text": "native binary"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 24
+                  },
+                  "text": " users install from the App Store / Play Store. It contains Capacitor, your native plugins, and native configuration."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 43,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 3
+                  },
+                  "text": "The "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 43,
+                    "column": 7
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 43,
+                        "column": 9
+                      },
+                      "text": "JavaScript bundle"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 28
+                  },
+                  "text": " (your web app) that Capgo can update over the air."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 1
+          },
+          "text": "A live update swaps only the JavaScript layer. If that new JavaScript calls a native plugin or API that isn't compiled into the installed binary, the call fails at runtime — which can crash the app or silently break a feature. Put simply: Capgo cannot update native code, so a device running the old native build can't safely run a bundle that was built against new native code."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 47,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 47,
+            "column": 4
+          },
+          "text": "How Capgo detects compatibility"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 49,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 1
+          },
+          "text": "When you upload a bundle — or run the check manually — Capgo compares the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 49,
+            "column": 75
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 49,
+                "column": 77
+              },
+              "text": "native packages"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 94
+          },
+          "text": " in your local project (your Capacitor/Cordova plugins and their versions) against the native packages recorded for the bundle "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 49,
+            "column": 221
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 49,
+                "column": 223
+              },
+              "text": "currently live on the channel"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 254
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 51,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 51,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 51,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 51,
+                    "column": 3
+                  },
+                  "text": "If they match, the change is JavaScript-only and "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 51,
+                    "column": 52
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 51,
+                        "column": 54
+                      },
+                      "text": "safe to ship over the air"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 51,
+                    "column": 81
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 52,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 52,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 52,
+                    "column": 3
+                  },
+                  "text": "If a plugin was added, removed, or changed version, the bundle is "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 52,
+                    "column": 69
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 52,
+                        "column": 71
+                      },
+                      "text": "native-incompatible"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 52,
+                    "column": 92
+                  },
+                  "text": " — those changes only take effect once users install a new native binary."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 5
+          },
+          "text": "Check from the CLI"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx @capgo/cli@latest bundle compatibility com.example.app --channel production"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 1
+          },
+          "text": "The CLI prints a table of each native package with its local version, the version live on the channel, and a status:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "lang": "text",
+      "meta": null,
+      "text": "Package              Local    Remote   Status\n@capacitor/core      6.1.2    6.1.2    ✅\n@capacitor/share     6.0.0    6.0.0    ✅\n@capacitor/camera    6.1.0    —        ❌  not in the live bundle"
+    },
+    {
+      "type": "component",
+      "name": "Aside",
+      "props": {
+        "type": "tip"
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 70,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 70,
+                "column": 1
+              },
+              "text": "Add "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 70,
+                "column": 5
+              },
+              "text": "--text"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 70,
+                "column": 13
+              },
+              "text": " to swap the emojis for "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 70,
+                "column": 37
+              },
+              "text": "OK"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 70,
+                "column": 41
+              },
+              "text": "/"
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 70,
+                "column": 42
+              },
+              "text": "FAIL"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 70,
+                "column": 48
+              },
+              "text": " (handy in CI logs), and "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 70,
+                "column": 73
+              },
+              "text": "--package-json"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 70,
+                "column": 89
+              },
+              "text": " / "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 70,
+                "column": 92
+              },
+              "text": "--node-modules"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 70,
+                "column": 108
+              },
+              "text": " to point at the right paths in a monorepo."
+            }
+          ]
+        }
+      ],
+      "location": {
+        "line": 69,
+        "column": 1
+      }
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 5
+          },
+          "text": "Get a machine-readable verdict (CI)"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 75,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "text": "For pipelines, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 75,
+            "column": 16
+          },
+          "text": "bundle releaseType"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 36
+          },
+          "text": " collapses the check into a single word:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 77,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx @capgo/cli@latest bundle releaseType com.example.app --channel production\n# → OTA      safe to ship as a live update\n# → native   needs a new app-store build"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 1
+          },
+          "text": "Gate your release pipeline on this: ship a live update when it prints "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 83,
+            "column": 71
+          },
+          "text": "OTA"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 76
+          },
+          "text": ", and trigger a native build when it prints "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 83,
+            "column": 120
+          },
+          "text": "native"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 128
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 85,
+            "column": 4
+          },
+          "text": "What an incompatible update means for your users"
+        }
+      ]
+    },
+    {
+      "type": "component",
+      "name": "Aside",
+      "props": {
+        "type": "caution"
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 88,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 88,
+                "column": 1
+              },
+              "text": "By default, detecting incompatibility does "
+            },
+            {
+              "type": "strong",
+              "location": {
+                "line": 88,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 88,
+                    "column": 46
+                  },
+                  "text": "not"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 88,
+                "column": 51
+              },
+              "text": " block the upload — if you upload a native-incompatible bundle and set it as a channel's active build, Capgo "
+            },
+            {
+              "type": "strong",
+              "location": {
+                "line": 88,
+                "column": 160
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 88,
+                    "column": 162
+                  },
+                  "text": "will deliver it"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 88,
+                "column": 179
+              },
+              "text": " to devices on that channel. (You can turn this into a hard gate with "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 88,
+                "column": 249
+              },
+              "text": "--fail-on-incompatible"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 88,
+                "column": 273
+              },
+              "text": " — see "
+            },
+            {
+              "type": "link",
+              "location": {
+                "line": 88,
+                "column": 280
+              },
+              "url": "#prevent-incompatible-deliveries",
+              "title": null,
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 88,
+                    "column": 281
+                  },
+                  "text": "Prevent incompatible deliveries"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 88,
+                "column": 347
+              },
+              "text": " below.)"
+            }
+          ]
+        }
+      ],
+      "location": {
+        "line": 87,
+        "column": 1
+      }
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 91,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 91,
+            "column": 1
+          },
+          "text": "On devices still running the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 91,
+            "column": 30
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 91,
+                "column": 32
+              },
+              "text": "older native binary"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 91,
+            "column": 53
+          },
+          "text": ", the missing native code can cause crashes or broken features — even though the update downloaded and applied \"successfully.\" This is why a live update can be live and delivered yet still break the app for existing users, and why Capgo can warn you when an incompatible bundle goes live."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 93,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 93,
+            "column": 1
+          },
+          "text": "Capgo's "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 93,
+            "column": 9
+          },
+          "url": "/docs/live-updates/rollbacks/#automatic-rollback-protection",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 93,
+                "column": 10
+              },
+              "text": "automatic rollback"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 93,
+            "column": 90
+          },
+          "text": " can catch a JavaScript error thrown before "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 93,
+            "column": 134
+          },
+          "text": "notifyAppReady()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 93,
+            "column": 152
+          },
+          "text": " runs, but it isn't a substitute for shipping compatible native code — a mismatch that crashes later, or crashes natively, can slip past it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 95,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 95,
+            "column": 4
+          },
+          "text": "How to ship native changes safely"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 5
+          },
+          "text": "Publish a new native build (the real fix)"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 99,
+            "column": 1
+          },
+          "text": "When a bundle needs new native code, build and submit a new binary to the App Store / Play Store (or rebuild with Capgo Cloud Build). Once users update the binary, the bundle's native dependencies line up and the live update runs correctly."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 101,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 5
+          },
+          "text": "Roll back if an incompatible bundle is already live"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 1
+          },
+          "text": "If an incompatible bundle is already active on a channel, revert the channel to the last compatible build to stop serving it until the native build is out. See "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 103,
+            "column": 161
+          },
+          "url": "/docs/live-updates/rollbacks/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 103,
+                "column": 162
+              },
+              "text": "Rollbacks"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 103,
+            "column": 203
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 5
+          },
+          "text": "Prevent incompatible deliveries"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 107,
+            "column": 1
+          },
+          "text": "Two complementary guards, both of which actually inspect your native packages:"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 109,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 109,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 109,
+                "column": 3
+              },
+              "text": "Fail the upload in CI — "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 109,
+                "column": 27
+              },
+              "text": "--fail-on-incompatible"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 111,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 1
+          },
+          "text": "Add the flag to your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 111,
+            "column": 22
+          },
+          "text": "bundle upload"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 37
+          },
+          "text": " step. If the bundle's native packages don't match the channel's currently-live version, the upload "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 111,
+            "column": 137
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 111,
+                "column": 139
+              },
+              "text": "fails with a non-zero exit and nothing is shipped"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 190
+          },
+          "text": " — so your pipeline stops you from silently publishing an OTA update that can't take effect until users install a native build:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 113,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx @capgo/cli@latest bundle upload --channel production --fail-on-incompatible"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 1
+          },
+          "text": "Compatible uploads — and cases where the check can't run (a new channel, or no remote metadata) — pass through unchanged. In an interactive terminal it offers the Capgo Builder native-build flow instead; declining fails. (Can't be combined with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 117,
+            "column": 246
+          },
+          "text": "--ignore-metadata-check"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 271
+          },
+          "text": ".)"
+        }
+      ]
+    },
+    {
+      "type": "component",
+      "name": "Aside",
+      "props": {
+        "type": "tip"
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 120,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 120,
+                "column": 1
+              },
+              "text": "When you "
+            },
+            {
+              "type": "strong",
+              "location": {
+                "line": 120,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 120,
+                    "column": 12
+                  },
+                  "text": "intentionally"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 120,
+                "column": 27
+              },
+              "text": " need a bundle that differs from the channel's live native packages (new plugin, Capacitor upgrade, and so on), omit "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 120,
+                "column": 144
+              },
+              "text": "--fail-on-incompatible"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 120,
+                "column": 168
+              },
+              "text": " for that baseline upload. Keep the flag on everyday OTA CI. Full channel workflow: "
+            },
+            {
+              "type": "link",
+              "location": {
+                "line": 120,
+                "column": 252
+              },
+              "url": "/docs/live-updates/native-ota-channel-workflow/",
+              "title": null,
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 120,
+                    "column": 253
+                  },
+                  "text": "Native + OTA Channel Workflow"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 120,
+                "column": 332
+              },
+              "text": "."
+            }
+          ]
+        }
+      ],
+      "location": {
+        "line": 119,
+        "column": 1
+      }
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 123,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 123,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 123,
+                "column": 3
+              },
+              "text": "Gate delivery by native version — "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 123,
+                "column": 37
+              },
+              "text": "metadata"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 123,
+                "column": 47
+              },
+              "text": " + "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 123,
+                "column": 50
+              },
+              "text": "--auto-min-update-version"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 1
+          },
+          "text": "When you "
+        },
+        {
+          "type": "emphasis",
+          "location": {
+            "line": 125,
+            "column": 10
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 125,
+                "column": 11
+              },
+              "text": "do"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 14
+          },
+          "text": " ship the native build and the bundle together, put the channel on the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 125,
+            "column": 85
+          },
+          "text": "metadata"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 95
+          },
+          "text": " strategy and upload with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 125,
+            "column": 121
+          },
+          "text": "--auto-min-update-version"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 148
+          },
+          "text": ". Capgo runs the compatibility check on every upload and, when a bundle needs new native code, raises the update floor so devices that haven't installed the matching native build don't receive it:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 127,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "# one-time: switch the channel to the metadata strategy\nbunx @capgo/cli@latest channel set production com.example.app --disable-auto-update metadata\n\n# from then on, Capgo sets the floor automatically on every upload\nbunx @capgo/cli@latest bundle upload --channel production --auto-min-update-version"
+    },
+    {
+      "type": "component",
+      "name": "Aside",
+      "props": {
+        "type": "caution"
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 136,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 136,
+                "column": 1
+              },
+              "text": "Version-number rules like "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 136,
+                "column": 27
+              },
+              "text": "--disable-auto-update major"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 136,
+                "column": 56
+              },
+              "text": " are "
+            },
+            {
+              "type": "strong",
+              "location": {
+                "line": 136,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 136,
+                    "column": 63
+                  },
+                  "text": "not"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 136,
+                "column": 68
+              },
+              "text": " a substitute — they only block version jumps and never inspect native code, so a native change shipped in a minor or patch release still goes out. Use "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 136,
+                "column": 220
+              },
+              "text": "--fail-on-incompatible"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 136,
+                "column": 244
+              },
+              "text": " or "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 136,
+                "column": 248
+              },
+              "text": "--auto-min-update-version"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 136,
+                "column": 275
+              },
+              "text": ", which check your native packages."
+            }
+          ]
+        }
+      ],
+      "location": {
+        "line": 135,
+        "column": 1
+      }
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 1
+          },
+          "text": "See "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 139,
+            "column": 5
+          },
+          "url": "/docs/live-updates/version-targeting/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 139,
+                "column": 6
+              },
+              "text": "Version Targeting"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 63
+          },
+          "text": " for the full set of targeting options."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 141,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 4
+          },
+          "text": "Related"
+        }
+      ]
+    },
+    {
+      "type": "component",
+      "name": "CardGrid",
+      "props": {},
+      "blocks": [
+        {
+          "type": "element",
+          "name": "a",
+          "props": {
+            "href": "/docs/live-updates/native-ota-channel-workflow/"
+          },
+          "blocks": [
+            {
+              "type": "component",
+              "name": "Card",
+              "props": {
+                "title": "Native + OTA Workflow",
+                "icon": "approve-check-circle"
+              },
+              "blocks": [
+                {
+                  "type": "paragraph",
+                  "location": {
+                    "line": 146,
+                    "column": 7
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 146,
+                        "column": 7
+                      },
+                      "text": "Dev/production channels, when to keep "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 146,
+                        "column": 45
+                      },
+                      "text": "--fail-on-incompatible"
+                    },
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 146,
+                        "column": 69
+                      },
+                      "text": ", and how to ship an intentional native baseline."
+                    }
+                  ]
+                }
+              ],
+              "location": {
+                "line": 145,
+                "column": 5
+              }
+            }
+          ],
+          "location": {
+            "line": 144,
+            "column": 3
+          }
+        },
+        {
+          "type": "element",
+          "name": "a",
+          "props": {
+            "href": "/docs/builder/ci-ota-or-native/"
+          },
+          "blocks": [
+            {
+              "type": "component",
+              "name": "Card",
+              "props": {
+                "title": "Auto OTA or Native",
+                "icon": "rocket"
+              },
+              "blocks": [
+                {
+                  "type": "paragraph",
+                  "location": {
+                    "line": 151,
+                    "column": 7
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 151,
+                        "column": 7
+                      },
+                      "text": "Wire "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 151,
+                        "column": 12
+                      },
+                      "text": "bundle releaseType"
+                    },
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 151,
+                        "column": 32
+                      },
+                      "text": " into GitHub Actions or GitLab so CI picks live update vs Capgo Build."
+                    }
+                  ]
+                }
+              ],
+              "location": {
+                "line": 150,
+                "column": 5
+              }
+            }
+          ],
+          "location": {
+            "line": 149,
+            "column": 3
+          }
+        },
+        {
+          "type": "element",
+          "name": "a",
+          "props": {
+            "href": "/docs/live-updates/version-targeting/"
+          },
+          "blocks": [
+            {
+              "type": "component",
+              "name": "Card",
+              "props": {
+                "title": "Version Targeting",
+                "icon": "bars"
+              },
+              "blocks": [
+                {
+                  "type": "paragraph",
+                  "location": {
+                    "line": 156,
+                    "column": 7
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 156,
+                        "column": 7
+                      },
+                      "text": "Deliver only compatible bundles using channels, semver rules, and the metadata strategy."
+                    }
+                  ]
+                }
+              ],
+              "location": {
+                "line": 155,
+                "column": 5
+              }
+            }
+          ],
+          "location": {
+            "line": 154,
+            "column": 3
+          }
+        },
+        {
+          "type": "element",
+          "name": "a",
+          "props": {
+            "href": "/docs/live-updates/rollbacks/"
+          },
+          "blocks": [
+            {
+              "type": "component",
+              "name": "Card",
+              "props": {
+                "title": "Rollbacks",
+                "icon": "left-arrow"
+              },
+              "blocks": [
+                {
+                  "type": "paragraph",
+                  "location": {
+                    "line": 161,
+                    "column": 7
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 161,
+                        "column": 7
+                      },
+                      "text": "Revert a channel to the last compatible build if an incompatible bundle went live."
+                    }
+                  ]
+                }
+              ],
+              "location": {
+                "line": 160,
+                "column": 5
+              }
+            }
+          ],
+          "location": {
+            "line": 159,
+            "column": 3
+          }
+        },
+        {
+          "type": "element",
+          "name": "a",
+          "props": {
+            "href": "/docs/live-updates/update-types/"
+          },
+          "blocks": [
+            {
+              "type": "component",
+              "name": "Card",
+              "props": {
+                "title": "Update Types",
+                "icon": "open-book"
+              },
+              "blocks": [
+                {
+                  "type": "paragraph",
+                  "location": {
+                    "line": 166,
+                    "column": 7
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 166,
+                        "column": 7
+                      },
+                      "text": "How apply timing, delay conditions, and version blocking work together."
+                    }
+                  ]
+                }
+              ],
+              "location": {
+                "line": 165,
+                "column": 5
+              }
+            }
+          ],
+          "location": {
+            "line": 164,
+            "column": 3
+          }
+        },
+        {
+          "type": "element",
+          "name": "a",
+          "props": {
+            "href": "/docs/cli/reference/bundle/"
+          },
+          "blocks": [
+            {
+              "type": "component",
+              "name": "Card",
+              "props": {
+                "title": "CLI: bundle",
+                "icon": "setting"
+              },
+              "blocks": [
+                {
+                  "type": "paragraph",
+                  "location": {
+                    "line": 171,
+                    "column": 7
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 171,
+                        "column": 7
+                      },
+                      "text": "Reference for the bundle compatibility, releaseType, and upload options."
+                    }
+                  ]
+                }
+              ],
+              "location": {
+                "line": 170,
+                "column": 5
+              }
+            }
+          ],
+          "location": {
+            "line": 169,
+            "column": 3
+          }
+        }
+      ],
+      "location": {
+        "line": 143,
+        "column": 1
+      }
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 4
+          },
+          "text": "Keep going from Native Compatibility"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 178,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 1
+          },
+          "text": "If you are using "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 178,
+            "column": 18
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 178,
+                "column": 20
+              },
+              "text": "Native Compatibility"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 42
+          },
+          "text": " to keep live updates safe, connect it with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 178,
+            "column": 86
+          },
+          "url": "/docs/live-updates/version-targeting/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 178,
+                "column": 87
+              },
+              "text": "Version Targeting"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 144
+          },
+          "text": " to route bundles by native version, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 178,
+            "column": 181
+          },
+          "url": "/docs/live-updates/rollbacks/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 178,
+                "column": 182
+              },
+              "text": "Rollbacks"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 223
+          },
+          "text": " to recover when an incompatible bundle ships, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 178,
+            "column": 270
+          },
+          "url": "/docs/live-updates/update-types/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 178,
+                "column": 271
+              },
+              "text": "Update Types"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 318
+          },
+          "text": " to understand channel version blocking, and the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 178,
+            "column": 367
+          },
+          "url": "/docs/cli/reference/bundle/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 178,
+                "column": 368
+              },
+              "text": "Capgo CLI bundle reference"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 424
+          },
+          "text": " for the compatibility and releaseType commands."
+        }
+      ]
+    }
+  ]
+}

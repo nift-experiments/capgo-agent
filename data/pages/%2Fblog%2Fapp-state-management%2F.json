@@ -1,0 +1,4470 @@
+{
+  "version": 1,
+  "route": "/blog/app-state-management/",
+  "source": "corpus/source/apps/web/src/content/blog/en/app-state-management.md",
+  "sourceSha256": "2521ed41cd99177e661d2e0406e232c8e9b08e63a83f86857f2f7c42e482a935",
+  "metadata": {
+    "slug": "app-state-management",
+    "title": "App State Management: Architecture and Sync Guide",
+    "description": "Master app state management for Capacitor and Electron. Explore architectural patterns, offline-first sync, performance tuning, and migration strategies.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-09-17 08:03:36.100000+00:00",
+    "updated_at": "2026-09-17 08:06:32+00:00",
+    "head_image": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/d0514308-19d5-498d-9500-3196ee3fb066/app-state-management-architecture-guide.jpg",
+    "head_image_alt": "App State Management: Architecture and Sync Guide",
+    "keywords": "app state management, Capacitor state, offline-first sync, mobile architecture, state persistence",
+    "tag": "Mobile, Technology, Capacitor",
+    "published": true,
+    "locale": "en",
+    "next_blog": ""
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 1,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 1,
+            "column": 1
+          },
+          "text": "The most popular advice about "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 1,
+            "column": 31
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 1,
+                "column": 33
+              },
+              "text": "app state management"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 1,
+            "column": 55
+          },
+          "text": " is also the least useful: pick one global store and put everything in it. That approach treats API responses, modal visibility, unsaved form input, authentication, and navigation filters as if they had the same lifecycle. They don't. A Capacitor or Electron application runs across a web layer and native or desktop runtime, so state must be separated by "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 1,
+            "column": 411
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 1,
+                "column": 413
+              },
+              "text": "where it comes from, how long it should live, who owns it, and what happens when the network or process disappears"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 1,
+            "column": 529
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 3,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 1
+          },
+          "text": "State management became foundational because mobile runtimes are volatile. Apps can be destroyed and recreated after orientation changes or low-memory conditions, and Android provides instance-state restoration and lifecycle callbacks such as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 3,
+            "column": 244
+          },
+          "text": "onSaveInstanceState()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 267
+          },
+          "text": " for that reason, as documented in a "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 3,
+            "column": 304
+          },
+          "url": "https://escholarship.org/content/qt94f9f2js/qt94f9f2js_noSplash_23e66db7f240d858750d79aaf5fe36cc.pdf",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 3,
+                "column": 305
+              },
+              "text": "UC Riverside study of reliable mobile app state management"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 466
+          },
+          "text": ". The same study examined "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 3,
+            "column": 492
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 3,
+                "column": 494
+              },
+              "text": "966 apps and 4,808 activities"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 525
+          },
+          "text": ", finding that "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 3,
+            "column": 540
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 3,
+                "column": 542
+              },
+              "text": "452 apps, or 46.8%, contained at least one activity with non-empty state"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 616
+          },
+          "text": ", while "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 3,
+            "column": 624
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 3,
+                "column": 626
+              },
+              "text": "1,896 activities"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 644
+          },
+          "text": " had non-empty state overall. State isn't an optional abstraction you add after the UI works. It is part of the runtime contract."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 5,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 5,
+            "column": 4
+          },
+          "text": "Table of Contents"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 6,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 6,
+                    "column": 3
+                  },
+                  "url": "#rethinking-the-global-store-model",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 6,
+                        "column": 4
+                      },
+                      "text": "Rethinking the Global Store Model"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 7,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 7,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 7,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 7,
+                            "column": 5
+                          },
+                          "url": "#why-one-store-creates-architectural-drag",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 7,
+                                "column": 6
+                              },
+                              "text": "Why one store creates architectural drag"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "url": "#architectural-patterns-for-cross-platform-apps",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 8,
+                        "column": 4
+                      },
+                      "text": "Architectural Patterns for Cross-Platform Apps"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 9,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 9,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 9,
+                            "column": 5
+                          },
+                          "url": "#local-state-should-be-the-default",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 9,
+                                "column": 6
+                              },
+                              "text": "Local state should be the default"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 10,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 10,
+                            "column": 5
+                          },
+                          "url": "#events-are-useful-but-they-arent-a-database",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 10,
+                                "column": 6
+                              },
+                              "text": "Events are useful, but they aren't a database"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "url": "#persistence-and-offline-first-synchronization",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 11,
+                        "column": 4
+                      },
+                      "text": "Persistence and Offline-First Synchronization"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 12,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 12,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 12,
+                            "column": 5
+                          },
+                          "url": "#build-a-durable-write-path",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 12,
+                                "column": 6
+                              },
+                              "text": "Build a durable write path"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 13,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 13,
+                            "column": 5
+                          },
+                          "url": "#conflict-policy-is-a-product-decision",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 13,
+                                "column": 6
+                              },
+                              "text": "Conflict policy is a product decision"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 14,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "url": "#performance-tuning-and-testing-strategies",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 14,
+                        "column": 4
+                      },
+                      "text": "Performance Tuning and Testing Strategies"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 15,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 15,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 15,
+                            "column": 5
+                          },
+                          "url": "#tune-the-update-boundary",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 15,
+                                "column": 6
+                              },
+                              "text": "Tune the update boundary"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 16,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 16,
+                            "column": 5
+                          },
+                          "url": "#test-transitions-not-just-values",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 16,
+                                "column": 6
+                              },
+                              "text": "Test transitions, not just values"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 17,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 17,
+                    "column": 3
+                  },
+                  "url": "#platform-specific-guidance-for-capacitor-and-electron",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 17,
+                        "column": 4
+                      },
+                      "text": "Platform-Specific Guidance for Capacitor and Electron"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 18,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 18,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 18,
+                            "column": 5
+                          },
+                          "url": "#capacitor-requires-lifecycle-aware-hydration",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 18,
+                                "column": 6
+                              },
+                              "text": "Capacitor requires lifecycle-aware hydration"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 19,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 19,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 19,
+                            "column": 5
+                          },
+                          "url": "#electron-needs-process-ownership",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 19,
+                                "column": 6
+                              },
+                              "text": "Electron needs process ownership"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 20,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "url": "#migrating-to-a-modern-hybrid-architecture",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 20,
+                        "column": 4
+                      },
+                      "text": "Migrating to a Modern Hybrid Architecture"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 21,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 21,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 21,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 21,
+                            "column": 5
+                          },
+                          "url": "#start-with-ownership-not-technology",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 21,
+                                "column": 6
+                              },
+                              "text": "Start with ownership, not technology"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 22,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 22,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 22,
+                            "column": 5
+                          },
+                          "url": "#extract-feature-state-incrementally",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 22,
+                                "column": 6
+                              },
+                              "text": "Extract feature state incrementally"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 23,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "url": "#best-practices-and-common-mistakes-to-avoid",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 23,
+                        "column": 4
+                      },
+                      "text": "Best Practices and Common Mistakes to Avoid"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "text": "<a id=\"rethinking-the-global-store-model\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 25,
+            "column": 43
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 4
+          },
+          "text": "Rethinking the Global Store Model"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/b99dda03-a33f-4466-ba00-1ac8fe3cdafb/app-state-management-global-store.jpg",
+          "title": null,
+          "alt": "A diagram titled Rethinking the Global Store Paradigm illustrating the differences between server cache, client UI state, and URL state."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "text": "Redux versus Context versus MobX is the wrong starting point. A store can coordinate updates, but it cannot determine whether a value belongs to the server, the current screen, a form workflow, or the address bar. Putting every value into one global container creates duplicated API caches, stale URL parameters, and subscriptions that make unrelated screens rerender."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "text": "A durable design assigns each value an owner and a recovery policy:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 34,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 34,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 34,
+                        "column": 5
+                      },
+                      "text": "Server state"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 19
+                  },
+                  "text": " belongs to the data-fetching and caching layer. API responses, loading status, errors, freshness, invalidation, and retries all describe a remote resource. The server remains authoritative, so the client should not maintain a second permanent source of truth."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 35,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 35,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 35,
+                        "column": 5
+                      },
+                      "text": "Client or UI state"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 25
+                  },
+                  "text": " stays near the component or feature that owns it. Modal visibility, selected tabs, expanded rows, theme preferences, and temporary interaction flags usually need no application-wide persistence."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 36,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 36,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 36,
+                        "column": 5
+                      },
+                      "text": "Form state"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 17
+                  },
+                  "text": " follows a separate workflow. Draft input, validation messages, dirty status, and submission progress may need to survive navigation inside a form, but they should not automatically become shared business state."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 37,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 37,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 37,
+                        "column": 5
+                      },
+                      "text": "URL state"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 16
+                  },
+                  "text": " belongs to the router. Search terms, filters, sorting choices, selected records, and pagination in the address bar can be bookmarked, shared, restored, and inspected without copying them into another store."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 39,
+            "column": 1
+          },
+          "text": "<a id=\"why-one-store-creates-architectural-drag\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 39,
+            "column": 50
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 5
+          },
+          "text": "Why one store creates architectural drag"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "text": "The 2024 "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 42,
+            "column": 10
+          },
+          "url": "https://www.arxiv.org/abs/2407.19318",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 42,
+                "column": 11
+              },
+              "text": "detailed review of Application State Management"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 97
+          },
+          "text": " examines state management across web and mobile applications. Its coverage reflects a practical shift from scattered UI variables toward explicit, lifecycle-aware architecture. Android's progression from instance-state bundles to ViewModel and SavedStateHandle follows the same direction, but it does not mean every value belongs in one shared container."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 44,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "text": "A global store still has a defined role. Session identity, permissions, app-level preferences, connectivity policy, and carefully bounded cross-feature workflows may require shared ownership. Problems begin when that store becomes a dumping ground for values with a more suitable owner."
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "location": {
+        "line": 46,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 46,
+            "column": 3
+          },
+          "blocks": [
+            {
+              "type": "strong",
+              "location": {
+                "line": 46,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 5
+                  },
+                  "text": "Practical rule:"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 46,
+                "column": 22
+              },
+              "text": " If a value can be reconstructed from the server, the URL, or the current component, keep it out of global state unless a specific workflow requires otherwise."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 48,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 1
+          },
+          "text": "This boundary also supports independently owned modules. Teams splitting a product into deployable areas can apply the ownership principles used in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 48,
+            "column": 149
+          },
+          "url": "https://capgo.app/blog/what-is-a-micro-frontend/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 48,
+                "column": 150
+              },
+              "text": "micro-frontend architecture"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 48,
+            "column": 228
+          },
+          "text": ", rather than building one dependency graph across the application. In a Capacitor or Electron codebase, a hybrid model works better: remote data uses cache and synchronization rules, UI values remain local, and durable workflow state gets explicit persistence. That separation limits competing writers and makes recovery after reloads, suspended processes, or offline periods easier to reason about."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 50,
+            "column": 1
+          },
+          "text": "<a id=\"architectural-patterns-for-cross-platform-apps\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 50,
+            "column": 56
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 51,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 51,
+            "column": 4
+          },
+          "text": "Architectural Patterns for Cross-Platform Apps"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 53,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 53,
+            "column": 1
+          },
+          "text": "Once state has an owner, the implementation choice becomes much narrower. Most client-side state fits one of three patterns: "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 53,
+            "column": 126
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 53,
+                "column": 128
+              },
+              "text": "localized component state"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 53,
+            "column": 155
+          },
+          "text": ", a "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 53,
+            "column": 159
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 53,
+                "column": 161
+              },
+              "text": "small shared store"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 53,
+            "column": 181
+          },
+          "text": ", or "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 53,
+            "column": 186
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 53,
+                "column": 188
+              },
+              "text": "event-driven communication"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 53,
+            "column": 216
+          },
+          "text": " between isolated modules. None is universally superior. The wrong choice usually appears when a team selects a pattern before identifying update frequency, ownership, and recovery requirements."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 55,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 55,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 55,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 3
+                  },
+                  "text": "Pattern"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 55,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 13
+                  },
+                  "text": "Complexity"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 55,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 26
+                  },
+                  "text": "Memory Footprint"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 55,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 55,
+                    "column": 45
+                  },
+                  "text": "Best Use Case"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 57,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 57,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 57,
+                    "column": 3
+                  },
+                  "text": "Localized component state"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 57,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 57,
+                    "column": 31
+                  },
+                  "text": "Low"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 57,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 57,
+                    "column": 37
+                  },
+                  "text": "Low"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 57,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 57,
+                    "column": 43
+                  },
+                  "text": "Screen-specific toggles, drafts, disclosure panels, temporary selection"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 58,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 58,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 58,
+                    "column": 3
+                  },
+                  "text": "Centralized lightweight store"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 58,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 58,
+                    "column": 35
+                  },
+                  "text": "Moderate"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 58,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 58,
+                    "column": 46
+                  },
+                  "text": "Moderate"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 58,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 58,
+                    "column": 57
+                  },
+                  "text": "Shared session preferences, theme, active workspace, cross-feature UI coordination"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 59,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 59,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 59,
+                    "column": 3
+                  },
+                  "text": "Event bus architecture"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 59,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 59,
+                    "column": 28
+                  },
+                  "text": "Moderate to high"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 59,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 59,
+                    "column": 47
+                  },
+                  "text": "Variable"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 59,
+                "column": 56
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 59,
+                    "column": 58
+                  },
+                  "text": "Loosely coupled modules, plugin notifications, native bridge events, isolated feature boundaries"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 61,
+            "column": 1
+          },
+          "text": "<a id=\"local-state-should-be-the-default\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 61,
+            "column": 43
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 5
+          },
+          "text": "Local state should be the default"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 1
+          },
+          "text": "A component-local value has a short dependency path. When a modal opens, a row expands, or a form field changes, the owning feature can update without notifying the entire application. This reduces accidental coupling and makes unit tests direct. It also limits retained memory when mobile screens are suspended or desktop windows remain open for long sessions."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "text": "Local state becomes awkward when several distant features need the same value or when a workflow crosses route boundaries. In those cases, lifting state to a feature store is usually better than placing it in an application-wide singleton. A small store such as Zustand or Pinia can expose focused selectors and explicit actions without requiring every component to subscribe to every change."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 68,
+            "column": 1
+          },
+          "text": "The trade-off is discipline. Lightweight stores are easy to create, so teams can end up with many overlapping stores and unclear ownership. Name the owner, define mutation methods, and avoid exposing a mutable object that any component can rewrite."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 70,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 70,
+            "column": 1
+          },
+          "text": "<a id=\"events-are-useful-but-they-arent-a-database\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 70,
+            "column": 53
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 5
+          },
+          "text": "Events are useful, but they aren't a database"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 1
+          },
+          "text": "An event bus works well for notifications such as “the native share completed,” “the window became active,” or “a background task received new data.” It helps plugins and modules communicate without importing one another. It works poorly as the only record of business state because events are transient. A subscriber that was suspended, unloaded, or registered late may miss the message."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 75,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "text": "Use events to announce that something happened, then let the receiving module query its authoritative store or data layer. Keep event names narrow and payloads versioned where native and web code may evolve separately."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 77,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 1
+          },
+          "text": "For broader architectural context, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 77,
+            "column": 36
+          },
+          "url": "https://www.bridge-global.com/blog/cross-platform-mobile-app-development/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 77,
+                "column": 37
+              },
+              "text": "mobile app development insights from Bridge Global"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 163
+          },
+          "text": " are useful when weighing shared code against platform-specific behavior. The same boundary applies to app state: share domain rules where they are stable, but isolate lifecycle adapters and native integration points. A practical "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 77,
+            "column": 393
+          },
+          "url": "https://capgo.app/blog/mobile-application-architecture/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 77,
+                "column": 394
+              },
+              "text": "mobile application architecture"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 483
+          },
+          "text": " should make those boundaries visible in the folder structure and dependency graph."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 79,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 79,
+            "column": 1
+          },
+          "text": "<a id=\"persistence-and-offline-first-synchronization\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 79,
+            "column": 55
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 4
+          },
+          "text": "Persistence and Offline-First Synchronization"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 1
+          },
+          "text": "An in-memory store is not durable state. The operating system can suspend or terminate a mobile process, a desktop user can close a window, and a network can disappear while a mutation is in flight. Offline-first design starts by deciding what the user must be able to recover, then choosing storage and synchronization rules around that requirement."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 84,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 84,
+            "column": 1
+          },
+          "text": "<a id=\"build-a-durable-write-path\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 84,
+            "column": 36
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 85,
+            "column": 5
+          },
+          "text": "Build a durable write path"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 87,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 87,
+            "column": 1
+          },
+          "text": "A reliable flow separates the immediate user experience from remote acknowledgement:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 89,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 89,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 89,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 89,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 89,
+                        "column": 6
+                      },
+                      "text": "Write locally first."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 89,
+                    "column": 28
+                  },
+                  "text": " Apply the user action to a local database or durable document store so the interface responds without waiting for the network."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 90,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 90,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 90,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 90,
+                        "column": 6
+                      },
+                      "text": "Queue the mutation."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 90,
+                    "column": 27
+                  },
+                  "text": " Store an operation with its entity identifier, operation type, payload, creation context, and retry status. A queue held only in memory disappears with the process."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 91,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 91,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 91,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 91,
+                        "column": 6
+                      },
+                      "text": "Render an honest status."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 91,
+                    "column": 32
+                  },
+                  "text": " Distinguish saved locally, pending synchronization, synchronized, and failed. Users need to know whether a change is durable on the device or confirmed remotely."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 92,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 92,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 92,
+                        "column": 6
+                      },
+                      "text": "Sync when conditions allow."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 92,
+                    "column": 35
+                  },
+                  "text": " Reconnect listeners, app foreground events, and scheduled background work can trigger retries. The sync worker should be idempotent because interrupted requests may be sent again."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 93,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 93,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 93,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 93,
+                        "column": 6
+                      },
+                      "text": "Resolve conflicts deliberately."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 93,
+                    "column": 39
+                  },
+                  "text": " The server response must determine whether the local operation was accepted, rejected, merged, or requires user review."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 95,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 95,
+            "column": 1
+          },
+          "text": "SQLite is a practical choice for relational records and transactional queues in native-backed applications. IndexedDB can suit browser-oriented storage and Electron renderer code, provided the team handles schema upgrades and transaction boundaries carefully. Keep serialization explicit. Persist domain data and recovery metadata, not component instances, closures, or references to native objects."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/de673fbc-6b9f-47ad-a7f2-af200f5bf021/app-state-management-offline-synchronization.jpg",
+          "title": null,
+          "alt": "A five-step diagram explaining the process of persistence and offline-first synchronization in software applications."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 99,
+            "column": 1
+          },
+          "text": "<a id=\"conflict-policy-is-a-product-decision\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 99,
+            "column": 47
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 100,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 5
+          },
+          "text": "Conflict policy is a product decision"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 102,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 102,
+            "column": 1
+          },
+          "text": "Last-write-wins is simple, but it can discard legitimate edits. Field-level merging works when independent fields can safely combine. Domain-specific rules are safer for inventory, approvals, financial records, or clinical workflows, where an automatic merge could change meaning. Some conflicts should block synchronization and ask the user to choose."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 104,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 104,
+            "column": 1
+          },
+          "text": "The sync layer should also separate "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 104,
+            "column": 37
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 104,
+                "column": 39
+              },
+              "text": "read reconciliation"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 104,
+            "column": 60
+          },
+          "text": " from "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 104,
+            "column": 66
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 104,
+                "column": 68
+              },
+              "text": "mutation replay"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 104,
+            "column": 85
+          },
+          "text": ". Refetching server data doesn't prove that a queued mutation succeeded, and replaying a mutation doesn't guarantee that the resulting record still matches the current server representation. Record server versions or equivalent validators, return structured conflict responses, and retain enough queue history to explain failures."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 106,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 106,
+            "column": 1
+          },
+          "text": "For the user-facing portion of this design, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 106,
+            "column": 45
+          },
+          "url": "https://capgo.app/blog/create-offline-screen-in-vue-angular-react/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 106,
+                "column": 46
+              },
+              "text": "creating an offline screen in Vue, Angular, or React"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 106,
+            "column": 167
+          },
+          "text": " provides a useful interface concern: offline mode should be a visible application state, not an exception hidden in a console."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 108,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 1
+          },
+          "text": "The following video can complement implementation work around offline behavior and synchronization:"
+        }
+      ]
+    },
+    {
+      "type": "html",
+      "location": {
+        "line": 110,
+        "column": 1
+      },
+      "text": "<iframe width=\"100%\" style=\"aspect-ratio: 16 / 9;\" src=\"https://www.youtube.com/embed/EBXOjQds8hU\" frameborder=\"0\" allow=\"autoplay; encrypted-media\" allowfullscreen></iframe>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 112,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 112,
+            "column": 1
+          },
+          "text": "<a id=\"performance-tuning-and-testing-strategies\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 112,
+            "column": 51
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 113,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 4
+          },
+          "text": "Performance Tuning and Testing Strategies"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 115,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 1
+          },
+          "text": "State performance problems rarely begin with a single slow reducer. They emerge when broad subscriptions cause unrelated components to render, derived values recompute unnecessarily, large object graphs stay referenced, or synchronization work runs on the UI thread. Measure update propagation rather than guessing which library is fastest."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 1
+          },
+          "text": "A 2026 benchmark using a dashboard with "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 117,
+            "column": 41
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 117,
+                "column": 43
+              },
+              "text": "100 connected components and 10,000 iterations"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 91
+          },
+          "text": " measured MobX at "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 117,
+            "column": 109
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 117,
+                "column": 111
+              },
+              "text": "0.3 ms for simple changes, 0.4 ms for nested changes, and 0.6 ms for derived changes"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 197
+          },
+          "text": ", while Redux Toolkit measured "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 117,
+            "column": 228
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 117,
+                "column": 230
+              },
+              "text": "0.8 ms, 1.2 ms, and 1.5 ms"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 258
+          },
+          "text": " in the corresponding tests. The same benchmark recorded "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 117,
+            "column": 315
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 117,
+                "column": 317
+              },
+              "text": "2.8 MB for Zustand and 4.2 MB for Redux Toolkit"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 366
+          },
+          "text": " in its memory comparison. These are benchmark-specific observations, not universal production guarantees, but they illustrate why subscription granularity and update strategy matter. See the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 117,
+            "column": 558
+          },
+          "url": "https://www.devtoolreviews.com/reviews/redux-vs-zustand-vs-recoil-vs-mobx-react-state-management-2026",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 117,
+                "column": 559
+              },
+              "text": "comparative React state management benchmark"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 707
+          },
+          "text": " for the test context."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 119,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 119,
+            "column": 1
+          },
+          "text": "<a id=\"tune-the-update-boundary\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 119,
+            "column": 34
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 120,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 5
+          },
+          "text": "Tune the update boundary"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 122,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 122,
+            "column": 1
+          },
+          "text": "Start with selectors. A component should subscribe to the smallest meaningful slice, not the entire session object or API response. Keep derived data memoized when computation is expensive, but don't memoize every primitive by reflex. Memoization also adds retention and comparison work, so profile before and after."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 124,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 124,
+            "column": 1
+          },
+          "text": "Virtualize long lists, normalize records when updates target individual entities, and avoid replacing a large root object for a small field change. In Electron, watch renderer memory over long sessions because windows may remain alive much longer than a mobile screen. In Capacitor, avoid synchronous persistence during a burst of input. Debounce drafts or persist meaningful checkpoints, while ensuring a crash cannot lose data the product promises to retain."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 126,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 126,
+            "column": 1
+          },
+          "text": "A Springer-linked study found that changing the state management approach reduced program execution time by an average of "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 126,
+            "column": 123
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 126,
+                "column": 125
+              },
+              "text": "17% across test scenarios"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 126,
+            "column": 152
+          },
+          "text": ", supporting the idea that reducing unnecessary synchronization and recomputation can produce material runtime gains. The result appears in the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 126,
+            "column": 296
+          },
+          "url": "https://link.springer.com/chapter/10.1007/978-3-031-36118-0_6",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 126,
+                "column": 297
+              },
+              "text": "study of web application state management performance"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 126,
+            "column": 414
+          },
+          "text": ", and it shouldn't be treated as a guaranteed improvement for every stack."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 128,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 128,
+            "column": 1
+          },
+          "text": "<a id=\"test-transitions-not-just-values\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 128,
+            "column": 42
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 5
+          },
+          "text": "Test transitions, not just values"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 131,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 1
+          },
+          "text": "A state test that checks "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 131,
+            "column": 26
+          },
+          "text": "isLoading"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 37
+          },
+          "text": " after a successful request misses the dangerous paths. Test the sequence:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 133,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 133,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 133,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 133,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 133,
+                        "column": 5
+                      },
+                      "text": "Hydration:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 133,
+                    "column": 17
+                  },
+                  "text": " persisted data loads, invalid records are rejected, and defaults fill only missing fields."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 134,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 134,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 134,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 134,
+                        "column": 5
+                      },
+                      "text": "Interruption:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 134,
+                    "column": 20
+                  },
+                  "text": " a request is cancelled or the app backgrounds during a mutation."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 135,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 135,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 135,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 135,
+                        "column": 5
+                      },
+                      "text": "Replay:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 135,
+                    "column": 14
+                  },
+                  "text": " queued operations retry safely and don't duplicate server effects."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 136,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 136,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 136,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 136,
+                        "column": 5
+                      },
+                      "text": "Conflict:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 136,
+                    "column": 16
+                  },
+                  "text": " the server rejects an outdated version and the UI exposes a recoverable resolution."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 137,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 137,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 137,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 137,
+                        "column": 5
+                      },
+                      "text": "Isolation:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 137,
+                    "column": 17
+                  },
+                  "text": " a local UI update doesn't cause unrelated features to render or mutate."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 1
+          },
+          "text": "Mock server-state adapters at the network boundary, then use integration tests for complete workflows. Add instrumentation in development and CI to detect unexpected subscriber counts, unbounded queues, and state transitions that occur after a feature has unmounted. The most valuable test fixture is often a realistic lifecycle sequence, not another isolated reducer assertion. Use "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 139,
+            "column": 384
+          },
+          "url": "https://capgo.app/blog/app-performance-optimization/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 139,
+                "column": 385
+              },
+              "text": "app performance optimization guidance"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 477
+          },
+          "text": " when turning those measurements into a repeatable release check."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 141,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 141,
+            "column": 1
+          },
+          "text": "<a id=\"platform-specific-guidance-for-capacitor-and-electron\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 141,
+            "column": 63
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 142,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 4
+          },
+          "text": "Platform-Specific Guidance for Capacitor and Electron"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 144,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "text": "A web application can assume that its JavaScript process remains available longer than a mobile app can. Capacitor and Electron remove that assumption in different ways. Capacitor places the web layer inside a mobile lifecycle managed by iOS or Android, while Electron keeps a Chromium renderer connected to a desktop process model with windows that can appear and disappear independently."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 146,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/c509dd2d-fdeb-49cb-8579-4e1a3640e93f/app-state-management-web-native-development.jpg",
+          "title": null,
+          "alt": "A laptop, smartphone, and notebook on a wooden desk demonstrating web and native application state management."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 148,
+            "column": 1
+          },
+          "text": "<a id=\"capacitor-requires-lifecycle-aware-hydration\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 148,
+            "column": 54
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 149,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 149,
+            "column": 5
+          },
+          "text": "Capacitor requires lifecycle-aware hydration"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 151,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 1
+          },
+          "text": "Treat backgrounding as a checkpoint opportunity, not proof that the process will resume. On an app-state change, flush critical pending mutations, record the current synchronization cursor, and release resources that shouldn't remain active. On foreground, rehydrate what was lost, verify authentication, refresh stale server data, and restart subscriptions only after the local store is ready."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 153,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 153,
+            "column": 1
+          },
+          "text": "The JavaScript store shouldn't directly own native plugin internals. Camera sessions, biometric prompts, push registration, filesystem handles, and background tasks each have platform lifecycle rules. Wrap them in adapters that translate native callbacks into domain events or commands. The store can then represent states such as unavailable, requesting, active, failed, or completed without retaining a native object that becomes invalid after suspension."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 155,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 1
+          },
+          "text": "A webview boundary also makes serialization important. Pass plain data across the Capacitor bridge, validate plugin responses, and version messages when a live update may leave different web bundles interacting with installed native code. "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 155,
+            "column": 240
+          },
+          "url": "https://capgo.app/blog/how-capacitor-bridges-web-and-native-code/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 155,
+                "column": 241
+              },
+              "text": "How Capacitor bridges web and native code"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 350
+          },
+          "text": " explains the boundary that makes this adapter approach necessary."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 157,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 157,
+            "column": 1
+          },
+          "text": "<a id=\"electron-needs-process-ownership\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 157,
+            "column": 42
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 5
+          },
+          "text": "Electron needs process ownership"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "text": "Electron's main process should own privileged operations and durable coordination, while renderers own view-specific state. Use typed IPC commands for actions such as reading secure settings, writing files, or coordinating windows. Don't expose broad filesystem access to every renderer, and don't treat an event sent to one window as a durable application record."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 162,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 162,
+            "column": 1
+          },
+          "text": "Multi-window applications need an explicit synchronization model. The main process can distribute authoritative updates, while each renderer maintains local presentation state. If two windows edit the same record, the application needs version checks or a conflict policy, not merely a broadcast event. A closed window must be able to reconstruct state when it opens again, so the main process or persistence layer must remain the source for recoverable data."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 164,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 1
+          },
+          "text": "Capacitor and Electron can share domain models, API clients, queue formats, and reducers. They shouldn't necessarily share lifecycle code. The strongest cross-platform architecture has a common state vocabulary and platform-specific durability, bridge, and recovery adapters."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 166,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 166,
+            "column": 1
+          },
+          "text": "<a id=\"migrating-to-a-modern-hybrid-architecture\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 166,
+            "column": 51
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 167,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 4
+          },
+          "text": "Migrating to a Modern Hybrid Architecture"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 1
+          },
+          "text": "A legacy global store rarely needs a rewrite. It needs an inventory and a sequence of safe extractions. Migration works best when each feature can move one state class at a time while the old store remains available for untouched screens."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 171,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 171,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/5b925e76-6c82-4c33-b312-6e7873840edc/app-state-management-hybrid-architecture.jpg",
+          "title": null,
+          "alt": "A four-phase diagram illustrating the process of migrating to a modern hybrid application state architecture."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 173,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 173,
+            "column": 1
+          },
+          "text": "<a id=\"start-with-ownership-not-technology\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 173,
+            "column": 45
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 5
+          },
+          "text": "Start with ownership, not technology"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 1
+          },
+          "text": "Create a state catalogue for the existing store. For every field, record its source, consumers, mutation paths, persistence requirement, and recovery behavior. Mark whether it is server-derived, route-derived, form-owned, feature-local, or shared. This exercise often reveals that the global store contains several unrelated systems hidden behind one API."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 178,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 1
+          },
+          "text": "Move server state first. Replace manually mirrored API fields with a dedicated fetching and caching layer that owns request status, invalidation, retries, and revalidation. Keep selectors temporarily compatible so existing screens can migrate without changing every call site at once. Delete the duplicated server copy only after the new source has passed integration tests."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 180,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 180,
+            "column": 1
+          },
+          "text": "Next, return URL state to the router. Search filters and selected resources should survive reloads and sharing through route parameters or query state. Remove synchronization effects that copy URL values into a store and then copy store values back into the URL. Those loops create race conditions and make browser history harder to trust."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "text": "<a id=\"extract-feature-state-incrementally\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 182,
+            "column": 45
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 183,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 183,
+            "column": 5
+          },
+          "text": "Extract feature state incrementally"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 185,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 185,
+            "column": 1
+          },
+          "text": "Move modal state, wizard progress, and local selection into the nearest feature boundary. If multiple components need the value, use a feature store with a narrow interface. Reserve the remaining global store for cross-cutting concerns such as session policy, theme, permissions, or an explicitly shared workflow."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 187,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 187,
+            "column": 1
+          },
+          "text": "Use a compatibility layer during the transition. It can read from the new source while exposing the old selector shape, allowing features to migrate behind flags. Release each extraction independently, monitor error paths and hydration behavior, and keep a rollback route until the new ownership model proves stable."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 189,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 189,
+            "column": 1
+          },
+          "text": "For Capacitor and Electron teams, Capgo can deliver signed JavaScript, CSS, configuration, and asset bundles through targeted channels, with rollout controls, version history, device logs, adoption and failure metrics, and automatic rollback protection. That makes it possible to ship a state-management refactor incrementally, while native changes still follow the relevant platform release process. The operational benefit is control over the migration, not a reason to skip tests or compatibility planning."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 191,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "text": "<a id=\"best-practices-and-common-mistakes-to-avoid\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 191,
+            "column": 53
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 192,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 192,
+            "column": 4
+          },
+          "text": "Best Practices and Common Mistakes to Avoid"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 194,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 194,
+            "column": 1
+          },
+          "text": "State architecture fails when review questions stay vague. Use these checks in design reviews and pull requests:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 196,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 196,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 196,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 196,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 196,
+                        "column": 5
+                      },
+                      "text": "Name the owner in code:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 196,
+                    "column": 30
+                  },
+                  "text": " Ask, “Which module can change this value, and what API enforces that boundary?” Reject a store added only because two components currently need the same field."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 197,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 197,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 197,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 197,
+                        "column": 5
+                      },
+                      "text": "Define the recovery contract:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 197,
+                    "column": 36
+                  },
+                  "text": " For each persisted value, document whether reload, app restart, logout, and account switching preserve or clear it. A draft invoice may survive a restart, while a selected workspace may require revalidation."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 198,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 198,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 198,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 198,
+                        "column": 5
+                      },
+                      "text": "Make synchronization observable:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 198,
+                    "column": 39
+                  },
+                  "text": " Log request IDs, record versions, retry counts, and conflict outcomes. Set an alert for repeated retry or conflict failures before users report missing updates."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 199,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 199,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 199,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 199,
+                        "column": 5
+                      },
+                      "text": "Review commands, not object shape:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 199,
+                    "column": 41
+                  },
+                  "text": " A mutation should state its business intent, validate inputs, and expose an audit-friendly action name. Direct writes that bypass those checks belong in review discussions."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 200,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 200,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 200,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 200,
+                        "column": 5
+                      },
+                      "text": "Test hostile sequences:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 200,
+                    "column": 30
+                  },
+                  "text": " Run tests for hydration racing with navigation, an interrupted write followed by retry, duplicate delivery, offline edits from two windows, and logout during a pending request."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 201,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 201,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 201,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 201,
+                        "column": 5
+                      },
+                      "text": "Check the removal path:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 201,
+                    "column": 30
+                  },
+                  "text": " A migration is incomplete if an old selector, persistence adapter, or event listener still writes to the former store. Add a test that fails when both sources can update the same field."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 203,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 1
+          },
+          "text": "A practical PR question is, “What happens if this process disappears after the write starts but before acknowledgement?” The answer should identify durable data, retry ownership, deduplication, and the user-visible failure state."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 205,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 205,
+            "column": 1
+          },
+          "text": "Capgo helps CapacitorJS and Electron teams ship JavaScript, CSS, configuration, and asset updates through targeted channels, with signed bundles, rollout controls, device-level logs, and rollback protection. Use "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 205,
+            "column": 213
+          },
+          "url": "https://capgo.app",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 205,
+                "column": 214
+              },
+              "text": "Capgo"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 205,
+            "column": 239
+          },
+          "text": " to deliver state-management refactors and recovery fixes incrementally, then validate them with lifecycle and synchronization tests."
+        }
+      ]
+    }
+  ]
+}

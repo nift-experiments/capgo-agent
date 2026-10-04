@@ -1,0 +1,4179 @@
+{
+  "version": 1,
+  "route": "/blog/troubleshooting-capacitor-android-build-errors/",
+  "source": "corpus/source/apps/web/src/content/blog/en/troubleshooting-capacitor-android-build-errors.md",
+  "sourceSha256": "40ab69bd4d2fbf32c678422556fc8b6fe72eda7843686df1e44015191e96efa7",
+  "metadata": {
+    "slug": "troubleshooting-capacitor-android-build-errors",
+    "title": "Capacitor Android Troubleshooting: Common Errors and Fixes",
+    "description": "Fix common Capacitor Android issues: JDK 21 and Gradle errors, compileSdk 36, namespace, Kotlin conflicts, plugin not implemented and blank screens.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/android-studio-run.webp",
+    "head_image_alt": "Android Studio showing a Capacitor project with app, capacitor-android and Cordova plugin modules and the run button",
+    "keywords": "Capacitor Android troubleshooting, Capacitor Android build error, invalid source release 21, Minimum supported Gradle version, plugin is not implemented Android, Capacitor blank screen Android, ERR_CLEARTEXT_NOT_PERMITTED, Capacitor edge-to-edge",
+    "tag": "Capacitor, Android, Guides",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Which JDK does Capacitor 8 need on Android?",
+        "answer": "JDK 21. The @capacitor/android module compiles with Java 21 source and target compatibility, so Gradle must run on a JDK 21. Android Studio Otter bundles one; set it under Settings > Build, Execution, Deployment > Build Tools > Gradle > Gradle JDK, and set JAVA_HOME to a JDK 21 for command-line and CI builds."
+      },
+      {
+        "question": "Where do I change minSdk, compileSdk and targetSdk in a Capacitor app?",
+        "answer": "In android/variables.gradle. Capacitor and well-written plugins read minSdkVersion, compileSdkVersion and targetSdkVersion from there. For Capacitor 8 the values are 24, 36 and 36."
+      },
+      {
+        "question": "How do I see console logs from a Capacitor Android app?",
+        "answer": "Connect the device with USB debugging enabled and open chrome://inspect in Chrome on your computer. Your app's WebView appears there, and you can open DevTools for console, network and DOM. Native logs are in Android Studio's Logcat or adb logcat."
+      },
+      {
+        "question": "How do I do a clean rebuild on Android?",
+        "answer": "Run your web build, then bunx cap sync android. In the android folder run ./gradlew clean, or use Build > Clean Project in Android Studio. If Gradle state is corrupted, use File > Invalidate Caches / Restart and, as a last resort, delete android/.gradle and android/app/build."
+      },
+      {
+        "question": "Why is my app content behind the status bar after upgrading?",
+        "answer": "Apps targeting SDK 35 and above are edge-to-edge on Android 15+, and Android 16 removed the opt-out for SDK 36. Capacitor 8 handles insets through the System Bars plugin. Add viewport-fit=cover to your viewport meta tag and pad your layout with env(safe-area-inset-*)."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "Most Capacitor Android build failures come from a toolchain mismatch: the wrong JDK, an old Gradle wrapper, or an SDK level that doesn't match what a dependency needs. For Capacitor 8, use JDK 21, Android Gradle Plugin 8.13.0, Gradle 8.14.3, compileSdk and targetSdk 36 and minSdk 24, then run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 295
+          },
+          "text": "bunx cap sync android"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 318
+          },
+          "text": " and read the first Gradle error, not the last."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide lists the Android errors we see most in Capacitor projects, grouped by where they happen: Gradle setup, dependency resolution, compilation, install, and runtime. For iOS, see the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 4,
+            "column": 191
+          },
+          "url": "/blog/troubleshooting-capacitor-ios-build-errors/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 4,
+                "column": 192
+              },
+              "text": "Capacitor iOS troubleshooting guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 279
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "Quick triage checklist"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx cap doctor              # core, CLI and android must share the same major\nnode -v                      # 22+ for Capacitor 8\njava -version                # 21 for Capacitor 8\nbun run build && bunx cap sync android\ncd android && ./gradlew assembleDebug --stacktrace"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "text": "Then confirm the expected values for your Capacitor version:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "text": "Setting"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 13
+                  },
+                  "text": "File"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 20
+                  },
+                  "text": "Capacitor 7"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 34
+                  },
+                  "text": "Capacitor 8"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "text": "minSdkVersion"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 20,
+                    "column": 19
+                  },
+                  "text": "variables.gradle"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 40
+                  },
+                  "text": "23"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 45
+                  },
+                  "text": "24"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 3
+                  },
+                  "text": "compileSdkVersion / targetSdkVersion"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 21,
+                    "column": 42
+                  },
+                  "text": "variables.gradle"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 63
+                  },
+                  "text": "35"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 68
+                  },
+                  "text": "36"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 3
+                  },
+                  "text": "Android Gradle Plugin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 22,
+                    "column": 27
+                  },
+                  "text": "android/build.gradle"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 52
+                  },
+                  "text": "8.7.2"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 58
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 60
+                  },
+                  "text": "8.13.0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "text": "Gradle wrapper"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 23,
+                    "column": 20
+                  },
+                  "text": "gradle/wrapper/gradle-wrapper.properties"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 63
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 65
+                  },
+                  "text": "8.11.1"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 72
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 74
+                  },
+                  "text": "8.14.3"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "text": "JDK"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 9
+                  },
+                  "text": "Gradle JDK / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 24,
+                    "column": 22
+                  },
+                  "text": "JAVA_HOME"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 36
+                  },
+                  "text": "21"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 41
+                  },
+                  "text": "21"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "text": "Android Studio"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 18
+              },
+              "blocks": []
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 22
+                  },
+                  "text": "Ladybug+"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 33
+                  },
+                  "text": "Otter 2025.2.1+"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "text": "If you're mid-upgrade, follow "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 27,
+            "column": 31
+          },
+          "url": "/blog/upgrade-capacitor-app-to-capacitor-8/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 27,
+                "column": 32
+              },
+              "text": "How to Upgrade Your Capacitor App to Capacitor 8"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 126
+          },
+          "text": " first."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 4
+          },
+          "text": "Gradle and JDK errors"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 31,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 31,
+            "column": 5
+          },
+          "text": "error: invalid source release: 21"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 33,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 33,
+            "column": 1
+          },
+          "text": "Gradle runs on JDK 17 or older, but "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 33,
+            "column": 37
+          },
+          "text": "@capacitor/android"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 33,
+            "column": 57
+          },
+          "text": " 8 compiles with Java 21. In Android Studio: "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 33,
+            "column": 102
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 33,
+                "column": 104
+              },
+              "text": "Settings > Build, Execution, Deployment > Build Tools > Gradle > Gradle JDK"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 33,
+            "column": 181
+          },
+          "text": " and pick the bundled JDK 21 (JetBrains Runtime). On the command line and in CI:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 35,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "export JAVA_HOME=$(/usr/libexec/java_home -v 21)   # macOS"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "# GitHub Actions\n- uses: actions/setup-java@v4\n  with:\n    distribution: temurin\n    java-version: '21'"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 47,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 47,
+            "column": 5
+          },
+          "text": "Unsupported class file major version 65"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 49,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 1
+          },
+          "text": "The reverse problem: you run JDK 21 with a Gradle wrapper too old to read Java 21 class files. Update the wrapper:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 51,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "cd android\n./gradlew wrapper --distribution-type all --gradle-version 8.14.3"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 56,
+            "column": 5
+          },
+          "text": "Minimum supported Gradle version is 8.13. Current version is 8.11.1"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 1
+          },
+          "text": "AGP was updated but the wrapper wasn't. Each AGP version has a minimum Gradle version, and AGP 8.13 needs Gradle 8.13+. Set the wrapper to 8.14.3 as above."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 5
+          },
+          "text": "The project is using an incompatible version (AGP 8.13.0) of the Android Gradle plugin"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 1
+          },
+          "text": "Your Android Studio is older than the AGP in the project. Install Android Studio Otter or newer."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 64,
+            "column": 5
+          },
+          "text": "SDK location not found"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "text": "Gradle can't find the Android SDK. Open the project once in Android Studio (it writes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 66,
+            "column": 87
+          },
+          "text": "android/local.properties"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 113
+          },
+          "text": "), or set the variable:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "export ANDROID_HOME=\"$HOME/Library/Android/sdk\""
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 72,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 72,
+            "column": 1
+          },
+          "text": "Don't commit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 72,
+            "column": 14
+          },
+          "text": "local.properties"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 72,
+            "column": 32
+          },
+          "text": ". It contains a machine-specific path."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 74,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 74,
+            "column": 5
+          },
+          "text": "Could not resolve all files for configuration"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 74,
+            "column": 52
+          },
+          "text": " / "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 74,
+            "column": 55
+          },
+          "text": "Could not GET https://dl.google.com/..."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 76,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 1
+          },
+          "text": "Network or repository problem. Check proxy settings in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 76,
+            "column": 56
+          },
+          "text": "~/.gradle/gradle.properties"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 85
+          },
+          "text": ", make sure "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 76,
+            "column": 97
+          },
+          "text": "google()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 107
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 76,
+            "column": 112
+          },
+          "text": "mavenCentral()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 128
+          },
+          "text": " are in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 76,
+            "column": 136
+          },
+          "text": "repositories"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 150
+          },
+          "text": ", and retry with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 76,
+            "column": 167
+          },
+          "text": "--refresh-dependencies"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 191
+          },
+          "text": ". Corporate networks often need a mirror."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 78,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 78,
+            "column": 5
+          },
+          "text": "Java heap space"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 22
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 78,
+            "column": 26
+          },
+          "text": "GC overhead limit exceeded"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 1
+          },
+          "text": "Raise Gradle's memory in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 80,
+            "column": 26
+          },
+          "text": "android/gradle.properties"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 53
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "lang": "properties",
+      "meta": null,
+      "text": "org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 86,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 86,
+            "column": 1
+          },
+          "text": "The Capacitor template ships with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 86,
+            "column": 35
+          },
+          "text": "-Xmx1536m"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 86,
+            "column": 46
+          },
+          "text": ", which is tight for apps with many plugins."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 88,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 4
+          },
+          "text": "Dependency and SDK level errors"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 90,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 90,
+            "column": 5
+          },
+          "text": "Dependency 'androidx.core:core:1.17.0' requires libraries and applications that depend on it to compile against version 36 or later"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "text": "compileSdkVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 20
+          },
+          "text": " is below what an AndroidX library needs. Set it to 36 in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 92,
+            "column": 78
+          },
+          "text": "variables.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 96
+          },
+          "text": ". If the error names a plugin module, that plugin hardcodes an old value. Upgrade it, or "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 92,
+            "column": 185
+          },
+          "url": "/blog/how-to-patch-a-capacitor-plugin/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 92,
+                "column": 186
+              },
+              "text": "patch its build.gradle"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 249
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 94,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 94,
+            "column": 5
+          },
+          "text": "Manifest merger failed : uses-sdk:minSdkVersion 23 cannot be smaller than version 24 declared in library"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 96,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 1
+          },
+          "text": "Your app's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 96,
+            "column": 12
+          },
+          "text": "minSdkVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 27
+          },
+          "text": " is lower than a dependency's. Capacitor 8 needs 24. Raise it in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 96,
+            "column": 92
+          },
+          "text": "variables.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 110
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 98,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 98,
+            "column": 5
+          },
+          "text": "Duplicate class kotlin.collections.jdk8.CollectionsJDK8Kt found in modules"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 100,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 1
+          },
+          "text": "Two Kotlin standard library artifacts with overlapping classes, usually because one plugin pulls an old "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 100,
+            "column": 105
+          },
+          "text": "kotlin-stdlib-jdk8"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 125
+          },
+          "text": ". Align on one Kotlin version. Set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 100,
+            "column": 160
+          },
+          "text": "kotlin_version = '2.2.20'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 187
+          },
+          "text": " in your root "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 100,
+            "column": 201
+          },
+          "text": "build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 215
+          },
+          "text": " (plugins read it via "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 100,
+            "column": 237
+          },
+          "text": "rootProject.ext"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 254
+          },
+          "text": ") and upgrade plugins that pin Kotlin 1.x. If needed, force the BOM in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 100,
+            "column": 325
+          },
+          "text": "android/app/build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 351
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 102,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "dependencies {\n    implementation(platform(\"org.jetbrains.kotlin:kotlin-bom:2.2.20\"))\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 108,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 108,
+            "column": 5
+          },
+          "text": "Duplicate class com.google.android.gms..."
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 48
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 108,
+            "column": 52
+          },
+          "text": "com.google.firebase..."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 110,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 1
+          },
+          "text": "Two plugins bring different versions of Play Services or Firebase. Most Capacitor plugins read versions from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 110,
+            "column": 110
+          },
+          "text": "variables.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 128
+          },
+          "text": " (for example "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 110,
+            "column": 142
+          },
+          "text": "firebaseMessagingVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 168
+          },
+          "text": "), so define them once there so every plugin uses the same value."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 112,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 112,
+            "column": 5
+          },
+          "text": "Project with path ':capacitor-xxx' could not be found in project ':app'"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 114,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 1
+          },
+          "text": "android/capacitor.settings.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 36
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 41
+          },
+          "text": "android/app/capacitor.build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 77
+          },
+          "text": " are out of date. Both are generated. Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 119
+          },
+          "text": "bunx cap sync android"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 142
+          },
+          "text": ", then "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 114,
+            "column": 149
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 114,
+                "column": 151
+              },
+              "text": "File > Sync Project with Gradle Files"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 190
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 116,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 116,
+            "column": 4
+          },
+          "text": "Compilation errors"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 118,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 118,
+            "column": 5
+          },
+          "text": "Namespace not specified. Specify a namespace in the module's build file"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 120,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 1
+          },
+          "text": "AGP 8+ requires "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 120,
+            "column": 17
+          },
+          "text": "namespace"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 28
+          },
+          "text": " in every Android module. Old plugins only declare "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 120,
+            "column": 79
+          },
+          "text": "package"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 88
+          },
+          "text": " in their "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 120,
+            "column": 98
+          },
+          "text": "AndroidManifest.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 119
+          },
+          "text": ". Upgrade the plugin. If no release exists, patch its "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 120,
+            "column": 173
+          },
+          "text": "android/build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 195
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 122,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "android {\n    namespace = \"com.example.plugin\"\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 128,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 128,
+            "column": 1
+          },
+          "text": "and remove the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 128,
+            "column": 16
+          },
+          "text": "package"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 128,
+            "column": 25
+          },
+          "text": " attribute from its manifest."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 130,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 130,
+            "column": 5
+          },
+          "text": "'compileDebugJavaWithJavac' task (current target is 21) and 'compileDebugKotlin' task (current target is 17) jvm target compatibility should be set to the same Java version"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 132,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 132,
+            "column": 1
+          },
+          "text": "A Kotlin module (yours or a plugin's) has a different "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 132,
+            "column": 55
+          },
+          "text": "jvmTarget"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 132,
+            "column": 66
+          },
+          "text": " than its Java "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 132,
+            "column": 81
+          },
+          "text": "targetCompatibility"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 132,
+            "column": 102
+          },
+          "text": ". In Kotlin 2.x, set it with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 132,
+            "column": 131
+          },
+          "text": "compilerOptions"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 132,
+            "column": 148
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 134,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "kotlin {\n    compilerOptions {\n        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21\n    }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 142,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 1
+          },
+          "text": "The old "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 142,
+            "column": 9
+          },
+          "text": "kotlinOptions {}"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 27
+          },
+          "text": " block is an error in Kotlin 2.2, so plugins still using it need an update or a patch."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 144,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 5
+          },
+          "text": "Errors about "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 144,
+            "column": 18
+          },
+          "text": "proguard-android.txt"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 40
+          },
+          "text": " with AGP 9"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 1
+          },
+          "text": "If you already moved to AGP 9, plugins that reference "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 55
+          },
+          "text": "getDefaultProguardFile('proguard-android.txt')"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 103
+          },
+          "text": " fail. The fix is "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 121
+          },
+          "text": "proguard-android-optimize.txt"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 152
+          },
+          "text": ". Full details in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 146,
+            "column": 170
+          },
+          "url": "/blog/fix-capacitor-plugin-build-errors-with-agp-9/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 146,
+                "column": 171
+              },
+              "text": "fix Capacitor plugin build errors with AGP 9"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 269
+          },
+          "text": ". For Capacitor 8 apps, AGP 8.13 remains the tested version."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 148,
+            "column": 5
+          },
+          "text": "cannot find symbol R.layout.bridge_layout_main"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 150,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 150,
+            "column": 1
+          },
+          "text": "Capacitor 8 renamed the layout to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 150,
+            "column": 35
+          },
+          "text": "capacitor_bridge_layout_main"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 150,
+            "column": 65
+          },
+          "text": ". Update the reference in your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 150,
+            "column": 96
+          },
+          "text": "MainActivity"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 150,
+            "column": 110
+          },
+          "text": " or custom fragment."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 152,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 152,
+            "column": 5
+          },
+          "text": "android:exported needs to be explicitly specified for element <activity#...>"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 1
+          },
+          "text": "Apps targeting Android 12+ must set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 154,
+            "column": 37
+          },
+          "text": "android:exported"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 55
+          },
+          "text": " on every activity, service and receiver with an intent filter. Add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 154,
+            "column": 123
+          },
+          "text": "android:exported=\"true\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 148
+          },
+          "text": " (or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 154,
+            "column": 153
+          },
+          "text": "false"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 160
+          },
+          "text": ") in your manifest. If the element comes from a plugin manifest, upgrade or patch the plugin."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 156,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 156,
+            "column": 4
+          },
+          "text": "Install errors"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 158,
+            "column": 5
+          },
+          "text": "INSTALL_FAILED_UPDATE_INCOMPATIBLE"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "text": "An app with the same ID but a different signing key is installed, usually a release build from the Play Store versus your debug build. Uninstall it first:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 162,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "adb uninstall com.example.app"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 166,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 5
+          },
+          "text": "Device not listed in Android Studio or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 166,
+            "column": 44
+          },
+          "text": "adb devices"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 57
+          },
+          "text": " shows "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 166,
+            "column": 64
+          },
+          "text": "unauthorized"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 168,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 1
+          },
+          "text": "Enable Developer options and USB debugging, accept the RSA prompt on the phone, and use a data-capable cable. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 168,
+            "column": 111
+          },
+          "text": "adb kill-server && adb start-server"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 148
+          },
+          "text": " fixes most stuck states."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 5
+          },
+          "text": "Play Console: \"Your app does not support 16 KB memory page sizes\""
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 1
+          },
+          "text": "A native "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 172,
+            "column": 10
+          },
+          "text": ".so"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 15
+          },
+          "text": " library in your app isn't 16 KB aligned. Find the plugin that ships it and upgrade. See "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 172,
+            "column": 104
+          },
+          "url": "/blog/android-16kb-page-size-capacitor-plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 172,
+                "column": 105
+              },
+              "text": "Android 16 KB page size and Capacitor plugins"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 200
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 5
+          },
+          "text": "Signing a release build"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 1
+          },
+          "text": "Missing or wrong keystore settings cause "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 176,
+            "column": 42
+          },
+          "text": "Keystore file not found"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 67
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 176,
+            "column": 71
+          },
+          "text": "Failed to read key"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 91
+          },
+          "text": ". Our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 176,
+            "column": 97
+          },
+          "url": "/tools/android-keystore-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 176,
+                "column": 98
+              },
+              "text": "Android keystore generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 161
+          },
+          "text": " creates a keystore and the Gradle signing config. Keep the keystore out of git and back it up. Losing it means you can't update the app unless you use Play App Signing."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 178,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 4
+          },
+          "text": "Runtime errors"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 180,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 180,
+            "column": 5
+          },
+          "text": "\"X\" plugin is not implemented on android"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 182,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 4
+                  },
+                  "text": "The plugin is in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 182,
+                    "column": 21
+                  },
+                  "text": "package.json"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 35
+                  },
+                  "text": " and you ran "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 182,
+                    "column": 48
+                  },
+                  "text": "bunx cap sync android"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 71
+                  },
+                  "text": " after installing it."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 183,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 183,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 183,
+                    "column": 4
+                  },
+                  "text": "Android Studio synced Gradle after the sync ("
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 183,
+                    "column": 49
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 183,
+                        "column": 51
+                      },
+                      "text": "File > Sync Project with Gradle Files"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 183,
+                    "column": 90
+                  },
+                  "text": ")."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 184,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 184,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 184,
+                    "column": 4
+                  },
+                  "text": "The plugin appears in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 184,
+                    "column": 26
+                  },
+                  "text": "android/capacitor.settings.gradle"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 184,
+                    "column": 61
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 185,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 185,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 185,
+                    "column": 4
+                  },
+                  "text": "The plugin version matches your Capacitor major. A Capacitor 7 plugin may compile but register differently."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 186,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 186,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 186,
+                    "column": 4
+                  },
+                  "text": "You're not running an old APK. Uninstall and reinstall."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 188,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 188,
+            "column": 5
+          },
+          "text": "Blank white screen"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 190,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 190,
+            "column": 1
+          },
+          "text": "Open "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 190,
+            "column": 6
+          },
+          "text": "chrome://inspect"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 190,
+            "column": 24
+          },
+          "text": " and check the WebView console. Common causes:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 192,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 192,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 192,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 192,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 192,
+                        "column": 5
+                      },
+                      "text": "net::ERR_CLEARTEXT_NOT_PERMITTED"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 192,
+                    "column": 41
+                  },
+                  "text": " during live reload: Android blocks plain HTTP. For development only, set "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 192,
+                    "column": 115
+                  },
+                  "text": "server.cleartext: true"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 192,
+                    "column": 139
+                  },
+                  "text": " in the Capacitor config, and remove "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 192,
+                    "column": 176
+                  },
+                  "text": "server.url"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 192,
+                    "column": 188
+                  },
+                  "text": " before release."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 193,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 193,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 193,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 193,
+                        "column": 5
+                      },
+                      "text": "Dev server unreachable"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 193,
+                    "column": 29
+                  },
+                  "text": ": bind it to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 193,
+                    "column": 42
+                  },
+                  "text": "0.0.0.0"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 193,
+                    "column": 51
+                  },
+                  "text": ", use your LAN IP, keep phone and computer on the same network, or forward the port with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 193,
+                    "column": 140
+                  },
+                  "text": "bunx cap run android --forwardPorts 5173:5173"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 193,
+                    "column": 187
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 194,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 194,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 194,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 194,
+                        "column": 5
+                      },
+                      "text": "Old Android System WebView"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 194,
+                    "column": 33
+                  },
+                  "text": ": Capacitor checks "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 194,
+                    "column": 52
+                  },
+                  "text": "android.minWebViewVersion"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 194,
+                    "column": 79
+                  },
+                  "text": " (default 60) and logs an error on older WebViews. Devices that never update the WebView may also fail on modern JavaScript. The "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 194,
+                    "column": 208
+                  },
+                  "url": "/plugins/capacitor-webview-version-checker/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 194,
+                        "column": 209
+                      },
+                      "text": "WebView version checker plugin"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 194,
+                    "column": 285
+                  },
+                  "text": " can detect outdated WebViews and prompt users to update."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 195,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 195,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 195,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 195,
+                        "column": 5
+                      },
+                      "text": "Build target too new"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 195,
+                    "column": 27
+                  },
+                  "text": " for the device's WebView. Lower your bundler target or add polyfills."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 196,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 196,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 196,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 196,
+                        "column": 5
+                      },
+                      "text": "Wrong "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 196,
+                        "column": 11
+                      },
+                      "text": "webDir"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 196,
+                    "column": 21
+                  },
+                  "text": ": check "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 196,
+                    "column": 29
+                  },
+                  "text": "android/app/src/main/assets/public"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 196,
+                    "column": 65
+                  },
+                  "text": " contains "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 196,
+                    "column": 75
+                  },
+                  "text": "index.html"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 196,
+                    "column": 87
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 197,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 197,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 197,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 197,
+                        "column": 5
+                      },
+                      "text": "Broken live update bundle"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 197,
+                    "column": 32
+                  },
+                  "text": ": with Capgo, a bundle that never calls "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 197,
+                    "column": 72
+                  },
+                  "text": "notifyAppReady()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 197,
+                    "column": 90
+                  },
+                  "text": " is rolled back automatically after the timeout. See the "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 197,
+                    "column": 147
+                  },
+                  "url": "/docs/plugins/updater/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 197,
+                        "column": 148
+                      },
+                      "text": "updater docs"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 197,
+                    "column": 185
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 199,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 199,
+            "column": 5
+          },
+          "text": "Content behind the status bar or navigation bar"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 201,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 201,
+            "column": 1
+          },
+          "text": "Apps targeting SDK 35+ draw edge-to-edge on Android 15, and Android 16 removed the opt-out for apps targeting SDK 36. Capacitor 8 removed "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 201,
+            "column": 139
+          },
+          "text": "adjustMarginsForEdgeToEdge"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 201,
+            "column": 167
+          },
+          "text": ". Handle insets with the System Bars plugin config and CSS:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 203,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "plugins: {\n  SystemBars: {\n    insetsHandling: 'css',\n    initialViewportFitValueHint: 'cover',\n  },\n},"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 212,
+        "column": 1
+      },
+      "lang": "html",
+      "meta": null,
+      "text": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\" />"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 216,
+        "column": 1
+      },
+      "lang": "css",
+      "meta": null,
+      "text": "body {\n  padding-top: env(safe-area-inset-top);\n  padding-bottom: env(safe-area-inset-bottom);\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 223,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 1
+          },
+          "text": "With "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 6
+          },
+          "text": "insetsHandling: 'css'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 29
+          },
+          "text": ", Capacitor also injects "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 54
+          },
+          "text": "--safe-area-inset-*"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 75
+          },
+          "text": " CSS variables, which helps on older WebViews where "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 127
+          },
+          "text": "env()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 134
+          },
+          "text": " reports zero."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 225,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 225,
+            "column": 5
+          },
+          "text": "WebView reloads when rotating or resizing"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 227,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 1
+          },
+          "text": "The activity is being recreated. Check "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 227,
+            "column": 40
+          },
+          "text": "android:configChanges"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 63
+          },
+          "text": " on the main activity includes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 227,
+            "column": 94
+          },
+          "text": "density"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 103
+          },
+          "text": " (added in Capacitor 8) along with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 227,
+            "column": 138
+          },
+          "text": "orientation|screenSize|smallestScreenSize|screenLayout|uiMode|navigation"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 227,
+            "column": 212
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 229,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 229,
+            "column": 5
+          },
+          "text": "Orientation lock ignored on tablets"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 231,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 231,
+            "column": 1
+          },
+          "text": "On Android 16+, large screens ignore orientation locks for apps targeting SDK 36. A temporary manifest opt-out exists ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 231,
+            "column": 120
+          },
+          "text": "android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 231,
+            "column": 182
+          },
+          "text": "), but Android 17 removes it. Design for both orientations on large screens."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 233,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 233,
+            "column": 4
+          },
+          "text": "How to debug when the error isn't listed"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 235,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 235,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 235,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 235,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 235,
+                        "column": 6
+                      },
+                      "text": "Read the first error."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 235,
+                    "column": 29
+                  },
+                  "text": " Run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 235,
+                    "column": 34
+                  },
+                  "text": "./gradlew assembleDebug --stacktrace"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 235,
+                    "column": 72
+                  },
+                  "text": " and scroll up to the first "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 235,
+                    "column": 100
+                  },
+                  "text": "FAILURE"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 235,
+                    "column": 109
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 235,
+                    "column": 113
+                  },
+                  "text": "What went wrong"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 235,
+                    "column": 130
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 236,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 236,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 236,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 236,
+                        "column": 6
+                      },
+                      "text": "Check the dependency tree"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 236,
+                    "column": 33
+                  },
+                  "text": " for version conflicts: "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 236,
+                    "column": 57
+                  },
+                  "text": "./gradlew :app:dependencies --configuration debugRuntimeClasspath"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 236,
+                    "column": 124
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 237,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 237,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 237,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 237,
+                        "column": 6
+                      },
+                      "text": "Logcat"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 237,
+                    "column": 14
+                  },
+                  "text": " filtered to your package for native crashes. Capacitor logs plugin calls with the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 237,
+                    "column": 97
+                  },
+                  "text": "Capacitor"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 237,
+                    "column": 108
+                  },
+                  "text": " tag."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 238,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 238,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 238,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 238,
+                        "column": 6
+                      },
+                      "text": "chrome://inspect"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 238,
+                    "column": 24
+                  },
+                  "text": " for JavaScript errors."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 239,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 239,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 239,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 239,
+                        "column": 6
+                      },
+                      "text": "Isolate"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 239,
+                    "column": 15
+                  },
+                  "text": " with a fresh "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 239,
+                    "column": 29
+                  },
+                  "text": "bun create @capacitor/app"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 239,
+                    "column": 56
+                  },
+                  "text": " project and only the suspect plugin."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 241,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 1
+          },
+          "text": "More tools are covered in the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 241,
+            "column": 31
+          },
+          "url": "/blog/ultimate-guide-to-debugging-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 241,
+                "column": 32
+              },
+              "text": "ultimate guide to debugging Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 126
+          },
+          "text": " and "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 241,
+            "column": 131
+          },
+          "url": "/blog/how-to-resolve-android-build-errors-in-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 241,
+                "column": 132
+              },
+              "text": "how to resolve Android build errors in Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 238
+          },
+          "text": ". If your CI machines are the problem rather than the code, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 241,
+            "column": 298
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 241,
+                "column": 299
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 327
+          },
+          "text": " runs Android builds with the right JDK and SDK already installed."
+        }
+      ]
+    }
+  ]
+}

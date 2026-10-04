@@ -1,0 +1,4323 @@
+{
+  "version": 1,
+  "route": "/blog/signature-verification/",
+  "source": "corpus/source/apps/web/src/content/blog/en/signature-verification.md",
+  "sourceSha256": "bcfe72b79db80cee32bdea7aa19bba770528a899aec1276a4bcb230714be5c46",
+  "metadata": {
+    "slug": "signature-verification",
+    "title": "Signature Verification: Securing App Updates in 2026",
+    "description": "Learn how signature verification protects Capacitor and Electron app updates, covering cryptographic principles and CI/CD integration.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-08-21 09:03:49.909000+00:00",
+    "updated_at": "2026-08-25 01:16:42+00:00",
+    "head_image": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/1daba6cc-c9a6-4ef1-b619-a86539918c39/signature-verification-app-security.jpg",
+    "head_image_alt": "Signature Verification: Securing App Updates in 2026",
+    "keywords": "signature verification, code signing, app security, Capacitor updates, key management",
+    "tag": "Mobile, Updates, Security",
+    "published": true,
+    "locale": "en",
+    "origin": "ai",
+    "next_blog": ""
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 1,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 1,
+            "column": 1
+          },
+          "text": "Your update pipeline is green, the bundle is available at the edge, and devices are checking for it. Then someone notices a suspicious change in the generated JavaScript. A compromised build runner, stolen developer credential, or altered artifact may have slipped a malicious payload into the release after testing finished. Without "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 1,
+            "column": 335
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 1,
+                "column": 337
+              },
+              "text": "signature verification"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 1,
+            "column": 361
+          },
+          "text": ", the client has no reliable way to distinguish the bundle your team built from one an attacker modified in transit or at the delivery layer."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 3,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 1
+          },
+          "text": "Signed updates change that decision. The device verifies the bundle against a trusted public key before it replaces the currently running code. If the signature doesn't match, the update stays inactive. That sounds straightforward, but production failures usually happen around the cryptography, not inside it. Teams lose track of key rotation, sign the wrong artifact, apply an unverified cached file, or collect so little telemetry that they can't explain which devices rejected an update."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 5,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 5,
+            "column": 1
+          },
+          "text": "The sections below focus on those operational edges, from the trust model and verification flow to CI/CD controls, incident response, and the limitations a signature doesn't solve by itself."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 7,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 7,
+            "column": 4
+          },
+          "text": "Table of Contents"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "url": "#why-signature-verification-prevents-catastrophic-updates",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 8,
+                        "column": 4
+                      },
+                      "text": "Why Signature Verification Prevents Catastrophic Updates"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 9,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 9,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "url": "#how-cryptographic-signing-creates-trust",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 9,
+                        "column": 4
+                      },
+                      "text": "How Cryptographic Signing Creates Trust"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 10,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 10,
+                            "column": 5
+                          },
+                          "url": "#choosing-algorithms-for-mobile-delivery",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 10,
+                                "column": 6
+                              },
+                              "text": "Choosing algorithms for mobile delivery"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 11,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 11,
+                            "column": 5
+                          },
+                          "url": "#trust-chains-and-pinned-keys",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 11,
+                                "column": 6
+                              },
+                              "text": "Trust chains and pinned keys"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 12,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "url": "#real-world-applications-in-mobile-and-web-systems",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 12,
+                        "column": 4
+                      },
+                      "text": "Real-World Applications in Mobile and Web Systems"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 13,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "url": "#building-a-complete-verification-flow",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 13,
+                        "column": 4
+                      },
+                      "text": "Building a Complete Verification Flow"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 14,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 14,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 14,
+                            "column": 5
+                          },
+                          "url": "#preventing-races-and-rollback-mistakes",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 14,
+                                "column": 6
+                              },
+                              "text": "Preventing races and rollback mistakes"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 15,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "url": "#key-management-challenges-most-teams-underestimate",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 15,
+                        "column": 4
+                      },
+                      "text": "Key Management Challenges Most Teams Underestimate"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 16,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "url": "#integrating-verification-into-cicd-and-monitoring",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 16,
+                        "column": 4
+                      },
+                      "text": "Integrating Verification into CI/CD and Monitoring"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 17,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 17,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 17,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 17,
+                            "column": 5
+                          },
+                          "url": "#observability-belongs-on-the-device",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 17,
+                                "column": 6
+                              },
+                              "text": "Observability belongs on the device"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 18,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "url": "#security-best-practices-and-common-pitfalls",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 18,
+                        "column": 4
+                      },
+                      "text": "Security Best Practices and Common Pitfalls"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "text": "<a id=\"why-signature-verification-prevents-catastrophic-updates\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 20,
+            "column": 66
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 21,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 4
+          },
+          "text": "Why Signature Verification Prevents Catastrophic Updates"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "text": "A popular Capacitor plugin's CI/CD pipeline is compromised late in the release process. The attacker modifies the live update bundle, adds code that reads application data, and publishes the artifact using the pipeline's normal delivery path. Devices don't see an unfamiliar download domain. They see a valid update waiting for installation."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "text": "Without a client-side cryptographic check, the app may download and execute the altered bundle as soon as its update policy permits. The possible blast radius includes data exfiltration, credential theft, altered payment flows, and silent manipulation of business logic. The investigation is also painful. Engineers must determine which artifact was served, which channels received it, which devices downloaded it, which devices applied it, and whether the malicious code ran before the release was withdrawn."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/d3371ae7-9abe-4305-a532-421789a39e36/signature-verification-security-diagram.jpg",
+          "title": null,
+          "alt": "A diagram illustrating how signature verification blocks malicious code injections in a software update delivery pipeline."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "text": "A team with signature verification enabled gets a different failure mode. The app downloads the same poisoned bundle, computes the expected digest, and checks the attached signature against its trusted key. The cryptographic check fails, the updater refuses to activate the bundle, and an event reaches the security team before the new code runs."
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "location": {
+        "line": 31,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 31,
+            "column": 3
+          },
+          "blocks": [
+            {
+              "type": "strong",
+              "location": {
+                "line": 31,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 5
+                  },
+                  "text": "Production rule:"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 31,
+                "column": 23
+              },
+              "text": " Treat an update as hostile until the device has verified both its identity and its exact bytes."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 33,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 33,
+            "column": 1
+          },
+          "text": "The protection only works if the verifier runs on the device, before extraction or activation, and if the trusted key can't be replaced by the update itself. That makes certificate and key handling part of the update design, not an administrative detail. Teams using Capacitor should document this boundary alongside their "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 33,
+            "column": 324
+          },
+          "url": "https://capgo.app/blog/certificate-management/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 33,
+                "column": 325
+              },
+              "text": "certificate management process"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 33,
+            "column": 404
+          },
+          "text": ", including who can sign, where keys live, and how a client learns about an authorized successor key."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 35,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "text": "Modern research has treated signature verification as a measurable engineering discipline for decades. The first published studies of both off-line and on-line signature verification appeared in 1977, and later work expanded into methods including HMM and FFT. A widely cited comparison reported human experts at approximately "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 35,
+            "column": 328
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 35,
+                "column": 330
+              },
+              "text": "0.5% false acceptance and 7% false rejection"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 35,
+            "column": 376
+          },
+          "text": ", while laypeople reached "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 35,
+            "column": 402
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 35,
+                "column": 404
+              },
+              "text": "6.5% false acceptance and 26% false rejection"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 35,
+            "column": 451
+          },
+          "text": ", as summarized in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 35,
+            "column": 470
+          },
+          "url": "https://pactvera.com/2026-e-signature-fraud-statistics/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 35,
+                "column": 471
+              },
+              "text": "this historical overview of signature verification research"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 35,
+            "column": 588
+          },
+          "text": ". Those figures concern handwritten signatures, not software updates, but they reinforce a useful point: verification quality depends on the verifier, its reference data, and its decision policy."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 37,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "text": "<a id=\"how-cryptographic-signing-creates-trust\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 37,
+            "column": 49
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 4
+          },
+          "text": "How Cryptographic Signing Creates Trust"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 1
+          },
+          "text": "Think of a release bundle as a sealed envelope. The build system calculates a digest of the exact bytes and uses a "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 40,
+            "column": 116
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 40,
+                "column": 118
+              },
+              "text": "private key"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 131
+          },
+          "text": " to create a digital signature over that digest. The app contains, or securely receives, the corresponding "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 40,
+            "column": 238
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 40,
+                "column": 240
+              },
+              "text": "public key"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 252
+          },
+          "text": ", which acts like the known crest on the envelope. If an attacker changes even a small part of the bundle, the app calculates a different digest and the signature no longer validates."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/852a8edf-12da-4133-8e37-d855057ff930/signature-verification-cryptographic-signing.jpg",
+          "title": null,
+          "alt": "A diagram illustrating the cryptographic signing process from a developer creating a signature to mobile app verification."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 44,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "text": "The flow has four distinct pieces:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 46,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 46,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 46,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 46,
+                        "column": 6
+                      },
+                      "text": "Hashing"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 15
+                  },
+                  "text": " turns the bundle into a fixed-length digest. SHA-256 and SHA-512 are common choices for this integrity step."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 47,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 47,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 47,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 47,
+                        "column": 6
+                      },
+                      "text": "Key generation"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 22
+                  },
+                  "text": " creates an asymmetric pair. The private key signs, and the public key verifies."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 48,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 48,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 48,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 48,
+                        "column": 6
+                      },
+                      "text": "Signing"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 48,
+                    "column": 15
+                  },
+                  "text": " binds the digest to the release metadata, ideally including the version, channel, platform, and audience."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 49,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 49,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 49,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 49,
+                        "column": 6
+                      },
+                      "text": "Verification"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 49,
+                    "column": 20
+                  },
+                  "text": " recalculates the digest from the downloaded bytes and checks that the signature was produced by the trusted private key."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 51,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 51,
+            "column": 1
+          },
+          "text": "The verifier must bind the signature to the same payload the updater will apply. A signature over a manifest isn't enough if the app later downloads a bundle without checking that the manifest's hash matches the bundle. Likewise, verifying a bundle's hash doesn't establish who authorized it unless the hash itself is authenticated."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 53,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 53,
+            "column": 1
+          },
+          "text": "<a id=\"choosing-algorithms-for-mobile-delivery\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 53,
+            "column": 49
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 5
+          },
+          "text": "Choosing algorithms for mobile delivery"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 1
+          },
+          "text": "RSA remains familiar and widely supported, but it generally requires larger key material and careful padding choices. For new mobile update protocols, Ed25519 is often attractive because its keys and signatures are compact and its verification path is efficient on mobile processors. RSA-PSS can also be appropriate when compatibility requirements make RSA necessary. The choice should follow the platform crypto library, supported hardware, interoperability requirements, and migration plan, not a benchmark copied from another environment."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 1
+          },
+          "text": "A useful independent introduction is this guide to "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 58,
+            "column": 52
+          },
+          "url": "https://thecoincourse.com/educational-guides/tutorials/fundamentals/the-role-of-digital-signatures-in-protecting-blockchain-transactions",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 58,
+                "column": 53
+              },
+              "text": "understanding cryptographic signatures for blockchain"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 245
+          },
+          "text": ". The transaction context differs from OTA delivery, but the explanation of private-key authorization and public-key verification transfers directly."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 60,
+            "column": 1
+          },
+          "text": "<a id=\"trust-chains-and-pinned-keys\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 60,
+            "column": 38
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 61,
+            "column": 5
+          },
+          "text": "Trust chains and pinned keys"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 63,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 63,
+            "column": 1
+          },
+          "text": "A certificate chain delegates trust from a root through intermediate authorities to a leaf certificate. That model can simplify broad PKI operations, but an app update client often has a narrower requirement: trust only the publisher key that authorized this update. Embedding a public key, or a small set of authorized keys, directly in the app binary is a form of pinning. It reduces dependence on external certificate authorities, but it creates a rotation problem because the binary must already trust the replacement key."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 65,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 65,
+            "column": 1
+          },
+          "text": "Keep the signed envelope complete. Your release metadata should identify the artifact, its digest, the intended channel, and the key identifier. Teams building this into Capacitor can use a focused "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 65,
+            "column": 199
+          },
+          "url": "https://capgo.app/blog/checklist-for-token-signing-in-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 65,
+                "column": 200
+              },
+              "text": "token-signing checklist for Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 65,
+            "column": 314
+          },
+          "text": " to review key scope, storage, and verification boundaries before shipping."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 67,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 67,
+            "column": 1
+          },
+          "text": "<a id=\"real-world-applications-in-mobile-and-web-systems\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 67,
+            "column": 59
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 68,
+            "column": 4
+          },
+          "text": "Real-World Applications in Mobile and Web Systems"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 70,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 70,
+            "column": 1
+          },
+          "text": "Signature verification appears in several layers of a mobile product, and each layer answers a different question. App-store signing helps the operating system decide whether an installable package comes from an authorized publisher. A signed OTA bundle answers whether the JavaScript and asset payload came from the release authority your updater trusts. A JWT signature helps an API validate that a token was issued by the expected identity service."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 72,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 72,
+            "column": 1
+          },
+          "text": "Confusing those layers creates gaps. A valid IPA signature doesn't automatically authenticate a later web bundle. A valid JWT doesn't prove that an update package is safe. A TLS connection protects transport, but it doesn't replace artifact signing when a CDN, proxy, cache, or build system becomes the source of tampering."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 74,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 74,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 74,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 74,
+                    "column": 3
+                  },
+                  "text": "Context"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 74,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 74,
+                    "column": 13
+                  },
+                  "text": "Signing mechanism"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 74,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 74,
+                    "column": 33
+                  },
+                  "text": "Failure mode prevented"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 74,
+                "column": 56
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 74,
+                    "column": 58
+                  },
+                  "text": "Common gap"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 76,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 76,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 3
+                  },
+                  "text": "App-store package"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 76,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 23
+                  },
+                  "text": "Platform code-signing and platform review controls"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 76,
+                "column": 74
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 76
+                  },
+                  "text": "Re-signed or unauthorized installable package"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 76,
+                "column": 122
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 124
+                  },
+                  "text": "Teams assume store signing covers post-install web assets"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 77,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 77,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 3
+                  },
+                  "text": "Web bundle and service worker"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 77,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 35
+                  },
+                  "text": "Signed exchanges or SRI-style integrity references"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 77,
+                "column": 86
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 88
+                  },
+                  "text": "Poisoned CDN response or modified asset"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 77,
+                "column": 128
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 130
+                  },
+                  "text": "Only the entry file is checked, while imported assets remain unverified"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 78,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 78,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 3
+                  },
+                  "text": "API token"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 78,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 15
+                  },
+                  "text": "JWT signature validated with a trusted public key, often obtained through a JWKS endpoint"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 78,
+                "column": 105
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 107
+                  },
+                  "text": "Forged or altered token"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 78,
+                "column": 131
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 133
+                  },
+                  "text": "The server validates the signature but ignores issuer, audience, expiry, or token purpose"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 79,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 79,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 79,
+                    "column": 3
+                  },
+                  "text": "Over-the-air update"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 79,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 79,
+                    "column": 25
+                  },
+                  "text": "Detached or embedded bundle signature verified on-device"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 79,
+                "column": 82
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 79,
+                    "column": 84
+                  },
+                  "text": "Man-in-the-middle or altered update injection"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 79,
+                "column": 130
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 79,
+                    "column": 132
+                  },
+                  "text": "The client downloads, caches, or unpacks content before enforcing the decision"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 1
+          },
+          "text": "For web assets, subresource integrity can constrain what a browser accepts for a referenced resource, but it doesn't automatically solve dynamic imports, service-worker caches, or an update manifest that points to an attacker-selected file. The implementation must define the complete artifact set and verify the bytes that will execute."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 1
+          },
+          "text": "JWT deployments fail in a different way. Engineers often publish the right public key but accept a token with the wrong issuer or audience, or they trust an algorithm choice supplied by the token header. The cryptographic signature can be valid while the authorization decision is still wrong."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 85,
+            "column": 1
+          },
+          "text": "The operational context also matters for products that depend on frequent releases and customer-facing mobile experiences. Teams evaluating "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 85,
+            "column": 141
+          },
+          "url": "https://www.techieplus.net/latest-trends-in-retail-mobile-apps-updates-features-user-engagement-strategies/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 85,
+                "column": 142
+              },
+              "text": "retail app engagement strategies for 2026"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 85,
+            "column": 293
+          },
+          "text": " should treat update integrity as a prerequisite for rapid experimentation. A fast rollout is useful only when the release channel, artifact, and recipient are all bound to the same authorization decision."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 87,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 87,
+            "column": 1
+          },
+          "text": "<a id=\"building-a-complete-verification-flow\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 87,
+            "column": 47
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 88,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 4
+          },
+          "text": "Building a Complete Verification Flow"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 90,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 90,
+            "column": 1
+          },
+          "text": "A production updater should make verification a gate, not a callback that runs somewhere near installation. The safe sequence is deterministic:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 92,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 92,
+                    "column": 4
+                  },
+                  "text": "Fetch a manifest and signature over an authenticated transport."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 93,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 93,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 93,
+                    "column": 4
+                  },
+                  "text": "Validate manifest structure, version policy, channel, expiry, and artifact identity."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 94,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 94,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 94,
+                    "column": 4
+                  },
+                  "text": "Download the exact bundle named by the manifest."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 95,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 95,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 95,
+                    "column": 4
+                  },
+                  "text": "Compute the bundle digest locally."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 96,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 96,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 96,
+                    "column": 4
+                  },
+                  "text": "Verify the signature against a trusted Ed25519 or RSA-PSS public key."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 97,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 97,
+                    "column": 4
+                  },
+                  "text": "Store the verified artifact in an isolated location."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 98,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 98,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 98,
+                    "column": 4
+                  },
+                  "text": "Apply it atomically, then retain a rollback path."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 100,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 100,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/066976fc-2612-4384-8f32-87fd40070406/signature-verification-verification-flow.jpg",
+          "title": null,
+          "alt": "A four-step diagram illustrating the process of fetching, signature verification, and validating a software update bundle."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 102,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 102,
+            "column": 1
+          },
+          "text": "The manifest must bind all values that influence the decision. At minimum, that means the bundle digest, version, channel, platform, and key identifier. Don't let a downloader substitute a URL, filename, or channel after verification. The verifier should receive immutable bytes and immutable metadata, then return a single accepted or rejected result."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 104,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 104,
+            "column": 1
+          },
+          "text": "A simplified TypeScript shape looks like this:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 106,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "type UpdateManifest = {\n  version: string\n  channel: string\n  platform: string\n  sha256: string\n  signature: string\n  keyId: string\n}\n\nasync function verifyBundle(\n  bundle: Uint8Array,\n  manifest: UpdateManifest,\n  trustedKeys: Map<string, Uint8Array>\n): Promise<boolean> {\n  const publicKey = trustedKeys.get(manifest.keyId)\n  if (!publicKey) return false\n\n  const digest = await sha256(bundle)\n  if (!constantTimeEqual(digest, hexToBytes(manifest.sha256))) {\n    return false\n  }\n\n  try {\n    return await ed25519Verify(\n      base64ToBytes(manifest.signature),\n      digest,\n      publicKey\n    )\n  } catch {\n    return false\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 141,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 1
+          },
+          "text": "The example is intentionally strict. Malformed base64, an unknown key identifier, a digest mismatch, or a failed signature must produce rejection. A timeout during download isn't a reason to apply the previous partial file. Delete incomplete artifacts, preserve the last known-good version, and retry under a bounded policy."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 143,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 143,
+            "column": 1
+          },
+          "text": "<a id=\"preventing-races-and-rollback-mistakes\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 143,
+            "column": 48
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 144,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 5
+          },
+          "text": "Preventing races and rollback mistakes"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 1
+          },
+          "text": "Download into a temporary path. Close and flush the file, verify its complete contents, then rename it into a versioned verified store. The activation step should reference only that verified path. In Capacitor and Electron environments, avoid letting an asynchronous download completion event trigger activation independently of the verification promise. A single update state machine should own transitions such as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 418
+          },
+          "text": "downloading"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 431
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 433
+          },
+          "text": "verified"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 443
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 445
+          },
+          "text": "pending"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 454
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 456
+          },
+          "text": "active"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 464
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 466
+          },
+          "text": "rejected"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 476
+          },
+          "text": ", and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 146,
+            "column": 482
+          },
+          "text": "rolled_back"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 495
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 1
+          },
+          "text": "Constant-time comparison is appropriate for comparing sensitive byte sequences, especially when an attacker can observe repeated verification behavior. More important operationally, don't expose a shortcut that accepts a bundle because a previous attempt marked the version as available. Availability and authenticity are separate states."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 150,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 150,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 150,
+            "column": 5
+          },
+          "url": "https://capgo.app/blog/integrity-checks-for-capacitor-updates/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 150,
+                "column": 6
+              },
+              "text": "integrity checks for Capacitor updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 150,
+            "column": 109
+          },
+          "text": " are a useful implementation reference for keeping hash validation and activation logic distinct. Test the failure branches deliberately, including truncated files, malformed signatures, unknown keys, stale manifests, duplicate versions, and process termination during activation."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 152,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 1
+          },
+          "text": "Research into automated signature verification shows why thresholds and reference data matter in other domains. A 1994 on-line study tested "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 152,
+            "column": 141
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 152,
+                "column": 143
+              },
+              "text": "22 features"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 156
+          },
+          "text": ", selected the best "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 152,
+            "column": 176
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 152,
+                "column": 178
+              },
+              "text": "10"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 182
+          },
+          "text": ", and reported "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 152,
+            "column": 197
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 152,
+                "column": 199
+              },
+              "text": "99.5%"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 206
+          },
+          "text": " correct classification of genuine signatures while rejecting "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 152,
+            "column": 268
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 152,
+                "column": 270
+              },
+              "text": "86%"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 275
+          },
+          "text": " of forgeries with a Euclidean-distance method, according to the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 152,
+            "column": 340
+          },
+          "url": "https://cedar.buffalo.edu/~srihari/papers/BBC-IAPR-Springer.pdf",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 152,
+                "column": 341
+              },
+              "text": "published statistical methods study"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 442
+          },
+          "text": ". Software update verification is deterministic rather than biometric, but the lesson remains relevant: define the inputs and decision boundary precisely."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 154,
+            "column": 1
+          },
+          "text": "<a id=\"key-management-challenges-most-teams-underestimate\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 154,
+            "column": 60
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 155,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 4
+          },
+          "text": "Key Management Challenges Most Teams Underestimate"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 157,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 157,
+            "column": 1
+          },
+          "text": "The first signing key is easy. The second key is where the architecture gets tested."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 159,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 159,
+            "column": 1
+          },
+          "text": "A team can generate a key pair, place the public key in the app, and sign its first bundle in a day. Months later, an engineer leaves with access to a laptop, a CI secret is printed in a build log, or a signing job needs to move from one runner to another. At that point, “just rotate the key” may mean abandoning devices that haven't checked in and have no way to recognize the replacement."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 161,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 161,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/637882e5-f24b-4a09-aac1-afe3059c7041/signature-verification-key-management.jpg",
+          "title": null,
+          "alt": "A comparison graphic showing the difference between a simple one-time key setup and complex, ongoing production realities."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 1
+          },
+          "text": "Three problems deserve design attention before the first release:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 165,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 165,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 165,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 165,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 165,
+                        "column": 5
+                      },
+                      "text": "Rotation without dead ends:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 34
+                  },
+                  "text": " Ship trust for a successor key before requiring that key. A signed key-transition record can let an existing trusted key authorize the next key, while the app continues accepting the old key during a defined migration window."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 166,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 166,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 166,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 166,
+                        "column": 5
+                      },
+                      "text": "Revocation without assumptions:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 166,
+                    "column": 38
+                  },
+                  "text": " A pinned key inside an app doesn't automatically provide OCSP or CRL-style revocation. The client needs a signed denylist, a minimum acceptable key version, or a server-controlled policy that remains safe when the network is unavailable."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 167,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 167,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 167,
+                        "column": 5
+                      },
+                      "text": "Restricted signing access:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 167,
+                    "column": 33
+                  },
+                  "text": " CI runners should request signing operations from a vault or HSM rather than receive a reusable private key as a plain environment variable. Logs must redact command output, and pull requests from untrusted branches must not reach production signing credentials."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 169,
+            "column": 3
+          },
+          "blocks": [
+            {
+              "type": "strong",
+              "location": {
+                "line": 169,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 169,
+                    "column": 5
+                  },
+                  "text": "Operational reality:"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 169,
+                "column": 27
+              },
+              "text": " Key rotation is an update problem. If the update mechanism can't deliver trust changes safely, it can't recover cleanly from a compromised key."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 171,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 1
+          },
+          "text": "A key hierarchy reduces blast radius. A root authority can authorize release keys, while separate keys sign development, staging, and production channels. Threshold signing can require multiple authorized parties for a sensitive production release, which helps prevent one stolen credential from creating a valid update. These controls add process and latency, so teams should apply them according to the impact of the update and the sensitivity of the channel."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 173,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 1
+          },
+          "text": "Trust on first use is especially weak for mobile updates. If the first key arrives through the same channel as the bundle, an attacker who controls that channel can replace both. The initial trust anchor must arrive in the app binary, a platform-protected configuration, or another independently authenticated path."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 175,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 175,
+            "column": 1
+          },
+          "text": "For Capacitor teams, Capgo's documented approach includes public-key pinning and key rotation support. The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 175,
+            "column": 108
+          },
+          "url": "https://capgo.app/blog/how-to-secure-ota-updates-with-key-management/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 175,
+                "column": 109
+              },
+              "text": "key-management guidance for secure OTA updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 175,
+            "column": 227
+          },
+          "text": " provides a practical reference for planning that lifecycle rather than treating key generation as a one-time setup."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 177,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 177,
+            "column": 1
+          },
+          "text": "<a id=\"integrating-verification-into-cicd-and-monitoring\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 177,
+            "column": 59
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 178,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 178,
+            "column": 4
+          },
+          "text": "Integrating Verification into CI/CD and Monitoring"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 180,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 180,
+            "column": 1
+          },
+          "text": "Signing belongs inside the release transaction. A pipeline shouldn't publish a bundle first and attach its signature later through a separate manual step. Build the immutable artifact, calculate its digest, sign the exact bytes, validate the signature using a clean verification step, and publish the bundle and metadata as one release unit."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "text": "A practical pipeline produces these artifacts:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 184,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 184,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 184,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 184,
+                        "column": 5
+                      },
+                      "text": "The immutable bundle:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 184,
+                    "column": 28
+                  },
+                  "text": " The file that the client will download, not a directory that a CDN will repackage."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 185,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 185,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 185,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 185,
+                        "column": 5
+                      },
+                      "text": "The manifest:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 185,
+                    "column": 20
+                  },
+                  "text": " Version, channel, platform, digest, key identifier, and rollout policy."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 186,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 186,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 186,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 186,
+                        "column": 5
+                      },
+                      "text": "The detached signature:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 186,
+                    "column": 30
+                  },
+                  "text": " A signature over canonical manifest data or a precisely defined digest representation."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 187,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 187,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 187,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 187,
+                        "column": 5
+                      },
+                      "text": "The verification result:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 187,
+                    "column": 31
+                  },
+                  "text": " A machine-readable check that the signature validates against the public key expected for that environment."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 189,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 189,
+            "column": 1
+          },
+          "text": "GitHub Actions and GitLab CI can enforce the same pattern even though their syntax differs. The signing job should fail if the private signing service is unavailable, if the signature is malformed, or if a freshly downloaded test copy doesn't verify. A deployment job should depend on that result, not merely on a successful build."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 191,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "text": "Don't sign a path and then allow a later job to mutate it. Lock the artifact after signing, compare its digest before publication, and make the published manifest reproducible from the release record. This catches a surprisingly common integration gap, where the CI job signs one compressed archive while the delivery layer serves a recompressed or regenerated file."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 193,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 193,
+            "column": 1
+          },
+          "text": "<a id=\"observability-belongs-on-the-device\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 193,
+            "column": 45
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 194,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 194,
+            "column": 5
+          },
+          "text": "Observability belongs on the device"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 196,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 196,
+            "column": 1
+          },
+          "text": "A successful signing job proves only that your pipeline created a valid signature. It doesn't prove that devices received the intended bytes or that the app used the intended key. Record verification outcomes with the app version, update version, channel, platform, key identifier, result category, and a privacy-safe release correlation ID. Avoid logging the bundle, token, private metadata, or user content."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 198,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 198,
+            "column": 1
+          },
+          "text": "Useful dashboards separate:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 200,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 200,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 200,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 200,
+                    "column": 3
+                  },
+                  "text": "signature failures from download failures,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 201,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 201,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 201,
+                    "column": 3
+                  },
+                  "text": "digest mismatches from malformed manifests,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 202,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 202,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 202,
+                    "column": 3
+                  },
+                  "text": "unknown keys from policy rejections,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 203,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 203,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 203,
+                    "column": 3
+                  },
+                  "text": "failures by app version, region, channel, and release age."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 205,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 205,
+            "column": 1
+          },
+          "text": "A sudden cluster of digest mismatches can indicate a corrupted cache, an altered delivery path, or an artifact publication error. Unknown-key events may indicate an incomplete rotation or an unauthorized release attempt. Verification telemetry won't identify the attacker by itself, but it gives responders a timeline and a population to investigate."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 207,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 207,
+            "column": 5
+          },
+          "url": "https://capgo.app/blog/how-to-secure-ota-updates-in-ci-cd-pipelines/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 207,
+                "column": 6
+              },
+              "text": "CI/CD security guidance for Capacitor OTA updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 126
+          },
+          "text": " can help teams place signing, validation, and deployment gates in one workflow. The important design choice is ownership. Security shouldn't need to ask engineering whether verification ran. The release record and client telemetry should answer that directly."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 209,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 209,
+            "column": 1
+          },
+          "text": "<a id=\"security-best-practices-and-common-pitfalls\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 209,
+            "column": 53
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 210,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 210,
+            "column": 4
+          },
+          "text": "Security Best Practices and Common Pitfalls"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 212,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 212,
+            "column": 1
+          },
+          "text": "Signature verification should be a hard requirement for every update path that can execute code. The updater must verify before extraction, installation, or activation, and it must fail closed when the signature, digest, key, or policy check is unavailable."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 214,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 214,
+            "column": 1
+          },
+          "text": "Use this as an immediate review checklist:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 216,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 216,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 216,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 216,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 216,
+                        "column": 5
+                      },
+                      "text": "Protect private keys:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 216,
+                    "column": 28
+                  },
+                  "text": " Keep signing material in an HSM or managed vault. Never commit it to source control, place it in a mobile binary, or allow it into CI logs."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 217,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 217,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 217,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 217,
+                        "column": 5
+                      },
+                      "text": "Pin trusted public keys:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 217,
+                    "column": 31
+                  },
+                  "text": " Store the initial trust anchor outside the update payload. If you support multiple keys, define their purposes and transition rules."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 218,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 218,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 218,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 218,
+                        "column": 5
+                      },
+                      "text": "Bind the complete release:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 218,
+                    "column": 33
+                  },
+                  "text": " Sign canonical metadata that identifies the exact bundle, channel, platform, and intended policy."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 219,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 219,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 219,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 219,
+                        "column": 5
+                      },
+                      "text": "Reject every verification error:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 219,
+                    "column": 39
+                  },
+                  "text": " A timeout, malformed signature, unknown key, or missing manifest isn't an invitation to continue with the previous unverified result."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 220,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 220,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 220,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 220,
+                        "column": 5
+                      },
+                      "text": "Test compromise recovery:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 220,
+                    "column": 32
+                  },
+                  "text": " Exercise key rotation, revoked-key handling, rollback, interrupted downloads, and stale devices in staging."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 221,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 221,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 221,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 221,
+                        "column": 5
+                      },
+                      "text": "Review verifier changes:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 221,
+                    "column": 31
+                  },
+                  "text": " Require security-focused code review for cryptographic libraries, canonicalization, parsing, fallback behavior, and debug configuration."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 222,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 222,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 222,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 222,
+                        "column": 5
+                      },
+                      "text": "Keep debug behavior isolated:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 222,
+                    "column": 36
+                  },
+                  "text": " A development bypass must be impossible to package into a production build through a default flag or environment mistake."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 224,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 224,
+            "column": 1
+          },
+          "text": "A signature also doesn't prove freshness, recipient binding, replay resistance, or that the payload remains compatible with the provider's current state. Webhook security guidance makes this distinction clearly, and recent vulnerability reporting has shown that malformed or null signatures and canonicality issues can still undermine narrow validation checks. Read the webhook security gap analysis when designing the surrounding authorization rules."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 226,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 1
+          },
+          "text": "Threshold selection creates a related lesson in biometric systems. A study using "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 226,
+            "column": 82
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 226,
+                "column": 84
+              },
+              "text": "62 parametric features"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 108
+          },
+          "text": " on "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 226,
+            "column": 112
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 226,
+                "column": 114
+              },
+              "text": "1,232 signatures from 102 individuals"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 153
+          },
+          "text": " reported writer-dependent thresholds of "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 226,
+            "column": 194
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 226,
+                "column": 196
+              },
+              "text": "2.8% false rejection"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 218
+          },
+          "text": " and "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 226,
+            "column": 223
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 226,
+                "column": 225
+              },
+              "text": "1.6% false acceptance"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 248
+          },
+          "text": ", while another method reported "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 226,
+            "column": 280
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 226,
+                "column": 282
+              },
+              "text": "2.68% false rejection"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 305
+          },
+          "text": " and "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 226,
+            "column": 310
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 226,
+                "column": 312
+              },
+              "text": "1.99% false acceptance"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 336
+          },
+          "text": ", as documented in the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 226,
+            "column": 359
+          },
+          "url": "http://biometrics.cse.msu.edu/Publications/Signature/JainGriessConnell_OnlineSignature_PR02.pdf",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 226,
+                "column": 360
+              },
+              "text": "threshold-selection research"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 226,
+            "column": 486
+          },
+          "text": ". The application differs, but the operational principle is the same: a verifier's decision policy matters as much as the cryptographic primitive."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 228,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 228,
+            "column": 1
+          },
+          "text": "Capgo can serve as one implementation option for Capacitor and Electron teams that need signed live-update bundles, on-device verification, rollout controls, rollback protection, and delivery observability in the same system. Visit "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 228,
+            "column": 233
+          },
+          "url": "https://capgo.app",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 228,
+                "column": 234
+              },
+              "text": "Capgo"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 228,
+            "column": 259
+          },
+          "text": " to evaluate whether its update workflow fits your key-management, CI/CD, and monitoring requirements."
+        }
+      ]
+    }
+  ]
+}

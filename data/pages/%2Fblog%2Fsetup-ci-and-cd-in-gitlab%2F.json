@@ -1,0 +1,584 @@
+{
+  "version": 1,
+  "route": "/blog/setup-ci-and-cd-in-gitlab/",
+  "source": "corpus/source/apps/web/src/content/blog/en/setup-ci-and-cd-in-gitlab.md",
+  "sourceSha256": "2996822287867b7c35c8a5de3d4a0481ab73fb37357202ced4f34e4a0ab065d1",
+  "metadata": {
+    "slug": "setup-ci-and-cd-in-gitlab",
+    "title": "Automatic build and release app with GitLab",
+    "description": "Create your own CI/CD pipeline with GitLab for free, deploy your Ionic Capacitor JS app every time you push to main.",
+    "author": "Anik Dhabal Babu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/81948346?v=4",
+    "author_url": "https://x.com/anikdhabal",
+    "created_at": "2023-09-14 00:00:00+00:00",
+    "updated_at": "2026-08-25 01:16:42+00:00",
+    "head_image": "/CI_CD_in_Gitlab.webp",
+    "head_image_alt": "Automatic build and release app with GitLab Capgo blog illustration",
+    "keywords": "GitLab, CI/CD, automatic build, automatic release, mobile app updates",
+    "tag": "CI/CD",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": ""
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "This article will guide you on how to do CI/CD pipeline setup with GitLab."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "Preface"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "Be sure you have added your Capacitor app first to Capgo, this tutorial just focuses on the upload phase. If you need to add your app to Capgo, you can follow this "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 6,
+            "column": 165
+          },
+          "url": "https://capgo.app/blog/update-your-capacitor-apps-seamlessly-using-capacitor-updater/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 6,
+                "column": 166
+              },
+              "text": "Tutorial"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 262
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 4
+          },
+          "text": "Commit convention"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "text": "First you need to start following the commit convention "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 10,
+            "column": 57
+          },
+          "url": "https://www.conventionalcommits.org/en/v1.0.0/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 10,
+                "column": 58
+              },
+              "text": "conventional commits"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 10,
+            "column": 127
+          },
+          "text": "` this will help the tooling understand how to upgrade the version number, it's 5 min to learn it."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 12,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "url": "/conventional_commits.webp",
+          "title": null,
+          "alt": "Conventional commits"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 4
+          },
+          "text": "GitLab CI/CD for Tag"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "text": "Create a .gitlab-ci.yml file in the root of your GitLab repository with the following content"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 19,
+        "column": 1
+      },
+      "lang": null,
+      "meta": null,
+      "text": " stages:\n      - tag\n\n bump_version:\n   stage: tag\n   only:\n     - main\n  except:\n    variables:\n  - $CI_COMMIT_MESSAGE =~ /^chore\\(release\\):/\n  script:\n   - git config --global user.email \"gitlab@yourdomain.com\"\n   - git config --global user.name \"GitLab CI/CD\"\n   - git checkout $CI_COMMIT_REF_NAME\n   - git pull origin $CI_COMMIT_REF_NAME\n   - npx capacitor-standard-version\n   - git push origin $CI_COMMIT_REF_NAME --tags"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 37,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "text": "Replace \""
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 37,
+            "column": 10
+          },
+          "url": "mailto:gitlab@yourdomain.com",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 37,
+                "column": 10
+              },
+              "text": "gitlab@yourdomain.com"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 31
+          },
+          "text": "\" and \"GitLab CI/CD\" with your GitLab email and username in the script section. This configuration triggers the job only on pushes to the main branch and excludes commits with messages starting with \"chore(release):\"."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 4
+          },
+          "text": "GitLab CI/CD for Build"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "text": "Add another stage to your .gitlab-ci.yml file for the build:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "lang": null,
+      "meta": null,
+      "text": "    stages:\n      - deploy\n\n   deploy:\n     stage: deploy\n     only:\n       - tags  # This job will only run for tag pushes\n     script:\n       - apt-get update -qy && apt-get install -y nodejs npm\n       - npm install -g @capgo/cli\n       - npm ci\n       - npm run build\n       - npx @capgo/cli bundle upload -a $CAPGO_TOKEN -c production\n     variables:\n       FIREBASE_CONFIG: $FIREBASE_CONFIG  # Define this in your GitLab project settings\n     environment:\n       name: production"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 61,
+            "column": 1
+          },
+          "text": "Ensure you have your Capgo API key (CAPGO_TOKEN) added as a CI/CD variable in your GitLab project. Go to your project in GitLab, navigate to Settings > CI/CD > Variables, and add a variable named CAPGO_TOKEN with your API key value."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 63,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 63,
+            "column": 1
+          },
+          "text": "Customize the build script to match your specific project's build process, such as changing the npm run build command."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 65,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 65,
+            "column": 4
+          },
+          "text": "Conclusion"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 67,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 1
+          },
+          "text": "Here we are! We took an extra step in our tech journey. In modern software development, CICD is an essential factor to be considered. So that I'm hoping this guideline makes sense to everyone."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 69,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 69,
+            "column": 4
+          },
+          "text": "Keep going from Automatic build and release app with GitLab"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 1
+          },
+          "text": "If you are using "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 71,
+            "column": 18
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 71,
+                "column": 20
+              },
+              "text": "Automatic build and release app with GitLab"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 65
+          },
+          "text": " to plan CI/CD automation, connect it with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 71,
+            "column": 108
+          },
+          "url": "/ci_cd/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 71,
+                "column": 109
+              },
+              "text": "Capgo CI/CD"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 130
+          },
+          "text": " for the product workflow in Capgo CI/CD, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 71,
+            "column": 172
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 71,
+                "column": 173
+              },
+              "text": "Capgo Native Builds"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 209
+          },
+          "text": " for the product workflow in Capgo Native Builds, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 71,
+            "column": 259
+          },
+          "url": "/integrations/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 71,
+                "column": 260
+              },
+              "text": "Capgo Integrations"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 295
+          },
+          "text": " for the product workflow in Capgo Integrations, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 71,
+            "column": 344
+          },
+          "url": "/docs/getting-started/cicd-integration/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 71,
+                "column": 345
+              },
+              "text": "CI/CD Integration"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 404
+          },
+          "text": " for the implementation detail in CI/CD Integration, and "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 71,
+            "column": 461
+          },
+          "url": "/docs/live-updates/integrations/github-actions/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 71,
+                "column": 462
+              },
+              "text": "GitHub Actions Integration"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 538
+          },
+          "text": " for the implementation detail in GitHub Actions Integration."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3522 @@
+{
+  "version": 1,
+  "route": "/blog/use-cocoapods-with-capacitor-8/",
+  "source": "corpus/source/apps/web/src/content/blog/en/use-cocoapods-with-capacitor-8.md",
+  "sourceSha256": "b87a4f22c1325cb4fc56fc225d45cc2d2da4d45a09d0a3f95e545d5d00c97361",
+  "metadata": {
+    "slug": "use-cocoapods-with-capacitor-8",
+    "title": "How to Use CocoaPods with Capacitor 8 (and When Not To)",
+    "description": "Use CocoaPods with Capacitor 8: create a CocoaPods iOS project, manage the Podfile, fix pod install errors, and plan for the CocoaPods trunk read-only date.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capacitor-app-spm-migration-guide.jpg",
+    "head_image_alt": "Illustration of a Capacitor iOS project choosing between CocoaPods and Swift Package Manager",
+    "keywords": "CocoaPods Capacitor, Capacitor 8 CocoaPods, cap add ios packagemanager CocoaPods, Podfile Capacitor, pod install error, CocoaPods trunk read-only, SPM vs CocoaPods",
+    "tag": "Capacitor, iOS, Configuration",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Is CocoaPods still supported in Capacitor 8?",
+        "answer": "Yes. Capacitor 8 supports both CocoaPods and Swift Package Manager. Only the default for new iOS platforms changed to SPM. Existing CocoaPods apps keep working, and you can create a new one with bunx cap add ios --packagemanager CocoaPods."
+      },
+      {
+        "question": "What happens to my app when CocoaPods trunk becomes read-only?",
+        "answer": "The CocoaPods team plans to make trunk read-only on December 2, 2026. Existing pod versions stay installable, so builds keep working. No new versions are published through trunk afterwards, so dependencies such as SDKs pulled from trunk stop receiving updates there. Capacitor plugins installed from npm use local paths and are not affected directly."
+      },
+      {
+        "question": "Can one Capacitor app use SPM for some plugins and CocoaPods for others?",
+        "answer": "Not through the Capacitor CLI. The CLI manages plugins with one package manager per iOS project. In an SPM project, plugins without a Package.swift are skipped with a warning. If you depend on a CocoaPods-only plugin, the whole iOS project needs CocoaPods until that plugin adds SPM support."
+      },
+      {
+        "question": "How do I switch an existing Capacitor app from SPM back to CocoaPods?",
+        "answer": "There is no automatic command. Back up the ios folder, delete it, run bunx cap add ios --packagemanager CocoaPods, then reapply your native changes such as Info.plist keys, entitlements, signing, app icons and extensions."
+      },
+      {
+        "question": "Should I run pod install myself?",
+        "answer": "Usually not. bunx cap sync ios rewrites the Capacitor section of the Podfile and runs pod install for you, using bundle exec when a Gemfile is present. Run pod commands yourself only for repo updates or targeted pod update calls."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To use CocoaPods with Capacitor 8, create the iOS platform with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 65
+          },
+          "text": "bunx cap add ios --packagemanager CocoaPods"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 110
+          },
+          "text": ", install CocoaPods (Homebrew or a Gemfile with Bundler), and let "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 176
+          },
+          "text": "bunx cap sync ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 195
+          },
+          "text": " manage the Podfile and run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 223
+          },
+          "text": "pod install"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 236
+          },
+          "text": ". Capacitor 8 still fully supports CocoaPods. Only the default for new projects changed to Swift Package Manager."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "CocoaPods is no longer the long-term direction, and its trunk goes read-only on December 2, 2026. So the real question is when it's still the right choice, how to keep it working, and how to leave it cleanly. This guide covers all three."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "When CocoaPods is still the right choice"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "Stay on, or pick, CocoaPods when one of these is true:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 10,
+                        "column": 5
+                      },
+                      "text": "A plugin you need has no "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 10,
+                        "column": 30
+                      },
+                      "text": "Package.swift"
+                    },
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 10,
+                        "column": 45
+                      },
+                      "text": "."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 48
+                  },
+                  "text": " In an SPM project the CLI warns \"Some installed Capacitor plugins are not compatible with SPM\" and leaves that plugin out, so it fails at runtime with \"plugin is not implemented\"."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 11,
+                        "column": 5
+                      },
+                      "text": "A vendor SDK is distributed only as a pod."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 49
+                  },
+                  "text": " Some analytics, payment and identity SDKs still ship CocoaPods-only, or ship an xcframework you'd have to wrap yourself."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 12,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 12,
+                        "column": 5
+                      },
+                      "text": "A Cordova plugin relies on pods."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 39
+                  },
+                  "text": " Capacitor generates a Swift package for Cordova plugins in SPM projects, but complex ones with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 135
+                  },
+                  "text": "<podspec>"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 146
+                  },
+                  "text": " dependencies tend to work better with CocoaPods."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 13,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 13,
+                        "column": 5
+                      },
+                      "text": "You rely on podspec subspecs"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 35
+                  },
+                  "text": " to pick SDK variants. SPM has package traits now, and Capacitor supports them experimentally since CLI 8.3 (see "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 13,
+                    "column": 148
+                  },
+                  "url": "/blog/spm-package-traits-in-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 13,
+                        "column": 149
+                      },
+                      "text": "SPM package traits in Capacitor"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 221
+                  },
+                  "text": "), but the plugin has to define traits first."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 14,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 14,
+                        "column": 5
+                      },
+                      "text": "A large, customized Xcode project"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 40
+                  },
+                  "text": " where a migration is not worth the risk this release cycle."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "text": "Package identity collisions used to be another reason. Since CLI 8.4 you can work around them in SPM with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 16,
+            "column": 107
+          },
+          "text": "experimental.ios.spm.packageOptions"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 144
+          },
+          "text": " ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 16,
+            "column": 146
+          },
+          "text": "symlink"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 155
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 16,
+            "column": 159
+          },
+          "text": "moduleAliases"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 174
+          },
+          "text": ") in your Capacitor config."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "text": "If none of these apply, use SPM. It needs no Ruby toolchain, no Podfile and no "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 18,
+            "column": 80
+          },
+          "text": ".xcworkspace"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 94
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 20,
+            "column": 4
+          },
+          "text": "CocoaPods vs SPM in Capacitor 8"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 1
+              },
+              "blocks": []
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 5
+                  },
+                  "text": "CocoaPods"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 17
+                  },
+                  "text": "Swift Package Manager"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "text": "Default for new "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 24,
+                    "column": 19
+                  },
+                  "text": "cap add ios"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 35
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 40
+                  },
+                  "text": "Yes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "text": "Extra tooling"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 19
+                  },
+                  "text": "Ruby + CocoaPods gem"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 42
+                  },
+                  "text": "None, built into Xcode"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 3
+                  },
+                  "text": "Project to open"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 26,
+                    "column": 21
+                  },
+                  "text": "ios/App/App.xcworkspace"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 47
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 26,
+                    "column": 49
+                  },
+                  "text": "ios/App/App.xcodeproj"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 3
+                  },
+                  "text": "Plugin requirement"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 27,
+                    "column": 24
+                  },
+                  "text": ".podspec"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 27,
+                    "column": 37
+                  },
+                  "text": "Package.swift"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 3
+                  },
+                  "text": "Generated file"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 28,
+                    "column": 20
+                  },
+                  "text": "def capacitor_pods"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 40
+                  },
+                  "text": " block in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 28,
+                    "column": 50
+                  },
+                  "text": "Podfile"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 28,
+                "column": 60
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 28,
+                    "column": 62
+                  },
+                  "text": "ios/App/CapApp-SPM/Package.swift"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 3
+                  },
+                  "text": "Optional features"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 23
+                  },
+                  "text": "Subspecs"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 34
+                  },
+                  "text": "Package traits (experimental in Capacitor)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 30,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 3
+                  },
+                  "text": "Future"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 30,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 12
+                  },
+                  "text": "Trunk read-only from Dec 2, 2026"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 30,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 47
+                  },
+                  "text": "Apple-supported"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 4
+          },
+          "text": "Install CocoaPods"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "text": "Pick one approach and use it everywhere, including CI."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 36,
+                "column": 3
+              },
+              "text": "Homebrew"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 13
+          },
+          "text": " (simplest for one developer):"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "brew install cocoapods\npod --version"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 43,
+                "column": 3
+              },
+              "text": "Bundler"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 12
+          },
+          "text": " (pins the version for the whole team, recommended for CI). Create a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 43,
+            "column": 81
+          },
+          "text": "Gemfile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 90
+          },
+          "text": " in the project root or in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 43,
+            "column": 117
+          },
+          "text": "ios/App"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 126
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "lang": "ruby",
+      "meta": null,
+      "text": "source 'https://rubygems.org'\ngem 'cocoapods', '~> 1.16'"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bundle install"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "text": "When the Capacitor CLI finds a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 32
+          },
+          "text": "Gemfile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 41
+          },
+          "text": " that mentions CocoaPods, it runs "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 75
+          },
+          "text": "bundle exec pod install"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 100
+          },
+          "text": " instead of "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 112
+          },
+          "text": "pod install"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 125
+          },
+          "text": ". If "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 130
+          },
+          "text": "pod"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 135
+          },
+          "text": " lives somewhere unusual, set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 165
+          },
+          "text": "CAPACITOR_COCOAPODS_PATH"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 191
+          },
+          "text": " to the binary."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 4
+          },
+          "text": "Create a Capacitor 8 app with CocoaPods"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capacitor/ios\nbun run build\nbunx cap add ios --packagemanager CocoaPods\nbunx cap open ios"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 65,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 65,
+            "column": 1
+          },
+          "text": "cap open ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 65,
+            "column": 15
+          },
+          "text": " opens "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 65,
+            "column": 22
+          },
+          "text": "App.xcworkspace"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 65,
+            "column": 39
+          },
+          "text": ". Always build from the workspace. Opening "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 65,
+            "column": 82
+          },
+          "text": "App.xcodeproj"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 65,
+            "column": 97
+          },
+          "text": " directly gives you "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 65,
+            "column": 117
+          },
+          "text": "No such module 'Capacitor'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 65,
+            "column": 145
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 67,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 4
+          },
+          "text": "The Podfile, explained"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 69,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 69,
+            "column": 1
+          },
+          "text": "This is the Podfile Capacitor 8 generates:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "lang": "ruby",
+      "meta": null,
+      "text": "require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'\n\nplatform :ios, '15.0'\nuse_frameworks!\n\ninstall! 'cocoapods', :disable_input_output_paths => true\n\ndef capacitor_pods\n  pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'\n  pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'\nend\n\ntarget 'App' do\n  capacitor_pods\n  # Add your Pods here\nend\n\npost_install do |installer|\n  assertDeploymentTarget(installer)\nend"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 94,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 94,
+            "column": 1
+          },
+          "text": "What you can and can't touch:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 96,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 96,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 96,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 96,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 96,
+                        "column": 5
+                      },
+                      "text": "def capacitor_pods ... end"
+                    },
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 96,
+                        "column": 33
+                      },
+                      "text": " belongs to the CLI."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 96,
+                    "column": 55
+                  },
+                  "text": " On every sync it replaces the whole block with one "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 96,
+                    "column": 107
+                  },
+                  "text": "pod"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 96,
+                    "column": 112
+                  },
+                  "text": " line per plugin, pointing to the plugin's folder in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 96,
+                    "column": 165
+                  },
+                  "text": "node_modules"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 96,
+                    "column": 179
+                  },
+                  "text": ". Anything you add inside is lost."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 97,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 97,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 97,
+                        "column": 5
+                      },
+                      "text": "Add your own pods under "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 97,
+                        "column": 29
+                      },
+                      "text": "target 'App'"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 97,
+                    "column": 45
+                  },
+                  "text": ", after "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 97,
+                    "column": 53
+                  },
+                  "text": "capacitor_pods"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 97,
+                    "column": 69
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 98,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 98,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 98,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 98,
+                        "column": 5
+                      },
+                      "text": "assertDeploymentTarget"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 98,
+                    "column": 31
+                  },
+                  "text": " raises any pod with a deployment target below 15.0 up to 15.0, which avoids Xcode warnings about unsupported targets. Keep it, and add your own "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 98,
+                    "column": 176
+                  },
+                  "text": "post_install"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 98,
+                    "column": 190
+                  },
+                  "text": " logic inside the same block."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 99,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 99,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 99,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 99,
+                        "column": 5
+                      },
+                      "text": "platform :ios"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 99,
+                    "column": 22
+                  },
+                  "text": " must be at least 15.0 for Capacitor 8."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 101,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 1
+          },
+          "text": "Example with an extra pod and a build setting fix:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "lang": "ruby",
+      "meta": null,
+      "text": "target 'App' do\n  capacitor_pods\n  pod 'GoogleMLKit/BarcodeScanning', '~> 7.0'\nend\n\npost_install do |installer|\n  assertDeploymentTarget(installer)\n  installer.pods_project.targets.each do |target|\n    if target.respond_to?(:product_type) && target.product_type == 'com.apple.product-type.bundle'\n      target.build_configurations.each do |config|\n        config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'\n      end\n    end\n  end\nend"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 121,
+            "column": 1
+          },
+          "text": "The loop disables code signing for resource bundle targets. It fixes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 121,
+            "column": 70
+          },
+          "text": "Signing for \"X\" requires a development team"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 121,
+            "column": 115
+          },
+          "text": " on pods that ship resource bundles. Only add it if you hit that error."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 123,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 123,
+            "column": 4
+          },
+          "text": "Day-to-day commands"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "# After installing or removing a plugin\nbunx cap sync ios\n\n# Use the exact versions in Podfile.lock (good for CI)\nbunx cap sync ios --deployment\n\n# Refresh the spec repo when a new pod version isn't found\ncd ios/App && pod repo update && pod install\n\n# Update one pod past its locked version\ncd ios/App && pod update FirebaseMessaging"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 139,
+            "column": 1
+          },
+          "text": "cap sync ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 15
+          },
+          "text": " also runs "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 139,
+            "column": 26
+          },
+          "text": "xcodebuild clean"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 44
+          },
+          "text": " on the project after "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 139,
+            "column": 66
+          },
+          "text": "pod install"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 79
+          },
+          "text": ", so you don't need a manual clean after adding plugins."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 141,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 1
+          },
+          "text": "Commit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 141,
+            "column": 8
+          },
+          "text": "Podfile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 17
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 141,
+            "column": 22
+          },
+          "text": "Podfile.lock"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 36
+          },
+          "text": ". Don't commit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 141,
+            "column": 51
+          },
+          "text": "ios/App/Pods/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 66
+          },
+          "text": ". It's regenerated by "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 141,
+            "column": 88
+          },
+          "text": "pod install"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 101
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 143,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 143,
+            "column": 4
+          },
+          "text": "Switching an existing app from SPM to CocoaPods"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 145,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 145,
+            "column": 1
+          },
+          "text": "There's no reverse migration command. Do it by hand:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 147,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 147,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 147,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 147,
+                    "column": 4
+                  },
+                  "text": "Commit, then copy "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 147,
+                    "column": 22
+                  },
+                  "text": "ios/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 147,
+                    "column": 28
+                  },
+                  "text": " somewhere safe."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 148,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 148,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 148,
+                    "column": 4
+                  },
+                  "text": "Delete "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 148,
+                    "column": 11
+                  },
+                  "text": "ios/"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 148,
+                    "column": 17
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 149,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 149,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 149,
+                    "column": 4
+                  },
+                  "text": "Run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 149,
+                    "column": 8
+                  },
+                  "text": "bunx cap add ios --packagemanager CocoaPods"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 149,
+                    "column": 53
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 150,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 150,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 150,
+                    "column": 4
+                  },
+                  "text": "Reapply native changes: "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 150,
+                    "column": 28
+                  },
+                  "text": "Info.plist"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 150,
+                    "column": 40
+                  },
+                  "text": " keys, entitlements and capabilities, signing team, bundle identifier, app icons and splash assets, URL schemes, extensions (widgets, notification service), and any custom Swift in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 150,
+                    "column": 221
+                  },
+                  "text": "AppDelegate"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 150,
+                    "column": 234
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 151,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 151,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 151,
+                    "column": 4
+                  },
+                  "text": "bunx cap sync ios"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 151,
+                    "column": 23
+                  },
+                  "text": " and build."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 153,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 153,
+            "column": 1
+          },
+          "text": "Diffing the old and new "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 153,
+            "column": 25
+          },
+          "text": "ios/App/App"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 153,
+            "column": 38
+          },
+          "text": " folders is the fastest way to catch what you missed."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 155,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 4
+          },
+          "text": "Fixing common CocoaPods errors"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 157,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 157,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 157,
+                "column": 3
+              },
+              "text": "CocoaPods could not find compatible versions for pod \"X\""
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 157,
+                "column": 61
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 157,
+            "column": 64
+          },
+          "text": " Either your local spec repo is stale or two pods require incompatible versions. Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 157,
+            "column": 149
+          },
+          "text": "pod install --repo-update"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 157,
+            "column": 176
+          },
+          "text": " in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 157,
+            "column": 180
+          },
+          "text": "ios/App"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 157,
+            "column": 189
+          },
+          "text": ". If it still fails, read the dependency chain in the error, find the plugin with the strict pin, upgrade it or "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 157,
+            "column": 301
+          },
+          "url": "/blog/how-to-patch-a-capacitor-plugin/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 157,
+                "column": 302
+              },
+              "text": "patch its podspec"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 157,
+            "column": 360
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 159,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 159,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 159,
+                "column": 3
+              },
+              "text": "The sandbox is not in sync with the Podfile.lock. Run 'pod install'"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 159,
+                "column": 72
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 159,
+            "column": 75
+          },
+          "text": " The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 159,
+            "column": 80
+          },
+          "text": "Pods"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 159,
+            "column": 86
+          },
+          "text": " folder doesn't match the lock file, usually after switching branches. Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 159,
+            "column": 161
+          },
+          "text": "bunx cap sync ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 159,
+            "column": 180
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 161,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 161,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 161,
+                "column": 3
+              },
+              "text": "[!] Unable to find a specification for 'X'"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 161,
+                "column": 47
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 50
+          },
+          "text": " The spec repo cache is stale or the pod name is wrong. Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 161,
+            "column": 110
+          },
+          "text": "pod repo update"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 127
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 163,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 163,
+                "column": 3
+              },
+              "text": "Unable to find compatibility version string for object version '70'"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 74
+          },
+          "text": " (or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 163,
+            "column": 79
+          },
+          "text": "77"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 83
+          },
+          "text": "). Your Xcode project uses a newer format than your CocoaPods/xcodeproj gem understands. Update CocoaPods to the latest release. If you can't, back up "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 163,
+            "column": 234
+          },
+          "text": "project.pbxproj"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 251
+          },
+          "text": " and set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 163,
+            "column": 260
+          },
+          "text": "objectVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 275
+          },
+          "text": " to a value your CocoaPods supports."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 165,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 165,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 165,
+                "column": 3
+              },
+              "text": "Sandbox: rsync(...) deny(1) file-write-create"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 165,
+                "column": 50
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 165,
+            "column": 53
+          },
+          "text": " Xcode's user script sandboxing blocks the CocoaPods embed script. In "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 165,
+            "column": 123
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 165,
+                "column": 125
+              },
+              "text": "Build Settings"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 165,
+            "column": 141
+          },
+          "text": ", set "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 165,
+            "column": 147
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 165,
+                "column": 149
+              },
+              "text": "User Script Sandboxing"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 165,
+            "column": 173
+          },
+          "text": " ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 165,
+            "column": 175
+          },
+          "text": "ENABLE_USER_SCRIPT_SANDBOXING"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 165,
+            "column": 206
+          },
+          "text": ") to "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 165,
+            "column": 211
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 165,
+                "column": 213
+              },
+              "text": "No"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 165,
+            "column": 217
+          },
+          "text": " for the App target."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 167,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 167,
+                "column": 3
+              },
+              "text": "No such module 'Capacitor'"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 167,
+                "column": 31
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 34
+          },
+          "text": " You opened "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 167,
+            "column": 46
+          },
+          "text": "App.xcodeproj"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 61
+          },
+          "text": ". Open "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 167,
+            "column": 68
+          },
+          "text": "App.xcworkspace"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 85
+          },
+          "text": ", or run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 167,
+            "column": 94
+          },
+          "text": "bunx cap open ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 113
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 169,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 169,
+                "column": 3
+              },
+              "text": "pod: command not found"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 169,
+                "column": 27
+              },
+              "text": " in CI."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 36
+          },
+          "text": " Install CocoaPods in the job, or use Bundler with a cached "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 169,
+            "column": 96
+          },
+          "text": "vendor/bundle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 111
+          },
+          "text": ". Without it, the CLI logs \"Skipping pod install because CocoaPods is not installed\" and the build fails later."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 171,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 1
+          },
+          "text": "More iOS build errors are covered in the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 171,
+            "column": 42
+          },
+          "url": "/blog/troubleshooting-capacitor-ios-build-errors/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 171,
+                "column": 43
+              },
+              "text": "Capacitor iOS troubleshooting guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 130
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 173,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 4
+          },
+          "text": "The CocoaPods trunk read-only date"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 175,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 175,
+            "column": 1
+          },
+          "text": "The CocoaPods maintainers announced that trunk, the central spec repository, becomes read-only on December 2, 2026, after a test run in early November 2026. What that means for a Capacitor app:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 177,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 177,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 177,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 177,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 177,
+                        "column": 5
+                      },
+                      "text": "Existing builds keep working."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 177,
+                    "column": 36
+                  },
+                  "text": " Every published podspec stays available."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 178,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 178,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 178,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 178,
+                        "column": 5
+                      },
+                      "text": "No new versions through trunk."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 178,
+                    "column": 37
+                  },
+                  "text": " SDKs you pull from trunk (Firebase, Google ML Kit, vendor SDKs) stop getting updates there. Security fixes and new iOS SDK support will only ship through SPM or other channels."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 179,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 179,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 179,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 179,
+                        "column": 5
+                      },
+                      "text": "Capacitor plugins themselves are not affected directly."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 179,
+                    "column": 62
+                  },
+                  "text": " They're installed from npm and referenced by "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 179,
+                    "column": 108
+                  },
+                  "text": ":path"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 179,
+                    "column": 115
+                  },
+                  "text": " in the Podfile. Their transitive pod dependencies are."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 181,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 1
+          },
+          "text": "Treat CocoaPods as a bridge. List which dependency keeps you on it, and revisit when that dependency adds SPM support."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 183,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 183,
+            "column": 4
+          },
+          "text": "Moving off CocoaPods"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 185,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 185,
+            "column": 1
+          },
+          "text": "When you're ready:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 187,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx cap spm-migration-assistant"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 191,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "text": "It runs "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 191,
+            "column": 9
+          },
+          "text": "pod deintegrate"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 26
+          },
+          "text": ", removes the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 191,
+            "column": 40
+          },
+          "text": "Podfile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 49
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 191,
+            "column": 51
+          },
+          "text": "Podfile.lock"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 65
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 191,
+            "column": 70
+          },
+          "text": "App.xcworkspace"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 87
+          },
+          "text": ", creates "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 191,
+            "column": 97
+          },
+          "text": "CapApp-SPM"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 109
+          },
+          "text": ", and writes a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 191,
+            "column": 124
+          },
+          "text": "debug.xcconfig"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 140
+          },
+          "text": ". You then add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 191,
+            "column": 155
+          },
+          "text": "CapApp-SPM"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 167
+          },
+          "text": " as a local package in Xcode and set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 191,
+            "column": 204
+          },
+          "text": "debug.xcconfig"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 220
+          },
+          "text": " as the Debug configuration file. The full walkthrough is in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 191,
+            "column": 281
+          },
+          "url": "/blog/how-to-migrate-your-capacitor-app-to-spm/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 191,
+                "column": 282
+              },
+              "text": "how to migrate your Capacitor app to SPM"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 372
+          },
+          "text": ", and the trade-offs are covered in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 191,
+            "column": 408
+          },
+          "url": "/blog/ios-spm-vs-cocoapods-capacitor-migration-guide/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 191,
+                "column": 409
+              },
+              "text": "SPM vs CocoaPods for Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 191,
+            "column": 495
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 193,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 1
+          },
+          "text": "Plugin authors who need to add SPM support should read "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 193,
+            "column": 56
+          },
+          "url": "/blog/migrate-capacitor-plugin-to-swift-package-manager/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 193,
+                "column": 57
+              },
+              "text": "migrate a Capacitor plugin to SPM"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 149
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 195,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 1
+          },
+          "text": "If managing Ruby, CocoaPods and Xcode versions on build machines is the painful part, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 195,
+            "column": 87
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 195,
+                "column": 88
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 116
+          },
+          "text": " builds CocoaPods and SPM projects in the cloud on current Xcode."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,4075 @@
+{
+  "version": 1,
+  "route": "/blog/upgrade-capacitor-plugin-to-capacitor-8/",
+  "source": "corpus/source/apps/web/src/content/blog/en/upgrade-capacitor-plugin-to-capacitor-8.md",
+  "sourceSha256": "a10f5b1e1d8531190d3965b44dd2bf51156940a02f9a17553b9e8da97180f487",
+  "metadata": {
+    "slug": "upgrade-capacitor-plugin-to-capacitor-8",
+    "title": "How to Upgrade a Capacitor Plugin to Capacitor 8",
+    "description": "Upgrade a Capacitor plugin to Capacitor 8: peer dependencies, SDK 36, AGP 8.13, Kotlin 2.2 compilerOptions, Java 21, iOS 15, Package.swift and release steps.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_plugins.webp",
+    "head_image_alt": "Capgo plugins logo on a dark blue background for the Capacitor 8 plugin upgrade guide",
+    "keywords": "upgrade Capacitor plugin to Capacitor 8, Capacitor plugin migration, plugin-migration-v7-to-v8, Capacitor 8 plugin, Kotlin 2.2 compilerOptions, Package.swift, capacitor-swift-pm 8",
+    "tag": "Capacitor, Migration, Development",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Which peer dependency range should a Capacitor 8 plugin declare?",
+        "answer": "The official guide uses >=8.0.0 for @capacitor/core in peerDependencies and ^8.0.0 for the Capacitor devDependencies. Many maintainers prefer ^8.0.0 for the peer to avoid claiming support for Capacitor 9 before testing it. Pick one deliberately and document it."
+      },
+      {
+        "question": "Does the Capacitor 8 plugin upgrade require Swift Package Manager support?",
+        "answer": "No. A CocoaPods-only plugin still works in CocoaPods apps after you bump its podspec to iOS 15. But new Capacitor 8 apps default to SPM, and SPM apps cannot load a plugin without a Package.swift, so adding SPM support is strongly recommended."
+      },
+      {
+        "question": "Is Java 21 mandatory for Capacitor 8 plugins?",
+        "answer": "Building any Capacitor 8 app requires a JDK 21 because @capacitor/android compiles with Java 21. For your plugin's own sourceCompatibility, Java 21 is recommended and Java 17 is still accepted, as long as your jvmTarget matches."
+      },
+      {
+        "question": "What version number should my plugin use after the upgrade?",
+        "answer": "Ship a new major version. The peer dependency change and minSdk 24 / iOS 15 floors are breaking for consumers. The official migration tool sets the plugin version to 8.0.0, which also makes the supported Capacitor major obvious."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To upgrade a Capacitor plugin to Capacitor 8, run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 51
+          },
+          "text": "bunx @capacitor/plugin-migration-v7-to-v8@latest"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 101
+          },
+          "text": " from the plugin root, then review the diff: Capacitor dependencies move to 8.x, Android targets SDK 36 with minSdk 24, AGP 8.13 and Gradle 8.14.3, Kotlin goes to 2.2.20 with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 276
+          },
+          "text": "compilerOptions"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 293
+          },
+          "text": ", and iOS moves to a 15.0 deployment target with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 342
+          },
+          "text": "capacitor-swift-pm"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 362
+          },
+          "text": " 8. Finish by building the example app on both platforms and publishing a new major version."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide is for plugin maintainers. App teams should follow "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 4,
+            "column": 63
+          },
+          "url": "/blog/upgrade-capacitor-app-to-capacitor-8/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 4,
+                "column": 64
+              },
+              "text": "How to Upgrade Your Capacitor App to Capacitor 8"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 158
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "What changes for plugin authors"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "File"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 10
+                  },
+                  "text": "Change"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "package.json"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 20
+                  },
+                  "text": "@capacitor/core"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 37
+                  },
+                  "text": " peer to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 46
+                  },
+                  "text": ">=8.0.0"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 55
+                  },
+                  "text": ", dev deps "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 66
+                  },
+                  "text": "@capacitor/cli"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 82
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 84
+                  },
+                  "text": "core"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 90
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 92
+                  },
+                  "text": "android"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 101
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 103
+                  },
+                  "text": "ios"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 108
+                  },
+                  "text": " to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 10,
+                    "column": 112
+                  },
+                  "text": "^8.0.0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "android/build.gradle"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 28
+                  },
+                  "text": "compileSdk = 36"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 45
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 47
+                  },
+                  "text": "minSdkVersion = 24"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 67
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 69
+                  },
+                  "text": "targetSdkVersion = 36"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 92
+                  },
+                  "text": ", AndroidX bumps"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "android/build.gradle"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 25
+                  },
+                  "text": " (buildscript)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 42
+                  },
+                  "text": "AGP "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 46
+                  },
+                  "text": "8.13.0"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 54
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 56
+                  },
+                  "text": "google-services"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 73
+                  },
+                  "text": " "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 74
+                  },
+                  "text": "4.4.4"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 81
+                  },
+                  "text": ", Kotlin "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 90
+                  },
+                  "text": "2.2.20"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "android/gradle/wrapper/gradle-wrapper.properties"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 54
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 56
+                  },
+                  "text": "Gradle "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 63
+                  },
+                  "text": "8.14.3"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "All Gradle files"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 14,
+                    "column": 22
+                  },
+                  "text": "="
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 25
+                  },
+                  "text": " assignment syntax, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 14,
+                    "column": 45
+                  },
+                  "text": "kotlinOptions"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 60
+                  },
+                  "text": " replaced by "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 14,
+                    "column": 73
+                  },
+                  "text": "compilerOptions"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "text": "*.podspec"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 17
+                  },
+                  "text": "s.ios.deployment_target = '15.0'"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "text": "Package.swift"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 16,
+                    "column": 21
+                  },
+                  "text": ".iOS(.v15)"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 33
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 16,
+                    "column": 38
+                  },
+                  "text": "capacitor-swift-pm"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 58
+                  },
+                  "text": " "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 16,
+                    "column": 59
+                  },
+                  "text": "from: \"8.0.0\""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "text": "Platform tooling you need locally and in CI: Node.js 22+, Xcode 26+, Android Studio Otter (2025.2.1) or later, and a JDK 21."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 20,
+            "column": 4
+          },
+          "text": "Option 1: run the official migration tool"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "text": "From the plugin root, on a clean git tree:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx @capacitor/plugin-migration-v7-to-v8@latest"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "text": "The tool:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 30,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 3
+                  },
+                  "text": "Updates the Capacitor dependencies and sets your package version to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 30,
+                    "column": 71
+                  },
+                  "text": "8.0.0"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 78
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 31,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 31,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 3
+                  },
+                  "text": "Updates dev tooling that the official template uses: "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 31,
+                    "column": 56
+                  },
+                  "text": "@capacitor/docgen"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 75
+                  },
+                  "text": ", Rollup, TypeScript, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 31,
+                    "column": 97
+                  },
+                  "text": "@types/node"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 110
+                  },
+                  "text": ", and Prettier (from v2 to v3 if you use "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 31,
+                    "column": 151
+                  },
+                  "text": "@ionic/prettier-config"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 175
+                  },
+                  "text": ", plus "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 31,
+                    "column": 182
+                  },
+                  "text": "prettier-plugin-java"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 204
+                  },
+                  "text": ")."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 32,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 3
+                  },
+                  "text": "Deletes "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 32,
+                    "column": 11
+                  },
+                  "text": "node_modules/@capacitor"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 36
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 32,
+                    "column": 41
+                  },
+                  "text": "package-lock.json"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 60
+                  },
+                  "text": ", then runs "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 32,
+                    "column": 72
+                  },
+                  "text": "npm install"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 85
+                  },
+                  "text": ". If you use Bun, that step fails with a warning. Run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 32,
+                    "column": 139
+                  },
+                  "text": "bun install"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 152
+                  },
+                  "text": " yourself afterwards and commit "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 32,
+                    "column": 184
+                  },
+                  "text": "bun.lock"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 194
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 33,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 33,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 3
+                  },
+                  "text": "Regenerates the Gradle wrapper with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 33,
+                    "column": 39
+                  },
+                  "text": "./gradlew wrapper --gradle-version 8.14.3"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 82
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 34,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 3
+                  },
+                  "text": "Rewrites "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 34,
+                    "column": 12
+                  },
+                  "text": "build.gradle"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 26
+                  },
+                  "text": ": SDK levels, AndroidX versions, AGP, Kotlin version, Java 21 compatibility, and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 34,
+                    "column": 107
+                  },
+                  "text": "kotlinOptions"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 122
+                  },
+                  "text": " to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 34,
+                    "column": 126
+                  },
+                  "text": "compilerOptions"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 143
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 35,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 3
+                  },
+                  "text": "Raises the podspec deployment target from 14.0 to 15.0, and in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 66
+                  },
+                  "text": "Package.swift"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 81
+                  },
+                  "text": " sets "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 87
+                  },
+                  "text": ".iOS(.v15)"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 99
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 104
+                  },
+                  "text": "from: \"8.0.0\""
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 119
+                  },
+                  "text": " for "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 124
+                  },
+                  "text": "capacitor-swift-pm"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 144
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 37,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "text": "When a string it expects is missing, it logs "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 37,
+            "column": 46
+          },
+          "text": "Unable to find \"...\" in <file>. Try updating it manually"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 104
+          },
+          "text": ". Every one of those lines is a manual step for you. Plugins with custom Gradle logic, non-standard folders or renamed files produce the most of them."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 1
+          },
+          "text": "If Prettier moved from v2 to v3, run your format and lint scripts after the migration. The formatting diff can be large, so commit it separately from the functional changes."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 4
+          },
+          "text": "Option 2: upgrade manually"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "text": "Use this when the tool can't parse your files, or when you want to review each change. The steps follow the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 43,
+            "column": 109
+          },
+          "url": "https://capacitorjs.com/docs/updating/plugins/8-0",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 43,
+                "column": 110
+              },
+              "text": "official plugin upgrade guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 191
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 5
+          },
+          "text": "1. Dependencies"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 47,
+        "column": 1
+      },
+      "lang": "json",
+      "meta": null,
+      "text": "{\n  \"devDependencies\": {\n    \"@capacitor/android\": \"^8.0.0\",\n    \"@capacitor/cli\": \"^8.0.0\",\n    \"@capacitor/core\": \"^8.0.0\",\n    \"@capacitor/ios\": \"^8.0.0\"\n  },\n  \"peerDependencies\": {\n    \"@capacitor/core\": \">=8.0.0\"\n  }\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 61,
+            "column": 5
+          },
+          "text": "2. Android SDK levels and Gradle syntax"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 63,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "android {\n    namespace = \"com.example.plugin\"\n    compileSdk = project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 36\n    defaultConfig {\n        minSdkVersion = project.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : 24\n        targetSdkVersion = project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 36\n    }\n    lintOptions {\n        abortOnError = false\n    }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 77,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 1
+          },
+          "text": "Keep the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 77,
+            "column": 10
+          },
+          "text": "project.hasProperty(...) ? rootProject.ext... : default"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 67
+          },
+          "text": " pattern. It lets the host app's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 77,
+            "column": 100
+          },
+          "text": "variables.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 118
+          },
+          "text": " control the values, which avoids the \"compile against version 36\" class of errors in apps."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 79,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 79,
+            "column": 5
+          },
+          "text": "="
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 8
+          },
+          "text": " syntax applies to properties only. Method calls like "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 79,
+            "column": 62
+          },
+          "text": "mavenCentral()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 78
+          },
+          "text": " stay unchanged, and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 79,
+            "column": 99
+          },
+          "text": "maven { url = \"...\" }"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 122
+          },
+          "text": " needs the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 79,
+            "column": 133
+          },
+          "text": "="
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 136
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 5
+          },
+          "text": "3. AndroidX defaults"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 1
+          },
+          "text": "Only bump libraries your plugin actually uses. The Capacitor 8 defaults are:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "ext {\n    junitVersion = project.hasProperty('junitVersion') ? rootProject.ext.junitVersion : '4.13.2'\n    androidxAppCompatVersion = project.hasProperty('androidxAppCompatVersion') ? rootProject.ext.androidxAppCompatVersion : '1.7.1'\n    androidxJunitVersion = project.hasProperty('androidxJunitVersion') ? rootProject.ext.androidxJunitVersion : '1.3.0'\n    androidxEspressoCoreVersion = project.hasProperty('androidxEspressoCoreVersion') ? rootProject.ext.androidxEspressoCoreVersion : '3.7.0'\n    androidxCoreVersion = project.hasProperty('androidxCoreVersion') ? rootProject.ext.androidxCoreVersion : '1.17.0'\n    androidxActivityVersion = project.hasProperty('androidxActivityVersion') ? rootProject.ext.androidxActivityVersion : '1.11.0'\n    androidxWebkitVersion = project.hasProperty('androidxWebkitVersion') ? rootProject.ext.androidxWebkitVersion : '1.14.0'\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "text": "Others from the official list: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 32
+          },
+          "text": "androidxCoordinatorLayoutVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 66
+          },
+          "text": " 1.3.0, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 74
+          },
+          "text": "androidxFragmentVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 99
+          },
+          "text": " 1.8.9, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 107
+          },
+          "text": "firebaseMessagingVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 133
+          },
+          "text": " 25.0.1, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 142
+          },
+          "text": "androidxBrowserVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 166
+          },
+          "text": " 1.9.0, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 174
+          },
+          "text": "androidxMaterialVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 199
+          },
+          "text": " 1.13.0, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 208
+          },
+          "text": "androidxExifInterfaceVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 238
+          },
+          "text": " 1.4.1, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 246
+          },
+          "text": "coreSplashScreenVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 271
+          },
+          "text": " 1.2.0."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 99,
+            "column": 5
+          },
+          "text": "4. AGP and the Gradle wrapper"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 101,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "buildscript {\n    dependencies {\n        classpath 'com.android.tools.build:gradle:8.13.0'\n    }\n}"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 109,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "cd android\n./gradlew wrapper --distribution-type all --gradle-version 8.14.3"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 114,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 1
+          },
+          "text": "If your plugin uses Firebase or other Google Services, set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 60
+          },
+          "text": "com.google.gms:google-services"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 92
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 96
+          },
+          "text": "4.4.4"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 103
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 116,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 116,
+            "column": 5
+          },
+          "text": "5. Java 21 and Kotlin 2.2"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 118,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 1
+          },
+          "text": "Java 21 is recommended for AGP 8.13 and SDK 36. Java 17 still works for the plugin itself."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 120,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "compileOptions {\n    sourceCompatibility = JavaVersion.VERSION_21\n    targetCompatibility = JavaVersion.VERSION_21\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 127,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 1
+          },
+          "text": "For Kotlin plugins, update the default version and move "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 127,
+            "column": 57
+          },
+          "text": "jvmTarget"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 68
+          },
+          "text": " out of "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 127,
+            "column": 76
+          },
+          "text": "kotlinOptions"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 91
+          },
+          "text": ". Kotlin 2.2 makes the old block an error:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "import org.jetbrains.kotlin.gradle.dsl.JvmTarget\n\nbuildscript {\n    ext.kotlin_version = project.hasProperty(\"kotlin_version\") ? rootProject.ext.kotlin_version : '2.2.20'\n}\n\nandroid {\n    // remove: kotlinOptions { jvmTarget = '17' }\n}\n\nkotlin {\n    compilerOptions {\n        jvmTarget = JvmTarget.JVM_21\n    }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 147,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 147,
+            "column": 1
+          },
+          "text": "Keep "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 147,
+            "column": 6
+          },
+          "text": "jvmTarget"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 147,
+            "column": 17
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 147,
+            "column": 22
+          },
+          "text": "targetCompatibility"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 147,
+            "column": 43
+          },
+          "text": " on the same Java version, or Gradle stops with an \"Inconsistent JVM-target compatibility\" error. If you still apply "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 147,
+            "column": 160
+          },
+          "text": "kotlin-android-extensions"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 147,
+            "column": 187
+          },
+          "text": ", remove it. Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 147,
+            "column": 204
+          },
+          "text": "kotlin-parcelize"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 147,
+            "column": 222
+          },
+          "text": " for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 147,
+            "column": 227
+          },
+          "text": "@Parcelize"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 147,
+            "column": 239
+          },
+          "text": " and view binding for synthetic view access."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 149,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 149,
+            "column": 5
+          },
+          "text": "6. iOS deployment target"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 151,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 1
+          },
+          "text": "Podspec:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 153,
+        "column": 1
+      },
+      "lang": "ruby",
+      "meta": null,
+      "text": "s.ios.deployment_target = '15.0'"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 157,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 157,
+            "column": 1
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 157,
+            "column": 16
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 159,
+        "column": 1
+      },
+      "lang": "swift",
+      "meta": null,
+      "text": "platforms: [.iOS(.v15)],\ndependencies: [\n    .package(url: \"https://github.com/ionic-team/capacitor-swift-pm.git\", from: \"8.0.0\")\n],"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 166,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 1
+          },
+          "text": "Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 166,
+            "column": 5
+          },
+          "text": "from:"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 12
+          },
+          "text": ", not "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 166,
+            "column": 18
+          },
+          "text": "branch:"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 27
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 166,
+            "column": 31
+          },
+          "text": "exact:"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 39
+          },
+          "text": ". The app's generated "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 166,
+            "column": 61
+          },
+          "text": "CapApp-SPM"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 73
+          },
+          "text": " package pins "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 166,
+            "column": 87
+          },
+          "text": "capacitor-swift-pm"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 107
+          },
+          "text": " to the exact version of "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 166,
+            "column": 132
+          },
+          "text": "@capacitor/ios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 148
+          },
+          "text": " the app installed, and a range lets SPM resolve your plugin against it."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 168,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 1
+          },
+          "text": "Plugins with the old Xcode project layout also need the deployment target raised in the project's "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 168,
+            "column": 99
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 168,
+                "column": 101
+              },
+              "text": "Build Settings"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 117
+          },
+          "text": " and in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 168,
+            "column": 125
+          },
+          "text": "ios/Podfile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 138
+          },
+          "text": " ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 168,
+            "column": 140
+          },
+          "text": "platform :ios, '15.0'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 163
+          },
+          "text": ")."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 1
+          },
+          "text": "If your plugin has no "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 170,
+            "column": 23
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 38
+          },
+          "text": " yet, do that next. Apps created with Capacitor 8 default to SPM and will skip your plugin with a \"not compatible with SPM\" warning. Follow "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 170,
+            "column": 178
+          },
+          "url": "/blog/migrate-capacitor-plugin-to-swift-package-manager/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 170,
+                "column": 179
+              },
+              "text": "How to Migrate a Capacitor Plugin to Swift Package Manager"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 296
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 4
+          },
+          "text": "Option 3: let an agent do it"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "text": "The open "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 174,
+            "column": 10
+          },
+          "url": "/skills/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 174,
+                "column": 11
+              },
+              "text": "Capgo Skills"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 34
+          },
+          "text": " include "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 174,
+            "column": 43
+          },
+          "text": "capacitor-plugin-upgrade-v7-to-v8"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 78
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 174,
+            "column": 80
+          },
+          "text": "capacitor-plugin-upgrades"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 107
+          },
+          "text": " for multi-version jumps, and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 174,
+            "column": 137
+          },
+          "text": "capacitor-plugin-spm-support"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 167
+          },
+          "text": ". Install with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 174,
+            "column": 182
+          },
+          "text": "bunx skills add Cap-go/capgo-skills"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 219
+          },
+          "text": " and ask your agent to upgrade the plugin. The skill runs the official tool, then handles the steps the tool logs as skipped. Review the diff the same way you would review a teammate's PR."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 176,
+            "column": 4
+          },
+          "text": "Which approach to use"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 178,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 178,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 178,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 178,
+                    "column": 3
+                  },
+                  "text": "Approach"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 178,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 178,
+                    "column": 14
+                  },
+                  "text": "Good fit"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 178,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 178,
+                    "column": 25
+                  },
+                  "text": "Watch out for"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 180,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 180,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 3
+                  },
+                  "text": "Migration tool"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 180,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 20
+                  },
+                  "text": "Plugins generated from the official template"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 180,
+                "column": 65
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 67
+                  },
+                  "text": "Skipped steps on customized files, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 180,
+                    "column": 102
+                  },
+                  "text": "npm install"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 115
+                  },
+                  "text": " step with Bun"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 181,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 181,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 3
+                  },
+                  "text": "Manual"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 181,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 12
+                  },
+                  "text": "Heavily customized Gradle or Xcode setup"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 181,
+                "column": 53
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 55
+                  },
+                  "text": "Easy to miss one AndroidX or Kotlin change"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 182,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 3
+                  },
+                  "text": "Agent + skill"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 182,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 19
+                  },
+                  "text": "Many plugins to upgrade, or mixed layouts"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 182,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 182,
+                    "column": 63
+                  },
+                  "text": "You still own the review"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 1
+          },
+          "text": "Start with the tool in almost every case. Its log tells you exactly what's left."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 186,
+            "column": 4
+          },
+          "text": "Verify before you publish"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 188,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 188,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 188,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 188,
+                    "column": 4
+                  },
+                  "text": "bun install && bun run build"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 188,
+                    "column": 34
+                  },
+                  "text": " (or your "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 188,
+                    "column": 44
+                  },
+                  "text": "verify"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 188,
+                    "column": 52
+                  },
+                  "text": " script)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 189,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 189,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 189,
+                    "column": 4
+                  },
+                  "text": "Android: "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 189,
+                    "column": 13
+                  },
+                  "text": "cd android && ./gradlew clean build test"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 189,
+                    "column": 55
+                  },
+                  "text": ". Build with JDK 21."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 190,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 190,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 190,
+                    "column": 4
+                  },
+                  "text": "iOS with CocoaPods: "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 190,
+                    "column": 24
+                  },
+                  "text": "cd ios && pod install && xcodebuild -workspace Plugin.xcworkspace -scheme Plugin -destination generic/platform=iOS"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 190,
+                    "column": 140
+                  },
+                  "text": " (new layout plugins use "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 190,
+                    "column": 165
+                  },
+                  "text": "xcodebuild -scheme <YourPackageName> -destination generic/platform=iOS"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 190,
+                    "column": 237
+                  },
+                  "text": ")."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 191,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 191,
+                    "column": 4
+                  },
+                  "text": "iOS with SPM: "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 191,
+                    "column": 18
+                  },
+                  "text": "swift package resolve"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 191,
+                    "column": 41
+                  },
+                  "text": ", then build the scheme."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 192,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 192,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 192,
+                    "column": 4
+                  },
+                  "text": "Install the plugin in a fresh Capacitor 8 app ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 192,
+                    "column": 51
+                  },
+                  "text": "bunx cap add ios"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 192,
+                    "column": 69
+                  },
+                  "text": " gives you SPM by default) and in a CocoaPods app. Call every public method on a real device."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 193,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 193,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 193,
+                    "column": 4
+                  },
+                  "text": "Run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 193,
+                    "column": 8
+                  },
+                  "text": "bunx cap doctor"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 193,
+                    "column": 25
+                  },
+                  "text": " in the test app."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 195,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 4
+          },
+          "text": "Release"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 197,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 197,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 197,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 197,
+                    "column": 3
+                  },
+                  "text": "Bump to a new major (the tool uses "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 197,
+                    "column": 38
+                  },
+                  "text": "8.0.0"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 197,
+                    "column": 45
+                  },
+                  "text": "). Raising minSdk and the iOS floor is a breaking change for consumers."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 198,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 198,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 198,
+                    "column": 3
+                  },
+                  "text": "Write a short "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 198,
+                    "column": 17
+                  },
+                  "text": "BREAKING.md"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 198,
+                    "column": 30
+                  },
+                  "text": " or changelog entry: new peer range, minSdk 24, iOS 15, Java 21 for builds, any API behavior changes."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 199,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 199,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 199,
+                    "column": 3
+                  },
+                  "text": "Keep a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 199,
+                    "column": 10
+                  },
+                  "text": "7.x"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 199,
+                    "column": 15
+                  },
+                  "text": " branch if you still ship fixes for Capacitor 7 users, and publish those under a dist-tag such as "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 199,
+                    "column": 113
+                  },
+                  "text": "latest-7"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 199,
+                    "column": 123
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 200,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 200,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 200,
+                    "column": 3
+                  },
+                  "text": "Update the README install section and the compatibility table."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 202,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 202,
+            "column": 1
+          },
+          "text": "Capgo maintains a large set of plugins on this cycle, with each "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 202,
+            "column": 65
+          },
+          "text": "@capgo/*"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 202,
+            "column": 75
+          },
+          "text": " major tracking a Capacitor major. You can browse them in the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 202,
+            "column": 137
+          },
+          "url": "/plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 202,
+                "column": 138
+              },
+              "text": "plugin directory"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 202,
+            "column": 166
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 204,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 204,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 206,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 206,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 206,
+                "column": 3
+              },
+              "text": "invalid source release: 21"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 206,
+                "column": 31
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 34
+          },
+          "text": " Gradle is running on JDK 17 or older. Use the JDK 21 bundled with Android Studio Otter and set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 206,
+            "column": 130
+          },
+          "text": "JAVA_HOME"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 141
+          },
+          "text": " in CI."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 208,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 208,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 208,
+                "column": 3
+              },
+              "text": "Unsupported class file major version 65"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 208,
+                "column": 44
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 208,
+            "column": 47
+          },
+          "text": " The opposite problem: you run JDK 21 with an old Gradle wrapper that can't read Java 21 class files. Regenerate the wrapper at 8.14.3."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 210,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 210,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 210,
+                "column": 3
+              },
+              "text": "Namespace not specified"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 210,
+                "column": 28
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 210,
+            "column": 31
+          },
+          "text": " AGP 8+ requires "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 210,
+            "column": 48
+          },
+          "text": "namespace = \"...\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 210,
+            "column": 67
+          },
+          "text": " in the plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 210,
+            "column": 84
+          },
+          "text": "android"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 210,
+            "column": 93
+          },
+          "text": " block. Older plugins only had a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 210,
+            "column": 126
+          },
+          "text": "package"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 210,
+            "column": 135
+          },
+          "text": " attribute in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 210,
+            "column": 149
+          },
+          "text": "AndroidManifest.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 210,
+            "column": 170
+          },
+          "text": ". Move it to Gradle and remove "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 210,
+            "column": 201
+          },
+          "text": "package"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 210,
+            "column": 210
+          },
+          "text": " from the manifest."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 212,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 212,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 212,
+                "column": 3
+              },
+              "text": "'compileDebugJavaWithJavac' task (current target is 21) and 'compileDebugKotlin' task (current target is 17)"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 212,
+                "column": 113
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 212,
+            "column": 116
+          },
+          "text": " Your Kotlin "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 212,
+            "column": 129
+          },
+          "text": "jvmTarget"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 212,
+            "column": 140
+          },
+          "text": " doesn't match "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 212,
+            "column": 155
+          },
+          "text": "targetCompatibility"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 212,
+            "column": 176
+          },
+          "text": ". Set both to 21 or both to 17."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 214,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 214,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 214,
+                "column": 3
+              },
+              "text": "Errors mentioning "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 214,
+                "column": 21
+              },
+              "text": "proguard-android.txt"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 214,
+                "column": 43
+              },
+              "text": " with AGP 9."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 214,
+            "column": 57
+          },
+          "text": " Some apps already run AGP 9. Switch to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 214,
+            "column": 97
+          },
+          "text": "proguard-android-optimize.txt"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 214,
+            "column": 128
+          },
+          "text": " so your plugin builds in those apps too. Details are in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 214,
+            "column": 185
+          },
+          "url": "/blog/fix-capacitor-plugin-build-errors-with-agp-9/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 214,
+                "column": 186
+              },
+              "text": "fix Capacitor plugin build errors with AGP 9"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 214,
+            "column": 284
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 216,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 216,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 216,
+                "column": 3
+              },
+              "text": "SPM: "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 216,
+                "column": 8
+              },
+              "text": "product 'Capacitor' required by package ... not found"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 216,
+                "column": 63
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 216,
+            "column": 66
+          },
+          "text": " Your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 216,
+            "column": 72
+          },
+          "text": "Package.swift"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 216,
+            "column": 87
+          },
+          "text": " dependency line has a typo or uses a version that doesn't exist. Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 216,
+            "column": 157
+          },
+          "text": "from: \"8.0.0\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 216,
+            "column": 172
+          },
+          "text": " against "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 216,
+            "column": 181
+          },
+          "text": "https://github.com/ionic-team/capacitor-swift-pm.git"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 216,
+            "column": 235
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 218,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 218,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 218,
+                "column": 3
+              },
+              "text": "16 KB page size warnings in Play Console."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 46
+          },
+          "text": " If your plugin ships native "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 218,
+            "column": 75
+          },
+          "text": ".so"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 80
+          },
+          "text": " libraries, rebuild them with 16 KB alignment. See "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 218,
+            "column": 131
+          },
+          "url": "/blog/android-16kb-page-size-capacitor-plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 218,
+                "column": 132
+              },
+              "text": "Android 16 KB page size and Capacitor plugins"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 227
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 220,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 220,
+            "column": 1
+          },
+          "text": "Once the plugin is on 8, the next step is getting ready for 9. "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 220,
+            "column": 64
+          },
+          "url": "/blog/preparing-for-capacitor-9/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 220,
+                "column": 65
+              },
+              "text": "Preparing for Capacitor 9"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 220,
+            "column": 125
+          },
+          "text": " lists the changes plugin teams can make now without breaking Capacitor 8 users."
+        }
+      ]
+    }
+  ]
+}

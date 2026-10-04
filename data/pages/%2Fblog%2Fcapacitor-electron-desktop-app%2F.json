@@ -1,0 +1,2673 @@
+{
+  "version": 1,
+  "route": "/blog/capacitor-electron-desktop-app/",
+  "source": "corpus/source/apps/web/src/content/blog/en/capacitor-electron-desktop-app.md",
+  "sourceSha256": "18b947ef63777bcc6fb4e34ce8c2115fe97026e26e338c55f105be9a79e88f49",
+  "metadata": {
+    "slug": "capacitor-electron-desktop-app",
+    "title": "Build a Desktop App with Capacitor and Electron (2026)",
+    "description": "Turn your Capacitor app into a desktop app with Electron: secure shell setup, plugin strategy, packaging for macOS, Windows, Linux, and live updates.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_banner.webp",
+    "head_image_alt": "Capgo banner for a guide on building a desktop app from a Capacitor project with Electron",
+    "keywords": "Capacitor Electron, Capacitor desktop app, Electron Capacitor, Ionic desktop app, capacitor-community electron, Electron live updates, electron-builder Capacitor",
+    "tag": "Tutorial, Development, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Is @capacitor-community/electron still maintained?",
+        "answer": "No. Its README marks it as unmaintained, and its last npm release, 5.0.1, dates from September 2023 and targets Capacitor 5 and Electron 26. For a Capacitor 8 app, a small Electron shell you own is the safer choice."
+      },
+      {
+        "question": "Do Capacitor plugins work in Electron?",
+        "answer": "Plugins with a web implementation work, because the Electron renderer is Chromium. Plugins that only have iOS and Android code do not. Replace those with Electron main-process code exposed through a preload script."
+      },
+      {
+        "question": "What does Capacitor.getPlatform() return in Electron?",
+        "answer": "With a plain Electron shell it returns 'web', since there is no Capacitor native bridge. Expose your own flag from the preload script to detect the desktop build."
+      },
+      {
+        "question": "Can I ship live updates to an Electron app?",
+        "answer": "Yes. @capgo/electron-updater downloads new web bundles from Capgo, with channels and automatic rollback, using the same bundle upload command as the mobile app."
+      },
+      {
+        "question": "Do I need a separate build for each operating system?",
+        "answer": "Yes. Electron packages per OS and CPU architecture. Build macOS on a Mac for signing and notarization, and use CI runners for Windows and Linux."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To build a desktop app from a Capacitor app, wrap the same web build ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 71
+          },
+          "text": "webDir"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 79
+          },
+          "text": ") in an Electron shell: a main process that opens a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 131
+          },
+          "text": "BrowserWindow"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 146
+          },
+          "text": ", a preload script that exposes a small desktop API, and electron-builder to produce installers for macOS, Windows, and Linux. Your UI and business logic stay shared with iOS and Android, and desktop-only features live in the Electron main process."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide covers the current state of Capacitor on Electron in 2026, a secure setup that works with Capacitor 8, how plugins behave, packaging and signing, and how to ship web updates without new installers."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "The state of Capacitor on Electron in 2026"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "For years the default answer was "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 8,
+            "column": 34
+          },
+          "text": "@capacitor-community/electron"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 65
+          },
+          "text": ", which plugged Electron into the Capacitor CLI as a platform. That project is now marked unmaintained in its own README. Its last npm release, 5.0.1, shipped in September 2023, requires Capacitor 5.4 or later, and was built against Electron 26. Electron has shipped many major versions since, and only the latest three majors receive security fixes."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "text": "You can still use it on old projects, but for a Capacitor 8 app the comparison looks like this:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 12,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Approach"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 14
+                  },
+                  "text": "Pros"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 21
+                  },
+                  "text": "Cons"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "Your own Electron shell (this guide)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 42
+                  },
+                  "text": "Current Electron, full control, no extra abstraction"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 95
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 97
+                  },
+                  "text": "You write about 60 lines of main and preload code"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "text": "@capacitor-community/electron"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 37
+                  },
+                  "text": "Familiar "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 46
+                  },
+                  "text": "cap"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 51
+                  },
+                  "text": " commands"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 63
+                  },
+                  "text": "Unmaintained, pinned to old Capacitor and Electron"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 17,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "text": "The shell approach is less work than it sounds, because Capacitor already produces a static web build. Electron only needs to load it."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 19,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 19,
+            "column": 4
+          },
+          "text": "How plugins behave in Electron"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 21,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "text": "Electron's renderer is Chromium, so your Capacitor app runs there like it runs in a browser. Capacitor's core detects no native bridge and falls back to each plugin's web implementation."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "text": "Plugin type"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 17
+                  },
+                  "text": "Works in Electron?"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 23,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 38
+                  },
+                  "text": "What to do"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "text": "Plugin with a web implementation (Preferences, Share, Clipboard, many Capgo plugins)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 88
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 90
+                  },
+                  "text": "Yes, using the web version"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 117
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 119
+                  },
+                  "text": "Test the web behavior"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 3
+                  },
+                  "text": "Native-only plugin (no web implementation)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 48
+                  },
+                  "text": "No, rejects as unimplemented"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 77
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 79
+                  },
+                  "text": "Write an Electron equivalent behind a preload API"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 3
+                  },
+                  "text": "Pure JS libraries"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 23
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 27,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 29
+                  },
+                  "text": "Nothing"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "text": "Capacitor.getPlatform()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 26
+          },
+          "text": " returns "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 29,
+            "column": 35
+          },
+          "text": "'web'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 42
+          },
+          "text": " in this setup and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 29,
+            "column": 61
+          },
+          "text": "Capacitor.isNativePlatform()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 91
+          },
+          "text": " returns "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 29,
+            "column": 100
+          },
+          "text": "false"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 107
+          },
+          "text": ". We will expose an explicit desktop flag from the preload script so your code can branch cleanly."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 31,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 31,
+            "column": 4
+          },
+          "text": "Prerequisites"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 33,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 33,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 33,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 3
+                  },
+                  "text": "A Capacitor app whose "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 33,
+                    "column": 25
+                  },
+                  "text": "bun run build"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 40
+                  },
+                  "text": " outputs a static folder (the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 33,
+                    "column": 70
+                  },
+                  "text": "webDir"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 78
+                  },
+                  "text": " in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 33,
+                    "column": 82
+                  },
+                  "text": "capacitor.config.ts"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 103
+                  },
+                  "text": ", often "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 33,
+                    "column": 111
+                  },
+                  "text": "dist"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 117
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 33,
+                    "column": 121
+                  },
+                  "text": "www"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 126
+                  },
+                  "text": ")."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 34,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 3
+                  },
+                  "text": "Bun and a current LTS Node.js, since Electron tooling still runs on Node."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 35,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 3
+                  },
+                  "text": "For macOS distribution, an Apple Developer ID certificate. For Windows, a code signing certificate."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 37,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 37,
+            "column": 4
+          },
+          "text": "Step 1: Install Electron and the packager"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add -d electron electron-builder"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "text": "Add an "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 43,
+            "column": 8
+          },
+          "text": "electron/"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 19
+          },
+          "text": " folder at the project root:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "lang": "text",
+      "meta": null,
+      "text": "my-app/\n  capacitor.config.ts\n  dist/              # web build, shared with iOS and Android\n  electron/\n    main.ts\n    preload.ts\n  electron-builder.yml"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 55,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 55,
+            "column": 4
+          },
+          "text": "Step 2: Make the web build load from disk"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 57,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 57,
+            "column": 1
+          },
+          "text": "Electron loads files with the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 57,
+            "column": 31
+          },
+          "text": "file://"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 57,
+            "column": 40
+          },
+          "text": " protocol in production. Two settings matter:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 59,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 59,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 59,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 59,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 59,
+                        "column": 6
+                      },
+                      "text": "Relative asset paths."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 59,
+                    "column": 29
+                  },
+                  "text": " With Vite, set "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 59,
+                    "column": 45
+                  },
+                  "text": "base: './'"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 59,
+                    "column": 57
+                  },
+                  "text": " so the built "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 59,
+                    "column": 71
+                  },
+                  "text": "index.html"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 59,
+                    "column": 83
+                  },
+                  "text": " references "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 59,
+                    "column": 95
+                  },
+                  "text": "./assets/..."
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 59,
+                    "column": 109
+                  },
+                  "text": " instead of "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 59,
+                    "column": 121
+                  },
+                  "text": "/assets/..."
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 59,
+                    "column": 134
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 60,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 60,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 60,
+                    "column": 4
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 60,
+                        "column": 6
+                      },
+                      "text": "Routing."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 60,
+                    "column": 16
+                  },
+                  "text": " Deep links like "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 60,
+                    "column": 33
+                  },
+                  "text": "/settings"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 60,
+                    "column": 44
+                  },
+                  "text": " do not exist as files. Use hash routing for the desktop build, or make sure your router only navigates client-side after loading "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 60,
+                    "column": 174
+                  },
+                  "text": "index.html"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 60,
+                    "column": 186
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// vite.config.ts\nimport { defineConfig } from 'vite';\n\nexport default defineConfig({\n  base: './',\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 1
+          },
+          "text": "Relative paths also work on iOS and Android, so you do not need a separate build."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 4
+          },
+          "text": "Step 3: Write the main process"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 75,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// electron/main.ts\nimport { app, BrowserWindow, ipcMain, shell } from 'electron';\nimport path from 'node:path';\n\nconst isDev = !app.isPackaged;\n\nasync function createWindow() {\n  const win = new BrowserWindow({\n    width: 1280,\n    height: 800,\n    minWidth: 800,\n    minHeight: 600,\n    show: false,\n    webPreferences: {\n      preload: path.join(__dirname, 'preload.js'),\n      contextIsolation: true,\n      nodeIntegration: false,\n      sandbox: true,\n    },\n  });\n\n  win.once('ready-to-show', () => win.show());\n\n  // Open external links in the default browser, never inside the app.\n  // Only allow https: so a script cannot launch file: or other protocol handlers.\n  win.webContents.setWindowOpenHandler(({ url }) => {\n    try {\n      if (new URL(url).protocol === 'https:') void shell.openExternal(url).catch(() => {});\n    } catch {\n      // invalid URL: ignore\n    }\n    return { action: 'deny' };\n  });\n\n  if (isDev) {\n    await win.loadURL('http://localhost:5173');\n    win.webContents.openDevTools({ mode: 'detach' });\n  } else {\n    await win.loadFile(path.join(__dirname, '..', '..', 'dist', 'index.html'));\n  }\n}\n\nipcMain.handle('desktop:get-version', () => app.getVersion());\n\napp.whenReady().then(createWindow);\n\napp.on('window-all-closed', () => {\n  if (process.platform !== 'darwin') app.quit();\n});\n\napp.on('activate', () => {\n  if (BrowserWindow.getAllWindows().length === 0) createWindow();\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 131,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 1
+          },
+          "text": "Keep "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 131,
+            "column": 6
+          },
+          "text": "contextIsolation: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 30
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 131,
+            "column": 32
+          },
+          "text": "nodeIntegration: false"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 56
+          },
+          "text": ", and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 131,
+            "column": 62
+          },
+          "text": "sandbox: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 77
+          },
+          "text": ". Your web app may load third-party scripts, and none of them should get Node.js access."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 133,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 133,
+            "column": 4
+          },
+          "text": "Step 4: Expose a small desktop API from the preload"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 135,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// electron/preload.ts\nimport { contextBridge, ipcRenderer } from 'electron';\n\ncontextBridge.exposeInMainWorld('desktop', {\n  isElectron: true,\n  platform: process.platform,\n  getVersion: () => ipcRenderer.invoke('desktop:get-version') as Promise<string>,\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 1
+          },
+          "text": "Type it in your web code and use it the same way you would use a plugin:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/desktop.ts\ndeclare global {\n  interface Window {\n    desktop?: {\n      isElectron: boolean;\n      platform: string;\n      getVersion: () => Promise<string>;\n    };\n  }\n}\n\nexport const isDesktop = () => Boolean(window.desktop?.isElectron);"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 1
+          },
+          "text": "Each native-only feature you need on desktop becomes one "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 163,
+            "column": 58
+          },
+          "text": "ipcMain.handle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 74
+          },
+          "text": " in the main process and one function in the preload. Validate arguments in the main process, since the renderer is untrusted."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 165,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 165,
+            "column": 4
+          },
+          "text": "Step 5: Build and run"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 167,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "text": "Compile the Electron files with Bun. The preload runs sandboxed, so bundle it as a single CommonJS file:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "lang": "json",
+      "meta": null,
+      "text": "{\n  \"main\": \"electron/dist/main.js\",\n  \"scripts\": {\n    \"build\": \"vite build\",\n    \"electron:compile\": \"bun build electron/main.ts --outdir electron/dist --target node --format cjs --external electron && bun build electron/preload.ts --outdir electron/dist --target node --format cjs --external electron\",\n    \"electron:dev\": \"bun run electron:compile && electron .\",\n    \"electron:pack\": \"bun run build && bun run electron:compile && electron-builder\"\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 181,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 1
+          },
+          "text": "During development, start your dev server in one terminal ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 181,
+            "column": 60
+          },
+          "text": "bun run dev"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 73
+          },
+          "text": ") and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 181,
+            "column": 79
+          },
+          "text": "bun run electron:dev"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 181,
+            "column": 101
+          },
+          "text": " in another. You get hot reload in the desktop window."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 183,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 183,
+            "column": 4
+          },
+          "text": "Step 6: Package installers with electron-builder"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 185,
+        "column": 1
+      },
+      "lang": "yaml",
+      "meta": null,
+      "text": "# electron-builder.yml\nappId: com.example.myapp\nproductName: My App\ndirectories:\n  output: release\nfiles:\n  - dist/**/*\n  - electron/dist/**/*\n  - package.json\nmac:\n  target: [dmg, zip]\n  category: public.app-category.productivity\n  hardenedRuntime: true\nwin:\n  target: [nsis]\nlinux:\n  target: [AppImage, deb]\n  category: Utility"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 206,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 1
+          },
+          "text": "Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 206,
+            "column": 5
+          },
+          "text": "bun run electron:pack"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 206,
+            "column": 28
+          },
+          "text": ". electron-builder builds for the OS you run it on. Use a matrix of macOS, Windows, and Linux runners in CI to produce all three."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 208,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 208,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 208,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 208,
+                    "column": 3
+                  },
+                  "text": "OS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 208,
+                "column": 6
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 208,
+                    "column": 8
+                  },
+                  "text": "Common targets"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 208,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 208,
+                    "column": 25
+                  },
+                  "text": "Signing"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 210,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 210,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 210,
+                    "column": 3
+                  },
+                  "text": "macOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 210,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 210,
+                    "column": 11
+                  },
+                  "text": ".dmg"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 210,
+                    "column": 17
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 210,
+                    "column": 19
+                  },
+                  "text": ".zip"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 210,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 210,
+                    "column": 28
+                  },
+                  "text": "Developer ID certificate plus notarization, or Gatekeeper blocks the app"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 211,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 211,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 211,
+                    "column": 3
+                  },
+                  "text": "Windows"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 211,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 211,
+                    "column": 13
+                  },
+                  "text": "NSIS "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 211,
+                    "column": 18
+                  },
+                  "text": ".exe"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 211,
+                    "column": 24
+                  },
+                  "text": ", MSI"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 211,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 211,
+                    "column": 32
+                  },
+                  "text": "Code signing certificate to avoid SmartScreen warnings"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 212,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 212,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 212,
+                    "column": 3
+                  },
+                  "text": "Linux"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 212,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 212,
+                    "column": 11
+                  },
+                  "text": "AppImage, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 212,
+                    "column": 21
+                  },
+                  "text": ".deb"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 212,
+                    "column": 27
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 212,
+                    "column": 29
+                  },
+                  "text": ".rpm"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 212,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 212,
+                    "column": 38
+                  },
+                  "text": "Optional"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 214,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 214,
+            "column": 1
+          },
+          "text": "Electron apps are larger than mobile builds because they include Chromium and Node.js. Expect installers around 80 to 150 MB depending on targets."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 216,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 216,
+            "column": 4
+          },
+          "text": "Step 7: Ship web updates without new installers"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 218,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 1
+          },
+          "text": "Most changes in a Capacitor app are web changes. On mobile you can ship those with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 218,
+            "column": 84
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 218,
+                "column": 85
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 119
+          },
+          "text": ". On desktop, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 218,
+            "column": 133
+          },
+          "text": "@capgo/electron-updater"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 158
+          },
+          "text": " does the same job with the same model: channels, a built-in bundle, downloaded bundles, and automatic rollback if the new bundle does not call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 218,
+            "column": 302
+          },
+          "text": "notifyAppReady()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 320
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 220,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/electron-updater"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 224,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 224,
+            "column": 1
+          },
+          "text": "Update the main process to let the updater pick the bundle to load:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 226,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// electron/main.ts (production branch)\nimport { ElectronUpdater, setupIPCHandlers, setupEventForwarding } from '@capgo/electron-updater';\n\nconst updater = new ElectronUpdater({\n  appId: 'com.example.myapp',\n  autoUpdate: true,\n});\n\n// inside createWindow(), instead of loading dist/index.html directly\nconst builtinPath = path.join(__dirname, '..', '..', 'dist', 'index.html');\nawait updater.initialize(win, builtinPath);\nsetupIPCHandlers(updater);\nsetupEventForwarding(updater, win);\nawait win.loadFile(updater.getCurrentBundlePath());"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 1
+          },
+          "text": "Add the updater bridge to the same preload file:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// electron/preload.ts (next to the desktop API)\nimport { exposeUpdaterAPI } from '@capgo/electron-updater/preload';\n\nexposeUpdaterAPI();"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 252,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 252,
+            "column": 1
+          },
+          "text": "And confirm a healthy launch from the web app, only on desktop:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 254,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { isDesktop } from './desktop';\n\nif (isDesktop()) {\n  const { requireUpdater } = await import('@capgo/electron-updater/renderer');\n  await requireUpdater().notifyAppReady();\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 263,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 263,
+            "column": 1
+          },
+          "text": "Upload a new bundle with the same CLI you use for mobile:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 265,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun run build\nbunx @capgo/cli@latest bundle upload --channel=production"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 270,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 270,
+            "column": 1
+          },
+          "text": "Web updates cannot change Electron itself, the main process, or the preload. For those, ship a new installer with a binary auto-updater. Our guide on "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 270,
+            "column": 151
+          },
+          "url": "/blog/electron-app-auto-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 270,
+                "column": 152
+              },
+              "text": "Electron auto-updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 270,
+            "column": 207
+          },
+          "text": " covers that path, and the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 270,
+            "column": 234
+          },
+          "url": "/plugins/electron-updater/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 270,
+                "column": 235
+              },
+              "text": "electron-updater plugin page"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 270,
+            "column": 292
+          },
+          "text": " and "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 270,
+            "column": 297
+          },
+          "url": "/docs/plugins/electron-updater/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 270,
+                "column": 298
+              },
+              "text": "docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 270,
+            "column": 336
+          },
+          "text": " cover every option."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 272,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 272,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 274,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 274,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 274,
+                "column": 3
+              },
+              "text": "Blank window in the packaged app."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 274,
+            "column": 38
+          },
+          "text": " Assets use absolute paths. Set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 274,
+            "column": 70
+          },
+          "text": "base: './'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 274,
+            "column": 82
+          },
+          "text": " and rebuild. Open DevTools in the packaged app to confirm 404s on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 274,
+            "column": 149
+          },
+          "text": "file:///assets/..."
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 274,
+            "column": 169
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 276,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 276,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 276,
+                "column": 3
+              },
+              "text": "Routes show a blank page after reload."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 276,
+            "column": 43
+          },
+          "text": " The router tried to load "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 276,
+            "column": 69
+          },
+          "text": "/route"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 276,
+            "column": 77
+          },
+          "text": " from disk. Switch to hash routing for desktop."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 278,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 278,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 278,
+                "column": 3
+              },
+              "text": "require is not defined"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 278,
+                "column": 27
+              },
+              "text": " or preload errors."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 278,
+            "column": 48
+          },
+          "text": " The sandboxed preload cannot load arbitrary packages at runtime. Bundle it into one file, as in the compile script above."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 280,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 280,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 280,
+                "column": 3
+              },
+              "text": "A plugin call rejects with \"not implemented on web\"."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 57
+          },
+          "text": " That plugin has no web implementation. Add an IPC handler in the main process and call it through "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 280,
+            "column": 156
+          },
+          "text": "window.desktop"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 280,
+            "column": 172
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 282,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 282,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 282,
+                "column": 3
+              },
+              "text": "macOS says the app is damaged or from an unidentified developer."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 282,
+            "column": 69
+          },
+          "text": " The app is not signed and notarized. Configure a Developer ID certificate and notarization in electron-builder."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 284,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 284,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 284,
+                "column": 3
+              },
+              "text": "Updates roll back right after install."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 284,
+            "column": 43
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 284,
+            "column": 44
+          },
+          "text": "notifyAppReady()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 284,
+            "column": 62
+          },
+          "text": " was not called within the timeout (10 seconds by default). Call it early in your app startup."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 286,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 4
+          },
+          "text": "Wrap-up"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 288,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 1
+          },
+          "text": "You do not need a dedicated Capacitor platform package to reach the desktop. A short Electron main process, a preload that exposes a typed API, relative asset paths, and electron-builder give you installers for all three operating systems from the same web build. Add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 288,
+            "column": 269
+          },
+          "text": "@capgo/electron-updater"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 294
+          },
+          "text": " and the desktop app gets the same live update workflow as your iOS and Android builds. If you are still choosing a desktop runtime, read our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 288,
+            "column": 436
+          },
+          "url": "/blog/electron-vs-tauri-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 288,
+                "column": 437
+              },
+              "text": "Electron vs Tauri comparison"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 502
+          },
+          "text": "."
+        }
+      ]
+    }
+  ]
+}

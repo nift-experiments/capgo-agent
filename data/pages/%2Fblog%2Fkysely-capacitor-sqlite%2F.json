@@ -1,0 +1,2844 @@
+{
+  "version": 1,
+  "route": "/blog/kysely-capacitor-sqlite/",
+  "source": "corpus/source/apps/web/src/content/blog/en/kysely-capacitor-sqlite.md",
+  "sourceSha256": "645c9962009a67a79c39b484442c7617ee6e3d0a35e11830d85569b35821e871",
+  "metadata": {
+    "slug": "kysely-capacitor-sqlite",
+    "title": "How to Use Kysely with Capacitor and SQLite",
+    "description": "Use Kysely with Capacitor and SQLite: write a small Kysely dialect for Fast SQL, type your tables, run queries, transactions and in-app migrations.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capacitor-guide.webp",
+    "head_image_alt": "Capacitor logo for a guide on using Kysely with Capacitor and SQLite",
+    "keywords": "kysely capacitor, kysely sqlite, capacitor sqlite query builder, kysely dialect, typescript sqlite mobile, capacitor fast sql",
+    "tag": "Tutorial, Capacitor, Development",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Does Kysely have a Capacitor dialect?",
+        "answer": "Kysely ships dialects for server databases. For Capacitor you plug in a small custom Dialect that reuses Kysely's SqliteAdapter, SqliteQueryCompiler and SqliteIntrospector and only implements the driver that talks to the native SQLite plugin. The full code for a Fast SQL driver is about 80 lines and is included in this guide."
+      },
+      {
+        "question": "Is Kysely an ORM?",
+        "answer": "No. Kysely is a type-safe SQL query builder. It does not manage entities, relations or schema sync. You describe your tables as TypeScript interfaces and Kysely checks table names, column names and result types at compile time."
+      },
+      {
+        "question": "How do I run Kysely migrations in a Capacitor app?",
+        "answer": "Use the Migrator from kysely/migration with an in-code MigrationProvider that returns an object of migrations. FileMigrationProvider needs Node's fs and does not work in a WebView. Migration names are sorted alphabetically, so prefix them with a number."
+      },
+      {
+        "question": "Why does returning() give no rows on Android?",
+        "answer": "With @capgo/capacitor-fast-sql 8.2.x, Android returns rows only for statements that start with SELECT, PRAGMA or EXPLAIN. INSERT ... RETURNING executes but returns no rows there. Use executeTakeFirst() and read insertId, then select the row."
+      },
+      {
+        "question": "Can I use Kysely with @capacitor-community/sqlite instead?",
+        "answer": "Yes, the same Dialect structure works. Only the connection class changes: call query() for reads and run() for writes, and map its values and changes fields to Kysely's QueryResult."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "Kysely works well with Capacitor and SQLite because it only needs one thing from the platform: a driver that sends a SQL string with parameters and returns rows as objects. This guide builds that driver for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 208
+          },
+          "text": "@capgo/capacitor-fast-sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 235
+          },
+          "text": ", then covers typed tables, CRUD, joins, transactions and migrations that run inside the app on iOS, Android and the web."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "You get compile-time checked SQL without code generation and without a heavy runtime."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "Why Kysely fits mobile SQLite"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "Kysely is a query builder, not an ORM. You write something that reads like SQL, and TypeScript checks every table and column name and infers the result type."
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "No decorators or reflection, so it works with Vite and esbuild out of the box."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "No code generation step. Your "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 33
+                  },
+                  "text": "Database"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 43
+                  },
+                  "text": " interface is the schema contract."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 12,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Small runtime that tree-shakes well, which matters for app bundle size and for "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 12,
+                    "column": 82
+                  },
+                  "url": "/live-update/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 12,
+                        "column": 83
+                      },
+                      "text": "live update"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 110
+                  },
+                  "text": " download size."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 13,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "The driver interface is tiny. Kysely already contains the SQLite query compiler, adapter and introspector, so you only write the transport."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 15,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "text": "If you have not set up SQLite in your app yet, start with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 15,
+            "column": 59
+          },
+          "url": "/blog/how-to-use-sqlite-in-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 15,
+                "column": 60
+              },
+              "text": "How to use SQLite in a Capacitor app"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 15,
+            "column": 141
+          },
+          "text": ". It covers the native configuration Fast SQL needs ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 15,
+            "column": 194
+          },
+          "text": "NSAllowsLocalNetworking"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 15,
+            "column": 219
+          },
+          "text": " on iOS and a localhost cleartext rule on Android)."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 17,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 4
+          },
+          "text": "Install"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 19,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add kysely @capgo/capacitor-fast-sql\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "text": "This guide uses Kysely 0.29 and Fast SQL 8.2. In Kysely 0.29 the migration classes moved to the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 24,
+            "column": 97
+          },
+          "text": "kysely/migration"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 115
+          },
+          "text": " entry point."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 4
+          },
+          "text": "Write the Fast SQL dialect"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "text": "A Kysely "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 28,
+            "column": 10
+          },
+          "text": "Dialect"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 19
+          },
+          "text": " has four factories. Three of them come straight from Kysely's SQLite support. The fourth is our driver."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/fast-sql-dialect.ts\nimport {\n  CompiledQuery,\n  SqliteAdapter,\n  SqliteIntrospector,\n  SqliteQueryCompiler,\n  type DatabaseConnection,\n  type DatabaseIntrospector,\n  type Dialect,\n  type DialectAdapter,\n  type Driver,\n  type Kysely,\n  type QueryCompiler,\n  type QueryResult,\n} from 'kysely';\nimport {\n  FastSQL,\n  type SQLConnection,\n  type SQLConnectionOptions,\n  type SQLValue,\n} from '@capgo/capacitor-fast-sql';\n\n// Kysely passes JS values as-is. Normalize them to what SQLite stores.\nfunction toSqlValue(value: unknown): SQLValue {\n  if (value === undefined || value === null) return null;\n  if (typeof value === 'boolean') return value ? 1 : 0;\n  if (value instanceof Date) return value.toISOString();\n  if (typeof value === 'bigint') return Number(value);\n  if (value instanceof Uint8Array) return value;\n  if (typeof value === 'object') return JSON.stringify(value);\n  return value as SQLValue;\n}\n\nclass FastSqlConnection implements DatabaseConnection {\n  constructor(readonly db: SQLConnection) {}\n\n  async executeQuery<R>(compiled: CompiledQuery): Promise<QueryResult<R>> {\n    const result = await this.db.execute(compiled.sql, compiled.parameters.map(toSqlValue));\n    return {\n      rows: result.rows as R[],\n      numAffectedRows: result.rowsAffected != null ? BigInt(result.rowsAffected) : undefined,\n      insertId: result.insertId != null ? BigInt(result.insertId) : undefined,\n    };\n  }\n\n  // eslint-disable-next-line require-yield\n  async *streamQuery<R>(): AsyncIterableIterator<QueryResult<R>> {\n    throw new Error('Streaming is not supported by the Fast SQL driver');\n  }\n}\n\n// One native connection per database, so serialize access to it.\nclass ConnectionMutex {\n  #pending: Promise<void> = Promise.resolve();\n  #release?: () => void;\n\n  async lock(): Promise<void> {\n    const previous = this.#pending;\n    let release!: () => void;\n    this.#pending = new Promise<void>((resolve) => (release = resolve));\n    await previous;\n    this.#release = release;\n  }\n\n  unlock(): void {\n    const release = this.#release;\n    this.#release = undefined;\n    release?.();\n  }\n}\n\nclass FastSqlDriver implements Driver {\n  #connection?: FastSqlConnection;\n  readonly #mutex = new ConnectionMutex();\n\n  constructor(private readonly options: SQLConnectionOptions) {}\n\n  async init(): Promise<void> {\n    const db = await FastSQL.connect(this.options);\n    this.#connection = new FastSqlConnection(db);\n  }\n\n  async acquireConnection(): Promise<DatabaseConnection> {\n    await this.#mutex.lock();\n    return this.#connection!;\n  }\n\n  async releaseConnection(): Promise<void> {\n    this.#mutex.unlock();\n  }\n\n  async beginTransaction(connection: DatabaseConnection): Promise<void> {\n    await (connection as FastSqlConnection).db.beginTransaction();\n  }\n\n  async commitTransaction(connection: DatabaseConnection): Promise<void> {\n    await (connection as FastSqlConnection).db.commit();\n  }\n\n  async rollbackTransaction(connection: DatabaseConnection): Promise<void> {\n    await (connection as FastSqlConnection).db.rollback();\n  }\n\n  async destroy(): Promise<void> {\n    if (this.#connection) {\n      await FastSQL.disconnect(this.options.database);\n      this.#connection = undefined;\n    }\n  }\n}\n\nexport class FastSqlDialect implements Dialect {\n  constructor(private readonly options: SQLConnectionOptions) {}\n\n  createDriver(): Driver {\n    return new FastSqlDriver(this.options);\n  }\n\n  createQueryCompiler(): QueryCompiler {\n    return new SqliteQueryCompiler();\n  }\n\n  createAdapter(): DialectAdapter {\n    return new SqliteAdapter();\n  }\n\n  createIntrospector(db: Kysely<any>): DatabaseIntrospector {\n    return new SqliteIntrospector(db);\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 1
+          },
+          "text": "What each part does:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 165,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 165,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 165,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 165,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 165,
+                        "column": 5
+                      },
+                      "text": "toSqlValue"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 19
+                  },
+                  "text": " converts booleans to "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 165,
+                    "column": 41
+                  },
+                  "text": "1"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 44
+                  },
+                  "text": "/"
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 165,
+                    "column": 45
+                  },
+                  "text": "0"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 48
+                  },
+                  "text": ", dates to ISO strings and plain objects to JSON. SQLite has no boolean or date type, and on Android the plugin binds read-query parameters as text, so "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 165,
+                    "column": 200
+                  },
+                  "text": "true"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 206
+                  },
+                  "text": " would arrive as the string "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 165,
+                    "column": 234
+                  },
+                  "text": "'true'"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 242
+                  },
+                  "text": " and never match a "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 165,
+                    "column": 261
+                  },
+                  "text": "1"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 264
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 166,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 166,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 166,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 166,
+                        "column": 5
+                      },
+                      "text": "FastSqlConnection.executeQuery"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 166,
+                    "column": 39
+                  },
+                  "text": " calls "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 166,
+                    "column": 46
+                  },
+                  "text": "execute()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 166,
+                    "column": 57
+                  },
+                  "text": " on the Fast SQL connection, which goes over the plugin's local HTTP channel on iOS and Android and through SQLite Wasm on the web. Rows already come back as objects keyed by column name, which is exactly what Kysely expects."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 167,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 167,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 167,
+                        "column": 5
+                      },
+                      "text": "ConnectionMutex"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 167,
+                    "column": 24
+                  },
+                  "text": " matters. Fast SQL keeps one native connection per database. Without the lock, two concurrent Kysely transactions would interleave their statements on that one connection. Kysely's own SQLite driver uses the same pattern."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 168,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 168,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 168,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 168,
+                        "column": 5
+                      },
+                      "text": "Transactions"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 19
+                  },
+                  "text": " go through the plugin's native "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 168,
+                    "column": 51
+                  },
+                  "text": "beginTransaction"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 69
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 168,
+                    "column": 71
+                  },
+                  "text": "commit"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 79
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 168,
+                    "column": 84
+                  },
+                  "text": "rollback"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 94
+                  },
+                  "text": " instead of raw "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 168,
+                    "column": 110
+                  },
+                  "text": "begin"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 168,
+                    "column": 117
+                  },
+                  "text": " SQL, so the plugin tracks transaction state correctly on both platforms."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 169,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 169,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 169,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 169,
+                        "column": 5
+                      },
+                      "text": "Savepoints"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 169,
+                    "column": 17
+                  },
+                  "text": " are not implemented. If you call "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 169,
+                    "column": 51
+                  },
+                  "text": "savepoint()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 169,
+                    "column": 64
+                  },
+                  "text": " on a controlled transaction, Kysely throws "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 169,
+                    "column": 108
+                  },
+                  "text": "The savepoint method is not supported by this driver"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 169,
+                    "column": 162
+                  },
+                  "text": ". Add "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 169,
+                    "column": 168
+                  },
+                  "text": "savepoint"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 169,
+                    "column": 179
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 169,
+                    "column": 181
+                  },
+                  "text": "rollbackToSavepoint"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 169,
+                    "column": 202
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 169,
+                    "column": 207
+                  },
+                  "text": "releaseSavepoint"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 169,
+                    "column": 225
+                  },
+                  "text": " methods that run the compiled savepoint SQL if you need them."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 171,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 4
+          },
+          "text": "Describe your tables"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 173,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 173,
+            "column": 5
+          },
+          "text": "Database"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 15
+          },
+          "text": " interface maps table names to row types. Use Kysely's helper types to describe what the database fills in."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 175,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/schema.ts\nimport type { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysely';\n\nexport interface ProjectTable {\n  id: Generated<number>;\n  name: string;\n  created_at: ColumnType<string, string | undefined, never>;\n}\n\nexport interface TaskTable {\n  id: Generated<number>;\n  project_id: number;\n  title: string;\n  done: ColumnType<number, number | boolean | undefined, number | boolean>;\n  due_at: string | null;\n}\n\nexport interface Database {\n  projects: ProjectTable;\n  tasks: TaskTable;\n}\n\nexport type Task = Selectable<TaskTable>;\nexport type NewTask = Insertable<TaskTable>;\nexport type TaskUpdate = Updateable<TaskTable>;"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 203,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 203,
+            "column": 1
+          },
+          "text": "Generated<number>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 20
+          },
+          "text": " makes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 203,
+            "column": 27
+          },
+          "text": "id"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 31
+          },
+          "text": " optional on insert. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 203,
+            "column": 52
+          },
+          "text": "ColumnType<Select, Insert, Update>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 88
+          },
+          "text": " lets a column read as one type and accept another, here "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 203,
+            "column": 145
+          },
+          "text": "done"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 151
+          },
+          "text": " reads as a number but accepts booleans on write, which the driver turns into "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 203,
+            "column": 229
+          },
+          "text": "1"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 232
+          },
+          "text": "/"
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 203,
+            "column": 233
+          },
+          "text": "0"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 236
+          },
+          "text": ". "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 203,
+            "column": 238
+          },
+          "text": "never"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 245
+          },
+          "text": " on update means the column cannot be changed."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 205,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 205,
+            "column": 4
+          },
+          "text": "Create the Kysely instance"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 207,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/index.ts\nimport { Kysely } from 'kysely';\nimport { FastSqlDialect } from './fast-sql-dialect';\nimport type { Database } from './schema';\nimport { runMigrations } from './migrations';\n\nlet instance: Promise<Kysely<Database>> | null = null;\n\nexport function getDb(): Promise<Kysely<Database>> {\n  if (!instance) {\n    instance = (async () => {\n      const db = new Kysely<Database>({\n        dialect: new FastSqlDialect({\n          database: 'tasks',\n          walMode: true,\n          performancePresets: true, // also enables foreign_keys\n        }),\n      });\n      await runMigrations(db);\n      return db;\n    })();\n  }\n  return instance;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 234,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 234,
+            "column": 1
+          },
+          "text": "Kysely calls the driver's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 234,
+            "column": 27
+          },
+          "text": "init()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 234,
+            "column": 35
+          },
+          "text": " lazily on the first query, so constructing the instance is cheap."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 236,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 236,
+            "column": 4
+          },
+          "text": "Migrations inside the app"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 238,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 1
+          },
+          "text": "Kysely's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 10
+          },
+          "text": "FileMigrationProvider"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 33
+          },
+          "text": " reads a folder with Node's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 61
+          },
+          "text": "fs"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 65
+          },
+          "text": ", which does not exist in a WebView. Provide migrations in code instead. The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 142
+          },
+          "text": "Migrator"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 152
+          },
+          "text": " stores applied names in a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 238,
+            "column": 179
+          },
+          "text": "kysely_migration"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 238,
+            "column": 197
+          },
+          "text": " table and runs pending ones in order."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 240,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/migrations.ts\nimport { sql, type Kysely } from 'kysely';\nimport { Migrator, type Migration, type MigrationProvider } from 'kysely/migration';\n\nconst migrations: Record<string, Migration> = {\n  '0001_init': {\n    async up(db: Kysely<any>) {\n      await db.schema\n        .createTable('projects')\n        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())\n        .addColumn('name', 'text', (col) => col.notNull())\n        .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))\n        .execute();\n\n      await db.schema\n        .createTable('tasks')\n        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())\n        .addColumn('project_id', 'integer', (col) =>\n          col.notNull().references('projects.id').onDelete('cascade'),\n        )\n        .addColumn('title', 'text', (col) => col.notNull())\n        .addColumn('done', 'integer', (col) => col.notNull().defaultTo(0))\n        .execute();\n    },\n  },\n  '0002_due_date': {\n    async up(db: Kysely<any>) {\n      await db.schema.alterTable('tasks').addColumn('due_at', 'text').execute();\n      await db.schema.createIndex('idx_tasks_project').on('tasks').column('project_id').execute();\n    },\n  },\n};\n\nclass InCodeMigrationProvider implements MigrationProvider {\n  async getMigrations(): Promise<Record<string, Migration>> {\n    return migrations;\n  }\n}\n\nexport async function runMigrations(db: Kysely<any>): Promise<void> {\n  const migrator = new Migrator({ db, provider: new InCodeMigrationProvider() });\n  const { error, results } = await migrator.migrateToLatest();\n\n  results?.forEach((r) => {\n    if (r.status === 'Error') console.error(`Migration ${r.migrationName} failed`);\n  });\n  if (error) throw error;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 291,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 291,
+            "column": 1
+          },
+          "text": "Notes:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 293,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 293,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 293,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 293,
+                    "column": 3
+                  },
+                  "text": "Names are sorted alphabetically, so use a zero-padded prefix."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 294,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 294,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 294,
+                    "column": 3
+                  },
+                  "text": "migrateToLatest()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 22
+                  },
+                  "text": " does not throw. It returns "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 294,
+                    "column": 50
+                  },
+                  "text": "{ error, results }"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 70
+                  },
+                  "text": ", so check "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 294,
+                    "column": 81
+                  },
+                  "text": "error"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 294,
+                    "column": 88
+                  },
+                  "text": " yourself or your app starts with a half-migrated schema."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 295,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 295,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 295,
+                    "column": 3
+                  },
+                  "text": "Calling it on every launch is cheap. If nothing is pending it reads the migration table and returns."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 296,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 296,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 296,
+                    "column": 3
+                  },
+                  "text": "SQLite supports transactional DDL, so the Migrator wraps the run in a transaction. That works with the driver above."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 297,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 297,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 3
+                  },
+                  "text": "Write migrations against "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 297,
+                    "column": 28
+                  },
+                  "text": "Kysely<any>"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 41
+                  },
+                  "text": ", not your current "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 297,
+                    "column": 60
+                  },
+                  "text": "Database"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 297,
+                    "column": 70
+                  },
+                  "text": " type. Old migrations must keep compiling after the schema evolves."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 299,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 299,
+            "column": 4
+          },
+          "text": "Queries"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 301,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 301,
+            "column": 5
+          },
+          "text": "Insert"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 303,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const db = await getDb();\n\nconst result = await db\n  .insertInto('projects')\n  .values({ name: 'Groceries' })\n  .executeTakeFirst();\n\nconst projectId = Number(result.insertId);\n\nawait db\n  .insertInto('tasks')\n  .values([\n    { project_id: projectId, title: 'Milk' },\n    { project_id: projectId, title: 'Bread', done: true },\n  ])\n  .execute();"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 322,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 1
+          },
+          "text": "insertId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 11
+          },
+          "text": " is a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 17
+          },
+          "text": "bigint"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 25
+          },
+          "text": " in Kysely. Convert with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 322,
+            "column": 50
+          },
+          "text": "Number()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 60
+          },
+          "text": " for normal row ids."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 324,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 324,
+            "column": 1
+          },
+          "text": "Avoid "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 324,
+            "column": 7
+          },
+          "text": ".returning()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 324,
+            "column": 21
+          },
+          "text": " if you target Android with the current Fast SQL version: Android only returns rows for statements that start with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 324,
+            "column": 136
+          },
+          "text": "SELECT"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 324,
+            "column": 144
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 324,
+            "column": 146
+          },
+          "text": "PRAGMA"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 324,
+            "column": 154
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 324,
+            "column": 158
+          },
+          "text": "EXPLAIN"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 324,
+            "column": 167
+          },
+          "text": ", so "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 324,
+            "column": 172
+          },
+          "text": "INSERT ... RETURNING"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 324,
+            "column": 194
+          },
+          "text": " runs but returns nothing. iOS and web return the rows. Reading "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 324,
+            "column": 258
+          },
+          "text": "insertId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 324,
+            "column": 268
+          },
+          "text": " works everywhere."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 326,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 326,
+            "column": 5
+          },
+          "text": "Select"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 328,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const openTasks = await db\n  .selectFrom('tasks')\n  .select(['id', 'title', 'due_at'])\n  .where('project_id', '=', projectId)\n  .where('done', '=', 0)\n  .orderBy('id')\n  .execute();\n// openTasks: { id: number; title: string; due_at: string | null }[]\n\nconst project = await db\n  .selectFrom('projects')\n  .selectAll()\n  .where('id', '=', projectId)\n  .executeTakeFirst(); // undefined if not found"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 345,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 345,
+            "column": 5
+          },
+          "text": "Joins and aggregates"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 347,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const summary = await db\n  .selectFrom('projects as p')\n  .leftJoin('tasks as t', 't.project_id', 'p.id')\n  .select((eb) => [\n    'p.id',\n    'p.name',\n    eb.fn.count<number>('t.id').as('task_count'),\n    eb.fn.sum<number>('t.done').as('done_count'),\n  ])\n  .groupBy('p.id')\n  .execute();"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 361,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 361,
+            "column": 1
+          },
+          "text": "Kysely knows which columns exist after the join, and the aliases ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 361,
+            "column": 67
+          },
+          "text": "task_count"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 361,
+            "column": 79
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 361,
+            "column": 81
+          },
+          "text": "done_count"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 361,
+            "column": 93
+          },
+          "text": ") end up in the result type. Because rows come back as objects keyed by column name, give every selected column a unique name. Two columns both called "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 361,
+            "column": 244
+          },
+          "text": "id"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 361,
+            "column": 248
+          },
+          "text": " would overwrite each other in the row object, which is true for any SQLite driver that returns objects."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 363,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 363,
+            "column": 5
+          },
+          "text": "Nested results with JSON helpers"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 365,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { jsonArrayFrom } from 'kysely/helpers/sqlite';\n\nconst projects = await db\n  .selectFrom('projects')\n  .select((eb) => [\n    'projects.id',\n    'projects.name',\n    jsonArrayFrom(\n      eb.selectFrom('tasks')\n        .select(['tasks.id', 'tasks.title'])\n        .whereRef('tasks.project_id', '=', 'projects.id'),\n    ).as('tasks'),\n  ])\n  .execute();"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 382,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 382,
+            "column": 1
+          },
+          "text": "This relies on SQLite's JSON functions. They are built in on iOS, in the web build and in recent Android releases, but if your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 382,
+            "column": 128
+          },
+          "text": "minSdkVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 382,
+            "column": 143
+          },
+          "text": " is old, run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 382,
+            "column": 156
+          },
+          "text": "SELECT json('{}')"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 382,
+            "column": 175
+          },
+          "text": " on your oldest test device first."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 384,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 384,
+            "column": 5
+          },
+          "text": "Update and delete"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 386,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await db.updateTable('tasks').set({ done: true }).where('id', '=', taskId).execute();\n\nconst deleted = await db.deleteFrom('tasks').where('done', '=', 1).executeTakeFirst();\nconsole.log(Number(deleted.numDeletedRows));"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 393,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 393,
+            "column": 4
+          },
+          "text": "Transactions"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 395,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await db.transaction().execute(async (trx) => {\n  const { insertId } = await trx\n    .insertInto('projects')\n    .values({ name: 'Trip' })\n    .executeTakeFirstOrThrow();\n\n  await trx\n    .insertInto('tasks')\n    .values(['Passport', 'Tickets', 'Charger'].map((title) => ({\n      project_id: Number(insertId),\n      title,\n    })))\n    .execute();\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 412,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 412,
+            "column": 1
+          },
+          "text": "If the callback throws, the driver rolls back. Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 412,
+            "column": 52
+          },
+          "text": "trx"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 412,
+            "column": 57
+          },
+          "text": ", not "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 412,
+            "column": 63
+          },
+          "text": "db"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 412,
+            "column": 67
+          },
+          "text": ", inside the callback. Queries on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 412,
+            "column": 101
+          },
+          "text": "db"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 412,
+            "column": 105
+          },
+          "text": " wait for the mutex, which is held by the transaction, so they would deadlock until the transaction ends."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 414,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 414,
+            "column": 4
+          },
+          "text": "Raw SQL when you need it"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 416,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { sql } from 'kysely';\n\nconst { rows } = await sql<{ journal_mode: string }>`PRAGMA journal_mode`.execute(db);"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 422,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 422,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 422,
+            "column": 5
+          },
+          "text": "sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 422,
+            "column": 10
+          },
+          "text": " tag binds interpolated values as parameters, so it is safe with user input. Use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 422,
+            "column": 91
+          },
+          "text": "sql.raw()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 422,
+            "column": 102
+          },
+          "text": " only for trusted fragments."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 424,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 424,
+            "column": 4
+          },
+          "text": "Using the community plugin instead"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 426,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 426,
+            "column": 1
+          },
+          "text": "If you are on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 426,
+            "column": 15
+          },
+          "text": "@capacitor-community/sqlite"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 426,
+            "column": 44
+          },
+          "text": ", keep the dialect, adapter, compiler and mutex, and replace the connection:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 428,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import type { SQLiteDBConnection } from '@capacitor-community/sqlite';\n\nclass CommunityConnection implements DatabaseConnection {\n  constructor(readonly db: SQLiteDBConnection) {}\n\n  async executeQuery<R>(compiled: CompiledQuery): Promise<QueryResult<R>> {\n    const params = compiled.parameters.map(toSqlValue);\n    if (/^\\s*(select|pragma|with)\\b/i.test(compiled.sql)) {\n      const res = await this.db.query(compiled.sql, params);\n      return { rows: (res.values ?? []) as R[] };\n    }\n    const res = await this.db.run(compiled.sql, params, false, 'all');\n    return {\n      rows: (res.changes?.values ?? []) as R[],\n      numAffectedRows: BigInt(res.changes?.changes ?? 0),\n      insertId: res.changes?.lastId != null ? BigInt(res.changes.lastId) : undefined,\n    };\n  }\n\n  async *streamQuery<R>(): AsyncIterableIterator<QueryResult<R>> {\n    throw new Error('Streaming is not supported');\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 454,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 454,
+            "column": 1
+          },
+          "text": "Pass "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 454,
+            "column": 6
+          },
+          "text": "false"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 454,
+            "column": 13
+          },
+          "text": " as the third argument to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 454,
+            "column": 39
+          },
+          "text": "run()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 454,
+            "column": 46
+          },
+          "text": ". Its default wraps every statement in its own transaction, which breaks Kysely transactions. Use the plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 454,
+            "column": 157
+          },
+          "text": "beginTransaction()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 454,
+            "column": 177
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 454,
+            "column": 179
+          },
+          "text": "commitTransaction()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 454,
+            "column": 200
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 454,
+            "column": 205
+          },
+          "text": "rollbackTransaction()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 454,
+            "column": 228
+          },
+          "text": " in the driver."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 456,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 456,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 458,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 458,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 458,
+                "column": 3
+              },
+              "text": "Cannot find module 'kysely/migration'"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 458,
+                "column": 42
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 458,
+            "column": 45
+          },
+          "text": " You are on Kysely older than 0.29, where "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 458,
+            "column": 87
+          },
+          "text": "Migrator"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 458,
+            "column": 97
+          },
+          "text": " is exported from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 458,
+            "column": 115
+          },
+          "text": "kysely"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 458,
+            "column": 123
+          },
+          "text": " directly. Update or change the import."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 460,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 460,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 460,
+                "column": 3
+              },
+              "text": "Queries hang forever."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 460,
+            "column": 26
+          },
+          "text": " You used "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 460,
+            "column": 36
+          },
+          "text": "db"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 460,
+            "column": 40
+          },
+          "text": " inside "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 460,
+            "column": 48
+          },
+          "text": "db.transaction().execute()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 460,
+            "column": 76
+          },
+          "text": ". Use the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 460,
+            "column": 86
+          },
+          "text": "trx"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 460,
+            "column": 91
+          },
+          "text": " argument."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 462,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 462,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 462,
+                "column": 3
+              },
+              "text": "done = true"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 462,
+                "column": 16
+              },
+              "text": " never matches on Android."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 462,
+            "column": 44
+          },
+          "text": " A boolean reached the plugin without conversion. Make sure every value goes through "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 462,
+            "column": 129
+          },
+          "text": "toSqlValue"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 462,
+            "column": 141
+          },
+          "text": ", including values in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 462,
+            "column": 163
+          },
+          "text": "sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 462,
+            "column": 168
+          },
+          "text": " template literals."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 464,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 464,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 464,
+                "column": 3
+              },
+              "text": "no such table: kysely_migration"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 464,
+                "column": 36
+              },
+              "text": " errors on first launch."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 464,
+            "column": 62
+          },
+          "text": " The Migrator creates its table itself, so this usually means "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 464,
+            "column": 124
+          },
+          "text": "init()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 464,
+            "column": 132
+          },
+          "text": " failed earlier. Check the native setup (iOS local networking, Android cleartext localhost rule) and log the first error."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 466,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 466,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 466,
+                "column": 3
+              },
+              "text": "Types say a column exists but SQLite says it does not."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 466,
+            "column": 59
+          },
+          "text": " The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 466,
+            "column": 64
+          },
+          "text": "Database"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 466,
+            "column": 74
+          },
+          "text": " interface and the migrations drifted. The interface is not generated from the database, so update both in the same commit."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 468,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 468,
+            "column": 4
+          },
+          "text": "Summary"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 470,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 470,
+            "column": 1
+          },
+          "text": "Kysely needs about 80 lines of glue to run on Capacitor: a connection that calls "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 470,
+            "column": 82
+          },
+          "text": "execute()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 470,
+            "column": 93
+          },
+          "text": ", a mutex, and transaction hooks. In exchange you get fully typed SQL on top of Fast SQL's native SQLite on iOS and Android and SQLite Wasm on the web."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 472,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 472,
+            "column": 1
+          },
+          "text": "Related reading: "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 472,
+            "column": 18
+          },
+          "url": "/blog/drizzle-orm-capacitor-sqlite/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 472,
+                "column": 19
+              },
+              "text": "Drizzle ORM with Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 472,
+            "column": 83
+          },
+          "text": " if you prefer schema-first definitions, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 472,
+            "column": 124
+          },
+          "url": "/blog/typeorm-capacitor-sqlite/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 472,
+                "column": 125
+              },
+              "text": "TypeORM with Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 472,
+            "column": 181
+          },
+          "text": " for decorators and repositories, and the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 472,
+            "column": 223
+          },
+          "url": "/docs/plugins/fast-sql/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 472,
+                "column": 224
+              },
+              "text": "Fast SQL plugin docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 472,
+            "column": 270
+          },
+          "text": " for every connection option."
+        }
+      ]
+    }
+  ]
+}

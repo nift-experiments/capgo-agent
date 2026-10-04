@@ -1,0 +1,3606 @@
+{
+  "version": 1,
+  "route": "/blog/electron-vs-tauri-capacitor/",
+  "source": "corpus/source/apps/web/src/content/blog/en/electron-vs-tauri-capacitor.md",
+  "sourceSha256": "78db183ae1dbdd92dc8187279c4070208369aec5d54c19454aac1e7aaf850d90",
+  "metadata": {
+    "slug": "electron-vs-tauri-capacitor",
+    "title": "Electron vs Tauri for Capacitor Apps: Which to Pick",
+    "description": "Electron vs Tauri for Capacitor apps compared: size, memory, webview engines, plugin reuse, live updates, security, and setup, with a clear decision guide.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_banner.webp",
+    "head_image_alt": "Capgo banner for a comparison of Electron and Tauri as desktop runtimes for Capacitor apps",
+    "keywords": "Electron vs Tauri, Tauri Capacitor, Electron Capacitor, Capacitor desktop, Tauri vs Electron 2026, desktop app web technologies, Tauri live updates",
+    "tag": "Development, Capacitor, Alternatives",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Is Tauri smaller than Electron?",
+        "answer": "Yes, by a wide margin. Tauri uses the operating system's webview instead of bundling Chromium, so installers are usually a few megabytes, while Electron installers commonly land between 80 and 150 MB."
+      },
+      {
+        "question": "Can I use Capacitor plugins in Tauri or Electron?",
+        "answer": "In both, plugins that have a web implementation keep working because your app runs as a web app. Native-only Capacitor plugins do not. You replace them with Electron main-process code or Tauri Rust commands and plugins."
+      },
+      {
+        "question": "Which one supports live updates of the web bundle?",
+        "answer": "Electron does, through @capgo/electron-updater, which uses the same Capgo channels and CLI as Capacitor mobile apps. Tauri's official updater replaces the whole app binary, and there is no Capgo web-bundle updater for Tauri."
+      },
+      {
+        "question": "Do both support macOS, Windows, and Linux?",
+        "answer": "Yes. Electron and Tauri 2 both build for all three. Tauri 2 can also target iOS and Android, but a Capacitor app already covers mobile."
+      },
+      {
+        "question": "What does Capacitor.getPlatform() return in Electron and Tauri?",
+        "answer": "With a plain Electron or Tauri shell it returns 'web', because there is no Capacitor native bridge. Expose your own desktop flag to branch your code."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "Electron vs Tauri for a Capacitor app comes down to one trade: Electron ships its own Chromium and Node.js, so it is large but identical everywhere and has a mature update story, while Tauri uses the system webview with a Rust backend, so it is small and light but renders differently per OS and needs Rust for native features. For most teams porting an existing Capacitor app, Electron is the lower-risk default, and Tauri wins when download size and memory matter more than ecosystem."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "Below is a detailed comparison through the lens of a Capacitor codebase: what you can reuse, what you rewrite, and what each runtime means for releases."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "Quick comparison"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "Criteria"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 14
+                  },
+                  "text": "Electron"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 25
+                  },
+                  "text": "Tauri 2"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Rendering engine"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 22
+                  },
+                  "text": "Bundled Chromium, same on every OS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 57
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 59
+                  },
+                  "text": "WebView2 (Chromium) on Windows, WKWebView on macOS, WebKitGTK on Linux"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "Native backend"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 20
+                  },
+                  "text": "Node.js (TypeScript/JavaScript)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 54
+                  },
+                  "text": "Rust"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Typical installer size"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 28
+                  },
+                  "text": "80 to 150 MB"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 43
+                  },
+                  "text": "A few MB for small apps"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "Idle memory"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 17
+                  },
+                  "text": "Higher, one Chromium per app"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 48
+                  },
+                  "text": "Lower, shares the system engine"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "Reuse of Capacitor web code"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 33
+                  },
+                  "text": "Full"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 40
+                  },
+                  "text": "Full, after cross-engine testing"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "text": "Native-only Capacitor plugins"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 35
+                  },
+                  "text": "Rewrite in main process"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 61
+                  },
+                  "text": "Rewrite as Rust commands or Tauri plugins"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "text": "Web bundle live updates"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 29
+                  },
+                  "text": "Yes, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 16,
+                    "column": 34
+                  },
+                  "text": "@capgo/electron-updater"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 60
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 62
+                  },
+                  "text": "No Capgo support, binary updates only"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 3
+                  },
+                  "text": "Binary auto-update"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 24
+                  },
+                  "text": "electron-builder / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 17,
+                    "column": 43
+                  },
+                  "text": "autoUpdater"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 57
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 17,
+                    "column": 59
+                  },
+                  "text": "tauri-plugin-updater"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "text": "Security model"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 20
+                  },
+                  "text": "Context isolation, sandbox, preload bridge"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 63
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 65
+                  },
+                  "text": "Capabilities and permissions per window"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 3
+                  },
+                  "text": "Toolchain"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 15
+                  },
+                  "text": "Node.js only"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 30
+                  },
+                  "text": "Rust, plus OS build dependencies"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 21,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 4
+          },
+          "text": "How each runtime runs your Capacitor app"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "text": "A Capacitor app is a static web build plus native plugins. Neither Electron nor Tauri runs the Capacitor native layer, so both load your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 23,
+            "column": 138
+          },
+          "text": "webDir"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 146
+          },
+          "text": " as a web app, and Capacitor falls back to each plugin's web implementation. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 23,
+            "column": 223
+          },
+          "text": "Capacitor.getPlatform()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 248
+          },
+          "text": " returns "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 23,
+            "column": 257
+          },
+          "text": "'web'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 264
+          },
+          "text": " in both."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "text": "That makes the question practical: which runtime makes it easier to replace the native parts you lose, and to ship the result?"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 5
+          },
+          "text": "Electron"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "text": "Electron gives you a Node.js main process and Chromium renderers. You write desktop features in TypeScript, expose them through a preload script with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 29,
+            "column": 151
+          },
+          "text": "contextBridge"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 166
+          },
+          "text": ", and call them from your web code. The full setup is in our guide to "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 29,
+            "column": 236
+          },
+          "url": "/blog/capacitor-electron-desktop-app/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 29,
+                "column": 237
+              },
+              "text": "building a desktop app with Capacitor and Electron"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 29,
+            "column": 327
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 31,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 31,
+            "column": 5
+          },
+          "text": "Tauri"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 33,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 33,
+            "column": 1
+          },
+          "text": "Tauri 2 gives you a Rust core and the system webview. You call Rust commands from JavaScript with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 33,
+            "column": 99
+          },
+          "text": "invoke"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 33,
+            "column": 107
+          },
+          "text": ", and you add features through official plugins (file system, dialogs, notifications, shell, store, deep links, updater, and more) or your own Rust code. A minimal setup for an existing Capacitor project:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 35,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add -d @tauri-apps/cli\nbunx tauri init"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 1
+          },
+          "text": "Answer the prompts so Tauri points to your build:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "lang": "json",
+      "meta": null,
+      "text": "{\n  \"build\": {\n    \"frontendDist\": \"../dist\",\n    \"devUrl\": \"http://localhost:5173\",\n    \"beforeDevCommand\": \"bun run dev\",\n    \"beforeBuildCommand\": \"bun run build\"\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 53,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 53,
+            "column": 1
+          },
+          "text": "Then "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 53,
+            "column": 6
+          },
+          "text": "bunx tauri dev"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 53,
+            "column": 22
+          },
+          "text": " for development and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 53,
+            "column": 43
+          },
+          "text": "bunx tauri build"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 53,
+            "column": 61
+          },
+          "text": " for installers. You need the Rust toolchain and, on Linux, the WebKitGTK development packages."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 55,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 55,
+            "column": 4
+          },
+          "text": "Binary size and memory"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 57,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 57,
+            "column": 1
+          },
+          "text": "This is Tauri's clearest win. Electron includes a full Chromium and Node.js runtime in every app, so even a tiny app produces an installer in the tens of megabytes and usually more. Tauri relies on the webview the OS already has, so the installer contains mostly your web assets and a compiled Rust binary."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 59,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 1
+          },
+          "text": "Memory follows the same logic. Each Electron app runs its own Chromium processes. Tauri uses the shared system engine and a small Rust process. If your users run your app all day next to other heavy software, or if you distribute to bandwidth-limited regions, that difference is real."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 61,
+            "column": 1
+          },
+          "text": "If size is a minor concern, for example an internal tool installed once, it should not decide the choice alone."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 63,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 63,
+            "column": 4
+          },
+          "text": "Webview consistency"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 65,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 65,
+            "column": 1
+          },
+          "text": "Electron renders the same everywhere because it ships the engine. Tauri renders with three different engines."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 67,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 67,
+            "column": 1
+          },
+          "text": "Here a Capacitor app has an advantage: you already test on two engines. Your iOS build runs in WKWebView, which is the engine Tauri uses on macOS, and your Android build runs in Android System WebView, which is Chromium like WebView2 on Windows. The new risk is mostly Linux, where WebKitGTK versions vary across distributions and can lag behind Safari in features and performance."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 69,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 69,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 69,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 3
+                  },
+                  "text": "Desktop OS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 69,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 16
+                  },
+                  "text": "Tauri engine"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 69,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 31
+                  },
+                  "text": "Closest engine you already test"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 71,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 71,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 3
+                  },
+                  "text": "macOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 71,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 11
+                  },
+                  "text": "WKWebView"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 71,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 23
+                  },
+                  "text": "iOS build"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 72,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 72,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 72,
+                    "column": 3
+                  },
+                  "text": "Windows"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 72,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 72,
+                    "column": 13
+                  },
+                  "text": "WebView2 (Chromium)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 72,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 72,
+                    "column": 35
+                  },
+                  "text": "Android build"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 73,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 73,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 73,
+                    "column": 3
+                  },
+                  "text": "Linux"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 73,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 73,
+                    "column": 11
+                  },
+                  "text": "WebKitGTK"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 73,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 73,
+                    "column": 23
+                  },
+                  "text": "None, test directly"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 75,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "text": "If Linux is a key target and your app relies on recent CSS or heavy WebGL, Electron removes a class of bugs."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 77,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 77,
+            "column": 4
+          },
+          "text": "Plugin support and native features"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 79,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 79,
+            "column": 1
+          },
+          "text": "Neither runtime can load Capacitor's native iOS and Android code. What carries over is everything with a web implementation, plus your own code."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 1
+          },
+          "text": "For each native-only plugin you depend on:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 83,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 83,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 83,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 83,
+                        "column": 5
+                      },
+                      "text": "Electron:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 83,
+                    "column": 16
+                  },
+                  "text": " write the feature in TypeScript in the main process, often with a Node.js package from npm. Your team already knows the language."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 84,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 84,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 84,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 84,
+                        "column": 5
+                      },
+                      "text": "Tauri:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 84,
+                    "column": 13
+                  },
+                  "text": " check the official plugin list first. If nothing fits, write a Rust command. Rust adds a learning curve but gives strong performance and memory safety."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 86,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 86,
+            "column": 1
+          },
+          "text": "Some common needs map like this:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 88,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 88,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 88,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 88,
+                    "column": 3
+                  },
+                  "text": "Need"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 88,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 88,
+                    "column": 10
+                  },
+                  "text": "Electron"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 88,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 88,
+                    "column": 21
+                  },
+                  "text": "Tauri"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 90,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 90,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 90,
+                    "column": 3
+                  },
+                  "text": "Files and dialogs"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 90,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 90,
+                    "column": 23
+                  },
+                  "text": "fs"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 90,
+                    "column": 27
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 90,
+                    "column": 29
+                  },
+                  "text": "dialog"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 90,
+                    "column": 37
+                  },
+                  "text": " modules"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 90,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 90,
+                    "column": 48
+                  },
+                  "text": "fs"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 90,
+                    "column": 52
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 90,
+                    "column": 57
+                  },
+                  "text": "dialog"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 90,
+                    "column": 65
+                  },
+                  "text": " plugins"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 91,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 91,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 91,
+                    "column": 3
+                  },
+                  "text": "Notifications"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 91,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 91,
+                    "column": 19
+                  },
+                  "text": "Notification"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 91,
+                    "column": 33
+                  },
+                  "text": " class"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 91,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 91,
+                    "column": 42
+                  },
+                  "text": "notification"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 91,
+                    "column": 56
+                  },
+                  "text": " plugin"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 92,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 92,
+                    "column": 3
+                  },
+                  "text": "Secure storage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 92,
+                "column": 18
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 92,
+                    "column": 20
+                  },
+                  "text": "safeStorage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 92,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 92,
+                    "column": 36
+                  },
+                  "text": "stronghold"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 92,
+                    "column": 48
+                  },
+                  "text": " plugin or OS keychain crates"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 93,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 93,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 93,
+                    "column": 3
+                  },
+                  "text": "Deep links"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 93,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 93,
+                    "column": 16
+                  },
+                  "text": "setAsDefaultProtocolClient"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 93,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 93,
+                    "column": 47
+                  },
+                  "text": "deep-link"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 93,
+                    "column": 58
+                  },
+                  "text": " plugin"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 94,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 94,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 94,
+                    "column": 3
+                  },
+                  "text": "Auto start, tray, menus"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 94,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 94,
+                    "column": 29
+                  },
+                  "text": "Built in"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 94,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 94,
+                    "column": 40
+                  },
+                  "text": "Built in or official plugins"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 96,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 96,
+            "column": 4
+          },
+          "text": "Live updates and over-the-air updates"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 98,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 98,
+            "column": 1
+          },
+          "text": "For Capacitor teams, update strategy often decides the question."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 100,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 100,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 100,
+                "column": 3
+              },
+              "text": "Electron"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 13
+          },
+          "text": " supports two layers:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 102,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 102,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 102,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 102,
+                    "column": 4
+                  },
+                  "text": "Web bundle updates with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 102,
+                    "column": 28
+                  },
+                  "text": "@capgo/electron-updater"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 102,
+                    "column": 53
+                  },
+                  "text": ". You upload with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 102,
+                    "column": 71
+                  },
+                  "text": "bunx @capgo/cli@latest bundle upload --channel=production"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 102,
+                    "column": 130
+                  },
+                  "text": ", the same command you use for "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 102,
+                    "column": 161
+                  },
+                  "url": "/live-update/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 102,
+                        "column": 162
+                      },
+                      "text": "Capgo live updates"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 102,
+                    "column": 196
+                  },
+                  "text": " on mobile. Channels, rollback, and staged rollouts behave the same. See the "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 102,
+                    "column": 273
+                  },
+                  "url": "/plugins/electron-updater/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 102,
+                        "column": 274
+                      },
+                      "text": "electron-updater plugin page"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 102,
+                    "column": 331
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 103,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 103,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 103,
+                    "column": 4
+                  },
+                  "text": "Binary updates with electron-builder's updater for changes to Electron itself or the main process. Our "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 103,
+                    "column": 107
+                  },
+                  "url": "/blog/electron-app-auto-update/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 103,
+                        "column": 108
+                      },
+                      "text": "Electron auto-update guide"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 103,
+                    "column": 168
+                  },
+                  "text": " covers it."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 105,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 105,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 105,
+                "column": 3
+              },
+              "text": "Tauri"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 105,
+            "column": 10
+          },
+          "text": " has an official updater plugin that downloads and installs signed new versions of the whole app. It works well, but every fix, even a one-line CSS change, means a new signed binary per platform. There is no Capgo web-bundle updater for Tauri today, and loading remote web code into a Tauri window is something you would have to build and secure yourself."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 107,
+            "column": 1
+          },
+          "text": "If your mobile release process already depends on live updates, Electron keeps desktop on the same pipeline."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 109,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 109,
+            "column": 4
+          },
+          "text": "Security model"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 111,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 1
+          },
+          "text": "Both can be secure. They get there differently."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 113,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 113,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 113,
+                "column": 3
+              },
+              "text": "Electron"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 13
+          },
+          "text": " gives the renderer no Node.js access when you keep "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 65
+          },
+          "text": "contextIsolation: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 89
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 91
+          },
+          "text": "nodeIntegration: false"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 115
+          },
+          "text": ", and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 121
+          },
+          "text": "sandbox: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 136
+          },
+          "text": ". You expose a narrow API through the preload and validate every IPC call in the main process. The risk is configuration drift: one unsafe flag opens a lot."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 115,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 115,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 115,
+                "column": 3
+              },
+              "text": "Tauri 2"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 12
+          },
+          "text": " uses capabilities. Each window gets an explicit list of permissions, for example \"read files in the app data folder\", and commands outside that list are rejected. The default is closed, which makes mistakes less likely. The Rust core also removes memory-safety bugs from your native code."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 117,
+            "column": 1
+          },
+          "text": "Either way, treat the web layer as untrusted, especially if you render user content or load third-party scripts."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 119,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 119,
+            "column": 4
+          },
+          "text": "Developer setup and team fit"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 121,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 121,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 3
+                  },
+                  "text": "Question"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 121,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 14
+                  },
+                  "text": "Electron"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 121,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 121,
+                    "column": 25
+                  },
+                  "text": "Tauri"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 123,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 123,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 123,
+                    "column": 3
+                  },
+                  "text": "Extra languages"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 123,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 123,
+                    "column": 21
+                  },
+                  "text": "None"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 123,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 123,
+                    "column": 28
+                  },
+                  "text": "Rust for native features"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 124,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 124,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 124,
+                    "column": 3
+                  },
+                  "text": "Install"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 124,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 124,
+                    "column": 13
+                  },
+                  "text": "bun add -d electron electron-builder"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 124,
+                "column": 52
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 124,
+                    "column": 54
+                  },
+                  "text": "Rust toolchain, Tauri CLI, OS packages"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 125,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 125,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 125,
+                    "column": 3
+                  },
+                  "text": "Build time"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 125,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 125,
+                    "column": 16
+                  },
+                  "text": "Fast, mostly packaging"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 125,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 125,
+                    "column": 41
+                  },
+                  "text": "Slower first Rust compile, then incremental"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 126,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 126,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 126,
+                    "column": 3
+                  },
+                  "text": "Debugging"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 126,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 126,
+                    "column": 15
+                  },
+                  "text": "Chrome DevTools everywhere"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 126,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 126,
+                    "column": 44
+                  },
+                  "text": "Engine DevTools per OS"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 127,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 127,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 127,
+                    "column": 3
+                  },
+                  "text": "Ecosystem age"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 127,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 127,
+                    "column": 19
+                  },
+                  "text": "Since 2013, very large"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 127,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 127,
+                    "column": 44
+                  },
+                  "text": "Tauri 2 stable since late 2024, growing"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 1
+          },
+          "text": "A web-only team ships an Electron desktop app in days. A team with Rust experience, or willing to build it, gets a leaner product with Tauri."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 131,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 4
+          },
+          "text": "When to choose Electron"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 133,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 133,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 133,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 133,
+                    "column": 3
+                  },
+                  "text": "You need the same rendering on every OS, including Linux."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 134,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 134,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 134,
+                    "column": 3
+                  },
+                  "text": "You want live updates of the web bundle on desktop, using the same Capgo channels as mobile."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 135,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 135,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 135,
+                    "column": 3
+                  },
+                  "text": "Your team writes TypeScript and has no Rust experience."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 136,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 136,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 136,
+                    "column": 3
+                  },
+                  "text": "You depend on npm packages with Node.js APIs for desktop features."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 137,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 137,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 137,
+                    "column": 3
+                  },
+                  "text": "Installer size and memory use are acceptable for your users."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 4
+          },
+          "text": "When to choose Tauri"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 141,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 141,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 141,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 141,
+                    "column": 3
+                  },
+                  "text": "Download size and idle memory are product requirements."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 142,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 142,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 142,
+                    "column": 3
+                  },
+                  "text": "Your app works well in Safari and Chromium already, and Linux is a minor target or you can test it thoroughly."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 143,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 143,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 143,
+                    "column": 3
+                  },
+                  "text": "You have Rust skills or want them for performance-sensitive native code."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 144,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 144,
+                    "column": 3
+                  },
+                  "text": "Binary-only updates fit your release cadence."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 146,
+            "column": 4
+          },
+          "text": "A practical migration path"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 148,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 148,
+            "column": 1
+          },
+          "text": "You do not have to decide forever. Keep your Capacitor web code free of runtime-specific calls:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 150,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/platform/desktop.ts\nexport interface DesktopApi {\n  getVersion(): Promise<string>;\n  openFile(): Promise<string | null>;\n}\n\n// Electron implementation calls window.desktop.* exposed by the preload\n// Tauri implementation calls invoke('get_version') and the dialog plugin"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 161,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 1
+          },
+          "text": "Pick the implementation at startup. Your mobile builds use Capacitor plugins, and each desktop runtime gets a thin adapter. Switching runtimes later means rewriting the adapter, not the app."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 163,
+            "column": 4
+          },
+          "text": "Troubleshooting common surprises"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 165,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 165,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 165,
+                "column": 3
+              },
+              "text": "Layout differs on Linux with Tauri."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 165,
+            "column": 40
+          },
+          "text": " WebKitGTK lags behind. Test on the distributions you support and avoid very new CSS features there."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 167,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 167,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 167,
+                "column": 3
+              },
+              "text": "A plugin works on mobile but rejects on desktop."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 167,
+            "column": 53
+          },
+          "text": " It has no web implementation. Write the desktop version in your adapter."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 169,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 169,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 169,
+                "column": 3
+              },
+              "text": "Electron installer is too big."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 35
+          },
+          "text": " Check that "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 169,
+            "column": 47
+          },
+          "text": "devDependencies"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 169,
+            "column": 64
+          },
+          "text": " and source maps are excluded from the packaged files, and build per-architecture targets instead of universal ones if size matters."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 171,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 171,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 171,
+                "column": 3
+              },
+              "text": "Tauri build fails on CI for Linux."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 39
+          },
+          "text": " Install the WebKitGTK and build-essential packages listed in Tauri's prerequisites before building."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 173,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 4
+          },
+          "text": "Verdict"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 175,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 175,
+            "column": 1
+          },
+          "text": "For a Capacitor team, Electron is the safer default: no new language, consistent rendering, and the same live update pipeline as your iOS and Android apps through Capgo. Tauri is the better product choice when size and memory matter and you can own a bit of Rust. Either way, keep runtime-specific code behind a small interface so the decision stays reversible. For more Capgo plugins that help on every platform, browse the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 175,
+            "column": 426
+          },
+          "url": "/plugins/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 175,
+                "column": 427
+              },
+              "text": "plugin directory"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 175,
+            "column": 455
+          },
+          "text": "."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,4171 @@
+{
+  "version": 1,
+  "route": "/blog/capacitor-file-handling-guide/",
+  "source": "corpus/source/apps/web/src/content/blog/en/capacitor-file-handling-guide.md",
+  "sourceSha256": "74e9916550d097ff54c98455ae49abdf175b779093b7a16de10f561e8e99c74f",
+  "metadata": {
+    "slug": "capacitor-file-handling-guide",
+    "title": "Capacitor File Handling Guide: Read, Write, Pick, Share",
+    "description": "Capacitor file handling guide: read and write files, choose directories, pick, display, open, share, download and upload files on iOS and Android.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capacitor-guide.webp",
+    "head_image_alt": "Reading, writing, and sharing files in a Capacitor mobile app",
+    "keywords": "capacitor file handling, capacitor filesystem, capacitor read file, capacitor write file, capacitor file picker, capacitor download file, capacitor upload file, capacitor convertFileSrc, ionic file storage",
+    "tag": "Guides, Capacitor, Development",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "How do I read and write files in Capacitor?",
+        "answer": "Use @capacitor/filesystem. Filesystem.writeFile({ path, data, directory }) writes text (with encoding: Encoding.UTF8) or binary data (base64 without an encoding), and Filesystem.readFile({ path, directory }) reads it back. Pick a Directory such as Data, Cache or LibraryNoCloud depending on how long the file should live."
+      },
+      {
+        "question": "How do I show a local file in an img or video tag?",
+        "answer": "Get the native path with Filesystem.getUri, then pass it to Capacitor.convertFileSrc(). The result is a URL served by the Capacitor local server that the WebView can load without converting the file to base64."
+      },
+      {
+        "question": "Is Filesystem.downloadFile deprecated?",
+        "answer": "Yes. In @capacitor/filesystem 8, downloadFile and its progress listener are deprecated in favor of the @capacitor/file-transfer plugin, which also handles uploads with progress events."
+      },
+      {
+        "question": "Why do large files crash my Capacitor app?",
+        "answer": "Reading or writing a large file in one call moves the whole content through the bridge as a base64 string, which can use several times the file size in memory. Use Filesystem.readFileInChunks to move the file in smaller base64 chunks, or skip base64 entirely with native download and upload plugins or fetch with Capacitor.convertFileSrc."
+      },
+      {
+        "question": "Do I need storage permissions to save files?",
+        "answer": "Not for your app's own directories (Data, Cache, Library, External). Storage permissions only matter for shared storage on Android 9 and older. On Android 10+, save user-visible files through MediaStore or the system file picker instead."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "Capacitor file handling comes down to a few building blocks: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 62
+          },
+          "text": "@capacitor/filesystem"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 85
+          },
+          "text": " to read and write files in app directories, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 130
+          },
+          "text": "Capacitor.convertFileSrc"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 156
+          },
+          "text": " to display them, a picker to import user files, and native plugins to download, upload, open and share. This guide shows each one with Capacitor 8 code, explains which directory to use on iOS and Android, and covers the memory and permission traps that cause most file bugs."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "The file handling toolbox"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 6,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 6,
+                    "column": 3
+                  },
+                  "text": "Task"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 6,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 6,
+                    "column": 10
+                  },
+                  "text": "Plugin"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "Read, write, list, copy, delete in app storage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 8,
+                    "column": 52
+                  },
+                  "text": "@capacitor/filesystem"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 9,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 9,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "text": "Show a local file in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 9,
+                    "column": 24
+                  },
+                  "text": "<img>"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 31
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 9,
+                    "column": 33
+                  },
+                  "text": "<video>"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 42
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 9,
+                    "column": 44
+                  },
+                  "text": "<iframe>"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 9,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 9,
+                    "column": 57
+                  },
+                  "text": "Capacitor.convertFileSrc"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 83
+                  },
+                  "text": " (core)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Let the user pick files or a folder"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 10,
+                    "column": 41
+                  },
+                  "url": "/plugins/capacitor-file-picker/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 10,
+                        "column": 42
+                      },
+                      "text": "@capgo/capacitor-file-picker"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "Download with progress"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 11,
+                    "column": 28
+                  },
+                  "text": "@capacitor/file-transfer"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 54
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 11,
+                    "column": 58
+                  },
+                  "url": "/plugins/capacitor-downloader/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 11,
+                        "column": 59
+                      },
+                      "text": "@capgo/capacitor-downloader"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 121
+                  },
+                  "text": " for background, pausable downloads"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Upload with progress"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 26
+                  },
+                  "text": "@capacitor/file-transfer"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 52
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 12,
+                    "column": 56
+                  },
+                  "url": "/plugins/capacitor-uploader/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 12,
+                        "column": 57
+                      },
+                      "text": "@capgo/capacitor-uploader"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 115
+                  },
+                  "text": " for background uploads"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "Share a file or save it to Downloads"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 13,
+                    "column": 42
+                  },
+                  "url": "/plugins/capacitor-file-sharer/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 13,
+                        "column": 43
+                      },
+                      "text": "@capgo/capacitor-file-sharer"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 107
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 111
+                  },
+                  "text": "@capacitor/share"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "Open a file in another app"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 14,
+                    "column": 32
+                  },
+                  "text": "@capacitor-community/file-opener"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "text": "Compress images"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 15,
+                    "column": 21
+                  },
+                  "url": "/plugins/capacitor-file-compressor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 15,
+                        "column": 22
+                      },
+                      "text": "@capgo/capacitor-file-compressor"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "text": "Zip and unzip"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 16,
+                    "column": 19
+                  },
+                  "url": "/plugins/capacitor-zip/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 16,
+                        "column": 20
+                      },
+                      "text": "@capgo/capacitor-zip"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "text": "Install the core plugin first:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capacitor/filesystem\nbunx cap sync"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 25,
+            "column": 4
+          },
+          "text": "Choose the right directory"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "text": "Every Filesystem call takes a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 27,
+            "column": 31
+          },
+          "text": "directory"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 42
+          },
+          "text": ". Picking the wrong one is the most common cause of lost files and rejected apps."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 29,
+                    "column": 3
+                  },
+                  "text": "Directory"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 17
+                  },
+                  "text": "iOS location"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 32
+                  },
+                  "text": "Android location"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 49
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 51
+                  },
+                  "text": "Backed up"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 29,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 63
+                  },
+                  "text": "Use for"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 31,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 31,
+                    "column": 3
+                  },
+                  "text": "Data"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 31,
+                    "column": 12
+                  },
+                  "text": "Documents"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 26
+                  },
+                  "text": "App files dir ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 31,
+                    "column": 41
+                  },
+                  "text": "/data/data/<pkg>/files"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 65
+                  },
+                  "text": ")"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 67
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 69
+                  },
+                  "text": "iOS iCloud, Android Auto Backup"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 31,
+                "column": 101
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 31,
+                    "column": 103
+                  },
+                  "text": "User data the app owns"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 32,
+                    "column": 3
+                  },
+                  "text": "Documents"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 32,
+                    "column": 17
+                  },
+                  "text": "Documents"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 28
+                  },
+                  "text": " (same as "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 32,
+                    "column": 38
+                  },
+                  "text": "Data"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 44
+                  },
+                  "text": ")"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 48
+                  },
+                  "text": "Public "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 32,
+                    "column": 55
+                  },
+                  "text": "Documents"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 66
+                  },
+                  "text": " folder"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 74
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 76
+                  },
+                  "text": "Yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 32,
+                "column": 80
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 32,
+                    "column": 82
+                  },
+                  "text": "Avoid on Android 11+, see below"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 33,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 33,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 33,
+                    "column": 3
+                  },
+                  "text": "Library"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 33,
+                "column": 13
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 33,
+                    "column": 15
+                  },
+                  "text": "Library"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 33,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 27
+                  },
+                  "text": "App files dir"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 33,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 43
+                  },
+                  "text": "iOS yes"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 33,
+                "column": 51
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 33,
+                    "column": 53
+                  },
+                  "text": "App support files, databases"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 34,
+                    "column": 3
+                  },
+                  "text": "LibraryNoCloud"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 34,
+                    "column": 22
+                  },
+                  "text": "Library/NoCloud"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 42
+                  },
+                  "text": "App files dir"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 56
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 58
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 61
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 63
+                  },
+                  "text": "Large, re-downloadable content"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 3
+                  },
+                  "text": "Cache"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 13
+                  },
+                  "text": "Library/Caches"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 32
+                  },
+                  "text": "App cache dir"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 48
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 35,
+                "column": 51
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 53
+                  },
+                  "text": "Temporary files, can be wiped by the OS"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 3
+                  },
+                  "text": "External"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 14
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 16
+                  },
+                  "text": "Documents"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 30
+                  },
+                  "text": "App external files dir"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 53
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 55
+                  },
+                  "text": "No"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 58
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 60
+                  },
+                  "text": "Large app files on Android, deleted on uninstall"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 37,
+                    "column": 3
+                  },
+                  "text": "ExternalStorage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 37,
+                    "column": 23
+                  },
+                  "text": "Documents"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 37
+                  },
+                  "text": "Root of shared storage"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 60
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 62
+                  },
+                  "text": "n/a"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 68
+                  },
+                  "text": "Legacy only, not accessible on Android 11+"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 39,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 39,
+            "column": 1
+          },
+          "text": "Rules of thumb:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 41,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 41,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 41,
+                        "column": 5
+                      },
+                      "text": "Large re-downloadable media"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 34
+                  },
+                  "text": " (offline videos, map tiles) goes in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 41,
+                    "column": 71
+                  },
+                  "text": "LibraryNoCloud"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 41,
+                    "column": 87
+                  },
+                  "text": ". Apple rejects apps that put large re-downloadable content in iCloud-backed folders, as described in its iOS Data Storage Guidelines."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 42,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 42,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 42,
+                        "column": 5
+                      },
+                      "text": "Temporary files"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 22
+                  },
+                  "text": " (exports you share once, thumbnails) go in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 42,
+                    "column": 66
+                  },
+                  "text": "Cache"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 73
+                  },
+                  "text": ". Never store the only copy of user data there."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 43,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 43,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 43,
+                        "column": 5
+                      },
+                      "text": "Files the user should find later outside your app"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 56
+                  },
+                  "text": " do not belong in an app directory at all. Save them through the share sheet, MediaStore Downloads, or the system file picker. See our guide to "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 43,
+                    "column": 200
+                  },
+                  "url": "/blog/android-scoped-storage-in-capacitor-apps/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 43,
+                        "column": 201
+                      },
+                      "text": "Android scoped storage in Capacitor"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 286
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 4
+          },
+          "text": "Write a file"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 47,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';\n\n// Text file\nawait Filesystem.writeFile({\n  path: 'notes/today.txt',\n  data: 'Hello from Capacitor',\n  directory: Directory.Data,\n  encoding: Encoding.UTF8,\n  recursive: true, // create notes/ if missing\n});\n\n// JSON\nawait Filesystem.writeFile({\n  path: 'settings.json',\n  data: JSON.stringify({ theme: 'dark' }),\n  directory: Directory.Data,\n  encoding: Encoding.UTF8,\n});\n\n// Binary file: pass base64 and no encoding\nawait Filesystem.writeFile({\n  path: 'images/logo.png',\n  data: base64Png,\n  directory: Directory.Data,\n  recursive: true,\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 76,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 76,
+            "column": 5
+          },
+          "text": "encoding"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 15
+          },
+          "text": " option decides how "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 76,
+            "column": 35
+          },
+          "text": "data"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 41
+          },
+          "text": " is interpreted. With "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 76,
+            "column": 63
+          },
+          "text": "Encoding.UTF8"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 78
+          },
+          "text": ", the string is written as text. Without it, native platforms decode "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 76,
+            "column": 147
+          },
+          "text": "data"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 153
+          },
+          "text": " as base64 and write raw bytes. Forgetting this is the classic \"my PDF is corrupt\" bug."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 78,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 1
+          },
+          "text": "To add to an existing file, such as a log, use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 78,
+            "column": 48
+          },
+          "text": "appendFile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 60
+          },
+          "text": " with the same options."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 4
+          },
+          "text": "Read a file"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const { data } = await Filesystem.readFile({\n  path: 'settings.json',\n  directory: Directory.Data,\n  encoding: Encoding.UTF8,\n});\nconst settings = JSON.parse(data as string);\n\n// Binary: returns base64 on native, a Blob on web\nconst image = await Filesystem.readFile({\n  path: 'images/logo.png',\n  directory: Directory.Data,\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "text": "Check whether a file exists with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 34
+          },
+          "text": "stat"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 40
+          },
+          "text": ", which rejects when the file is missing:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "async function exists(path: string) {\n  try {\n    await Filesystem.stat({ path, directory: Directory.Data });\n    return true;\n  } catch {\n    return false;\n  }\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 110,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 5
+          },
+          "text": "Read large files in chunks"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 112,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 112,
+            "column": 1
+          },
+          "text": "readFile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 112,
+            "column": 11
+          },
+          "text": " returns the whole file as one base64 string. For a 200 MB video that means hundreds of MB of strings in JS memory. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 112,
+            "column": 127
+          },
+          "text": "readFileInChunks"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 112,
+            "column": 145
+          },
+          "text": " streams it instead:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 114,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await Filesystem.readFileInChunks(\n  { path: 'videos/clip.mp4', directory: Directory.Data, chunkSize: 1024 * 1024 },\n  (chunk, err) => {\n    if (err) return console.error(err);\n    if (chunk === null) return console.log('done');\n    processChunk(chunk.data); // base64 chunk\n  },\n);"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 1
+          },
+          "text": "Better still, avoid moving the bytes through JS at all. Most \"read a big file\" tasks are really \"upload it\" or \"display it\", and both have native paths below."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 127,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 4
+          },
+          "text": "List, copy, move and delete"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const { files } = await Filesystem.readdir({ path: 'notes', directory: Directory.Data });\nfor (const f of files) console.log(f.name, f.type, f.size, f.mtime);\n\nawait Filesystem.mkdir({ path: 'archive', directory: Directory.Data, recursive: true });\n\nawait Filesystem.copy({\n  from: 'notes/today.txt',\n  to: 'archive/today.txt',\n  directory: Directory.Data,\n});\n\nawait Filesystem.rename({\n  from: 'archive/today.txt',\n  to: 'archive/2026-10-01.txt',\n  directory: Directory.Data,\n});\n\nawait Filesystem.deleteFile({ path: 'notes/today.txt', directory: Directory.Data });\nawait Filesystem.rmdir({ path: 'notes', directory: Directory.Data, recursive: true });"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 151,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 151,
+            "column": 1
+          },
+          "text": "copy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 7
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 151,
+            "column": 12
+          },
+          "text": "rename"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 20
+          },
+          "text": " accept "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 151,
+            "column": 28
+          },
+          "text": "toDirectory"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 41
+          },
+          "text": " to move between directories, for example from "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 151,
+            "column": 88
+          },
+          "text": "Cache"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 95
+          },
+          "text": " to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 151,
+            "column": 99
+          },
+          "text": "Data"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 105
+          },
+          "text": " after a download completes. They also accept absolute "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 151,
+            "column": 160
+          },
+          "text": "file://"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 169
+          },
+          "text": " paths when you omit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 151,
+            "column": 190
+          },
+          "text": "directory"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 201
+          },
+          "text": ", which is how you import files returned by other plugins."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 153,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 153,
+            "column": 4
+          },
+          "text": "Display a file in the WebView"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 155,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 155,
+            "column": 1
+          },
+          "text": "Never load images or videos as base64 data URLs if you can avoid it. Convert the native path to a URL served by Capacitor's local server:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 157,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Capacitor } from '@capacitor/core';\n\nconst { uri } = await Filesystem.getUri({ path: 'images/logo.png', directory: Directory.Data });\nimg.src = Capacitor.convertFileSrc(uri);"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 164,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 1
+          },
+          "text": "On iOS the result looks like "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 164,
+            "column": 30
+          },
+          "text": "capacitor://localhost/_capacitor_file_/..."
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 74
+          },
+          "text": ", on Android "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 164,
+            "column": 87
+          },
+          "text": "https://localhost/_capacitor_file_/..."
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 127
+          },
+          "text": ". It works for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 164,
+            "column": 142
+          },
+          "text": "<img>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 149
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 164,
+            "column": 151
+          },
+          "text": "<video>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 160
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 164,
+            "column": 162
+          },
+          "text": "<audio>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 171
+          },
+          "text": ", and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 164,
+            "column": 177
+          },
+          "text": "fetch()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 186
+          },
+          "text": ", which means you can also read a file as an "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 164,
+            "column": 231
+          },
+          "text": "ArrayBuffer"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 244
+          },
+          "text": " without base64:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 166,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const buffer = await fetch(Capacitor.convertFileSrc(uri)).then((r) => r.arrayBuffer());"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 1
+          },
+          "text": "Store paths, not converted URLs. The converted form is only valid for the current app session."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 172,
+            "column": 4
+          },
+          "text": "Pick files from the device"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 174,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 174,
+            "column": 1
+          },
+          "text": "The system picker gives the user control and needs no storage permission on Android 13+ or iOS:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 176,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-file-picker\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 181,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { CapgoFilePicker } from '@capgo/capacitor-file-picker';\n\nconst { files } = await CapgoFilePicker.pickFiles({\n  types: ['application/pdf', 'image/*'],\n  limit: 5,\n  readData: false, // keep false for anything bigger than a few MB\n});\n\nfor (const file of files) {\n  console.log(file.name, file.mimeType, file.size, file.path);\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 195,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 1
+          },
+          "text": "There are also "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 195,
+            "column": 16
+          },
+          "text": "pickImages"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 28
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 195,
+            "column": 30
+          },
+          "text": "pickVideos"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 42
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 195,
+            "column": 44
+          },
+          "text": "pickMedia"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 55
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 195,
+            "column": 60
+          },
+          "text": "pickDirectory"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 75
+          },
+          "text": ", plus "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 195,
+            "column": 82
+          },
+          "text": "convertHeicToJpeg"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 101
+          },
+          "text": " on iOS. On iOS, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 195,
+            "column": 118
+          },
+          "text": "types"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 125
+          },
+          "text": " only accepts MIME types, not extensions."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 197,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 197,
+            "column": 1
+          },
+          "text": "Picked files may live in a temporary location or behind a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 197,
+            "column": 59
+          },
+          "text": "content://"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 197,
+            "column": 71
+          },
+          "text": " URI that only stays readable for a while. If you need the file later, copy it into your own directory right away with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 197,
+            "column": 190
+          },
+          "text": "Filesystem.copy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 197,
+            "column": 207
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 199,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 199,
+            "column": 4
+          },
+          "text": "Download files"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 201,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 201,
+            "column": 5
+          },
+          "text": "With progress: @capacitor/file-transfer"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 203,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 203,
+            "column": 1
+          },
+          "text": "Filesystem.downloadFile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 203,
+            "column": 26
+          },
+          "text": " is deprecated in Filesystem 8. The replacement streams the response straight to disk:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 205,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capacitor/file-transfer\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 210,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { FileTransfer } from '@capacitor/file-transfer';\nimport { Directory, Filesystem } from '@capacitor/filesystem';\n\nconst { uri } = await Filesystem.getUri({ path: 'downloads/report.pdf', directory: Directory.Data });\n\nconst listener = await FileTransfer.addListener('progress', (p) => {\n  if (p.lengthComputable) setProgress(p.bytes / p.contentLength);\n});\n\nawait FileTransfer.downloadFile({\n  url: 'https://example.com/report.pdf',\n  path: uri,\n  progress: true,\n  headers: { Authorization: `Bearer ${token}` },\n});\n\nawait listener.remove();"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 230,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 230,
+            "column": 5
+          },
+          "text": "In the background: @capgo/capacitor-downloader"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 232,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 232,
+            "column": 1
+          },
+          "text": "For large files that should keep downloading when the user leaves the app, and that can be paused and resumed, use the Capgo downloader, which relies on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 232,
+            "column": 154
+          },
+          "text": "DownloadManager"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 232,
+            "column": 171
+          },
+          "text": " on Android and background "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 232,
+            "column": 198
+          },
+          "text": "URLSession"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 232,
+            "column": 210
+          },
+          "text": " on iOS:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 234,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { CapacitorDownloader } from '@capgo/capacitor-downloader';\n\nawait CapacitorDownloader.addListener('downloadProgress', ({ id, progress }) => {\n  console.log(id, progress);\n});\nawait CapacitorDownloader.addListener('downloadCompleted', ({ id }) => {\n  console.log('done', id);\n});\n\nawait CapacitorDownloader.download({\n  id: 'course-video-12',\n  url: 'https://cdn.example.com/course/12.mp4',\n  destination: 'videos/12.mp4',\n  network: 'wifi-only',\n  notification: 'progress', // Android\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 253,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 253,
+            "column": 1
+          },
+          "text": "A relative "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 253,
+            "column": 12
+          },
+          "text": "destination"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 253,
+            "column": 25
+          },
+          "text": " resolves to the app's external files directory on Android and the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 253,
+            "column": 92
+          },
+          "text": "Documents"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 253,
+            "column": 103
+          },
+          "text": " directory on iOS, the same places as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 253,
+            "column": 141
+          },
+          "text": "Directory.External"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 253,
+            "column": 161
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 255,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 255,
+            "column": 4
+          },
+          "text": "Upload files"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 257,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 257,
+            "column": 1
+          },
+          "text": "Do not read a file into base64 just to send it. Both upload options read from disk natively:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 259,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { FileTransfer } from '@capacitor/file-transfer';\n\nconst result = await FileTransfer.uploadFile({\n  url: 'https://api.example.com/upload',\n  path: uri,          // full file:// path\n  fileKey: 'file',\n  mimeType: 'application/pdf',\n  headers: { Authorization: `Bearer ${token}` },\n  progress: true,\n});\nconsole.log(result.responseCode, result.bytesSent);"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 273,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 273,
+            "column": 1
+          },
+          "text": "For uploads that must survive the app going to the background (videos, batch photo uploads), use "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 273,
+            "column": 98
+          },
+          "text": "@capgo/capacitor-uploader"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 273,
+            "column": 125
+          },
+          "text": ", which runs on a background "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 273,
+            "column": 154
+          },
+          "text": "URLSession"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 273,
+            "column": 166
+          },
+          "text": " on iOS and an upload service with a progress notification on Android:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 275,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Uploader } from '@capgo/capacitor-uploader';\n\nconst { id } = await Uploader.startUpload({\n  filePath: uri,\n  serverUrl: 'https://api.example.com/upload',\n  method: 'PUT', // binary body, ideal for presigned S3 or R2 URLs\n  mimeType: 'video/mp4',\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 286,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 1
+          },
+          "text": "Presigned "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 286,
+            "column": 11
+          },
+          "text": "PUT"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 286,
+            "column": 16
+          },
+          "text": " URLs to object storage are the most reliable pattern for large files: your API signs the URL, and the device uploads straight to storage."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 288,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 288,
+            "column": 4
+          },
+          "text": "Share or export a file"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 290,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 290,
+            "column": 1
+          },
+          "text": "To let the user send a file to another app or save it where they can find it:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 292,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { FileSharer } from '@capgo/capacitor-file-sharer';\n\nawait FileSharer.share({\n  filename: 'report.pdf',\n  path: uri,\n  contentType: 'application/pdf',\n});\n\n// Android: write to Downloads via MediaStore. iOS: opens the share sheet (\"Save to Files\")\nawait FileSharer.save({\n  filename: 'report.pdf',\n  path: uri,\n  contentType: 'application/pdf',\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 309,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 309,
+            "column": 1
+          },
+          "text": "The Capgo file sharer copies the file into its own cache folder and serves it through a dedicated "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 309,
+            "column": 99
+          },
+          "text": "FileProvider"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 309,
+            "column": 113
+          },
+          "text": ", so you do not need to edit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 309,
+            "column": 142
+          },
+          "text": "file_paths.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 309,
+            "column": 158
+          },
+          "text": ". With the official "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 309,
+            "column": 178
+          },
+          "text": "@capacitor/share"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 309,
+            "column": 196
+          },
+          "text": ", Android can only share from the cache folder unless you add other folders to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 309,
+            "column": 275
+          },
+          "text": "android/app/src/main/res/xml/file_paths.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 309,
+            "column": 320
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 311,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 311,
+            "column": 4
+          },
+          "text": "Open a file in another app"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 313,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capacitor-community/file-opener\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 318,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { FileOpener } from '@capacitor-community/file-opener';\n\nawait FileOpener.open({ filePath: uri, contentType: 'application/pdf' });"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 324,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 324,
+            "column": 1
+          },
+          "text": "On iOS this opens a Quick Look preview. On Android it opens the default app for the MIME type or shows a chooser. If no app can handle the type, the call rejects, so catch it and offer sharing instead."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 326,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 326,
+            "column": 4
+          },
+          "text": "Common file recipes"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 328,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 328,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 328,
+                "column": 3
+              },
+              "text": "Generate a PDF"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 328,
+            "column": 19
+          },
+          "text": ": render HTML with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 328,
+            "column": 38
+          },
+          "url": "/plugins/capacitor-pdf-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 328,
+                "column": 39
+              },
+              "text": "@capgo/capacitor-pdf-generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 328,
+            "column": 107
+          },
+          "text": " or build it in JS with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 328,
+            "column": 131
+          },
+          "text": "pdf-lib"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 328,
+            "column": 140
+          },
+          "text": ", then write the base64 output with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 328,
+            "column": 176
+          },
+          "text": "writeFile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 328,
+            "column": 187
+          },
+          "text": ". Our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 328,
+            "column": 193
+          },
+          "url": "/blog/how-to-scan-a-document-to-pdf-in-a-capacitor-app/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 328,
+                "column": 194
+              },
+              "text": "scan to PDF tutorial"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 328,
+            "column": 272
+          },
+          "text": " shows the full flow."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 330,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 330,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 330,
+                "column": 3
+              },
+              "text": "Strip GPS from a photo before upload"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 330,
+            "column": 41
+          },
+          "text": ": "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 330,
+            "column": 43
+          },
+          "text": "@capgo/capacitor-file-compressor"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 330,
+            "column": 77
+          },
+          "text": " removes EXIF metadata on every platform while resizing."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 332,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 332,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 332,
+                "column": 3
+              },
+              "text": "Resize or convert an image"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 332,
+            "column": 31
+          },
+          "text": ": the same compressor handles width, height, quality and output format, including HEIC to JPEG."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 334,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 334,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 334,
+                "column": 3
+              },
+              "text": "Bundle many files"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 334,
+            "column": 22
+          },
+          "text": ": zip a folder with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 334,
+            "column": 42
+          },
+          "text": "@capgo/capacitor-zip"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 334,
+            "column": 64
+          },
+          "text": " and upload one archive instead of hundreds of requests."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 336,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 336,
+            "column": 4
+          },
+          "text": "Web support"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 338,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 338,
+            "column": 1
+          },
+          "text": "@capacitor/filesystem"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 338,
+            "column": 24
+          },
+          "text": " works on the web using IndexedDB, so your code runs in the browser during development. Differences to keep in mind: binary reads return a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 338,
+            "column": 163
+          },
+          "text": "Blob"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 338,
+            "column": 169
+          },
+          "text": ", files only live in the browser profile, and storage quotas are much lower. For web builds, prefer "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 338,
+            "column": 269
+          },
+          "text": "URL.createObjectURL(blob)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 338,
+            "column": 296
+          },
+          "text": " for display."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 340,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 340,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 342,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 342,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 342,
+                "column": 3
+              },
+              "text": "\"File does not exist\""
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 342,
+            "column": 26
+          },
+          "text": ": you mixed directories, or passed an absolute path together with a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 342,
+            "column": 94
+          },
+          "text": "directory"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 342,
+            "column": 105
+          },
+          "text": ". Use one or the other."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 344,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 344,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 344,
+                "column": 3
+              },
+              "text": "Corrupted binary files"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 344,
+            "column": 27
+          },
+          "text": ": you wrote base64 with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 344,
+            "column": 51
+          },
+          "text": "Encoding.UTF8"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 344,
+            "column": 66
+          },
+          "text": ". Remove the encoding."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 346,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 346,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 346,
+                "column": 3
+              },
+              "text": "App crashes with large files"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 346,
+            "column": 33
+          },
+          "text": ": base64 through the bridge. Use chunks, file-transfer, or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 346,
+            "column": 92
+          },
+          "text": "fetch(convertFileSrc(uri))"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 346,
+            "column": 120
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 348,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 348,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 348,
+                "column": 3
+              },
+              "text": "Image does not display on Android"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 348,
+            "column": 38
+          },
+          "text": ": you used a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 348,
+            "column": 51
+          },
+          "text": "file://"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 348,
+            "column": 60
+          },
+          "text": " URL directly. Convert it with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 348,
+            "column": 91
+          },
+          "text": "Capacitor.convertFileSrc"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 348,
+            "column": 117
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 350,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 350,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 350,
+                "column": 3
+              },
+              "text": "Failed to find configured root"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 350,
+                "column": 35
+              },
+              "text": " when sharing on Android"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 350,
+            "column": 61
+          },
+          "text": ": the file is outside the paths in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 350,
+            "column": 96
+          },
+          "text": "file_paths.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 350,
+            "column": 112
+          },
+          "text": ". Use the Capgo file sharer or copy to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 350,
+            "column": 151
+          },
+          "text": "Cache"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 350,
+            "column": 158
+          },
+          "text": " first."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 352,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 352,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 352,
+                "column": 3
+              },
+              "text": "Files disappear on iOS"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 352,
+            "column": 27
+          },
+          "text": ": they were in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 352,
+            "column": 42
+          },
+          "text": "Cache"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 352,
+            "column": 49
+          },
+          "text": ", which iOS clears under storage pressure."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 354,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 354,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 354,
+                "column": 3
+              },
+              "text": "App Store rejection for iCloud storage"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 354,
+            "column": 43
+          },
+          "text": ": large downloadable content in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 354,
+            "column": 75
+          },
+          "text": "Data"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 354,
+            "column": 81
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 354,
+            "column": 85
+          },
+          "text": "Documents"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 354,
+            "column": 96
+          },
+          "text": ". Move it to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 354,
+            "column": 109
+          },
+          "text": "LibraryNoCloud"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 354,
+            "column": 125
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 356,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 356,
+            "column": 4
+          },
+          "text": "Next steps"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 358,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 358,
+            "column": 1
+          },
+          "text": "Most file logic, such as where you store things, retry rules and naming, lives in JavaScript and can be adjusted with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 358,
+            "column": 119
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 358,
+                "column": 120
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 358,
+            "column": 154
+          },
+          "text": " after release. For the Android side of shared storage and permissions, continue with our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 358,
+            "column": 244
+          },
+          "url": "/blog/android-scoped-storage-in-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 358,
+                "column": 245
+              },
+              "text": "scoped storage guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 358,
+            "column": 315
+          },
+          "text": ", and see the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 358,
+            "column": 329
+          },
+          "url": "/docs/plugins/file-picker/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 358,
+                "column": 330
+              },
+              "text": "file picker docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 358,
+            "column": 375
+          },
+          "text": " for every picker option."
+        }
+      ]
+    }
+  ]
+}

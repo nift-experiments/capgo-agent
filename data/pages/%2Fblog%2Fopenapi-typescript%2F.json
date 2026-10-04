@@ -1,0 +1,4687 @@
+{
+  "version": 1,
+  "route": "/blog/openapi-typescript/",
+  "source": "corpus/source/apps/web/src/content/blog/en/openapi-typescript.md",
+  "sourceSha256": "ada9f2faa03e1f20f444f1d354d3b81c5ef50a365a2ecc0dff1b7e51a7d9cf86",
+  "metadata": {
+    "slug": "openapi-typescript",
+    "title": "OpenAPI TypeScript: Generate Types, Clients, and Validation",
+    "description": "Learn how OpenAPI TypeScript generation works end to end. Generate types, wire clients, validate at runtime, and ship safely from CI.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-08-01 08:15:08.551000+00:00",
+    "updated_at": "2026-08-25 01:16:42+00:00",
+    "head_image": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/2be4bf4e-fccd-428f-b932-429424ad81ae/openapi-typescript-presentation-slide.jpg",
+    "head_image_alt": "OpenAPI TypeScript: Generate Types, Clients, and Validation",
+    "keywords": "openapi typescript, type-safe api, openapi codegen, tsc validation, contract testing",
+    "tag": "Development, Mobile",
+    "published": true,
+    "locale": "en",
+    "origin": "ai",
+    "next_blog": ""
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 1,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 1,
+            "column": 1
+          },
+          "text": "You can usually spot the moment an API pipeline starts lying to the team. A schema changes, the generated types update without complaints, the PR goes green, and then somebody in the front end keeps reading the old response shape because the wrapper cast the error away. That's the OpenAPI TypeScript problem, not whether a generator can spit out interfaces."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 3,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 1
+          },
+          "text": "The useful question is harder. What contract do you want between schema, transport, and validation, and which parts should fail fast in build time instead of leaking into runtime? Once you frame "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 3,
+            "column": 196
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 3,
+                "column": 198
+              },
+              "text": "OpenAPI TypeScript"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 3,
+            "column": 218
+          },
+          "text": " as a pipeline choice, the trade-offs get a lot clearer, and the tools stop pretending to be the whole solution."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 5,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 5,
+            "column": 4
+          },
+          "text": "Table of Contents"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 6,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 6,
+                    "column": 3
+                  },
+                  "url": "#why-generated-types-are-not-the-same-as-a-safe-api",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 6,
+                        "column": 4
+                      },
+                      "text": "Why Generated Types Are Not the Same as a Safe API"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 7,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 7,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 7,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 7,
+                            "column": 5
+                          },
+                          "url": "#where-the-failures-hide",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 7,
+                                "column": 6
+                              },
+                              "text": "Where the failures hide"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "url": "#generating-typescript-types-from-an-openapi-spec",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 8,
+                        "column": 4
+                      },
+                      "text": "Generating TypeScript Types from an OpenAPI Spec"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 9,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 9,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 9,
+                            "column": 5
+                          },
+                          "url": "#the-flags-that-actually-matter",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 9,
+                                "column": 6
+                              },
+                              "text": "The flags that actually matter"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "url": "#choosing-between-pure-types-full-clients-and-no-codegen",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 10,
+                        "column": 4
+                      },
+                      "text": "Choosing Between Pure Types, Full Clients, and No Codegen"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 11,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 11,
+                            "column": 5
+                          },
+                          "url": "#pure-types-favor-control",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 11,
+                                "column": 6
+                              },
+                              "text": "Pure types favor control"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 12,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 12,
+                            "column": 5
+                          },
+                          "url": "#full-clients-favor-handoff-speed",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 12,
+                                "column": 6
+                              },
+                              "text": "Full clients favor handoff speed"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 13,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 13,
+                            "column": 5
+                          },
+                          "url": "#no-codegen-favors-local-refactors",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 13,
+                                "column": 6
+                              },
+                              "text": "No codegen favors local refactors"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 14,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "url": "#wiring-a-thin-typed-client-around-fetch-or-axios",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 14,
+                        "column": 4
+                      },
+                      "text": "Wiring a Thin Typed Client Around Fetch or Axios"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 15,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "url": "#adding-runtime-validation-with-zod-ajv-or-io-ts",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 15,
+                        "column": 4
+                      },
+                      "text": "Adding Runtime Validation with zod, ajv, or io-ts"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 16,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 16,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 16,
+                            "column": 5
+                          },
+                          "url": "#validate-where-the-data-enters",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 16,
+                                "column": 6
+                              },
+                              "text": "Validate where the data enters"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 17,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 17,
+                    "column": 3
+                  },
+                  "url": "#putting-generation-validation-and-contract-tests-in-ci",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 17,
+                        "column": 4
+                      },
+                      "text": "Putting Generation, Validation, and Contract Tests in CI"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 18,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 18,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 18,
+                            "column": 5
+                          },
+                          "url": "#a-simple-github-actions-shape",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 18,
+                                "column": 6
+                              },
+                              "text": "A simple GitHub Actions shape"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 19,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 19,
+                    "column": 3
+                  },
+                  "url": "#maintainable-pipelines-performance-and-a-final-checklist",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 19,
+                        "column": 4
+                      },
+                      "text": "Maintainable Pipelines, Performance, and a Final Checklist"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "location": {
+                "line": 20,
+                "column": 3
+              },
+              "ordered": false,
+              "start": null,
+              "spread": false,
+              "blocks": [
+                {
+                  "type": "listItem",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "spread": false,
+                  "checked": null,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "location": {
+                        "line": 20,
+                        "column": 5
+                      },
+                      "blocks": [
+                        {
+                          "type": "link",
+                          "location": {
+                            "line": 20,
+                            "column": 5
+                          },
+                          "url": "#a-few-performance-levers-actually-matter",
+                          "title": null,
+                          "blocks": [
+                            {
+                              "type": "text",
+                              "location": {
+                                "line": 20,
+                                "column": 6
+                              },
+                              "text": "A few performance levers actually matter"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "text": "<a id=\"why-generated-types-are-not-the-same-as-a-safe-api\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 22,
+            "column": 60
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 23,
+            "column": 4
+          },
+          "text": "Why Generated Types Are Not the Same as a Safe API"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 25,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "text": "A teammate merges a PR that adds an optional response field. The generated file updates cleanly, the diff looks boring, and everyone moves on. Then the front end keeps reading an older shape through a handwritten wrapper that was “temporarily” cast with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 25,
+            "column": 255
+          },
+          "text": "as any"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 25,
+            "column": 263
+          },
+          "text": ", and production starts behaving like the contract never changed."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "text": "That's the trap with generated types. "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 27,
+            "column": 39
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 27,
+                "column": 41
+              },
+              "text": "TypeScript can only protect the code that consumes the generated types"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 113
+          },
+          "text": ", and only if the transport layer doesn't erase the contract again. The OpenAPI side gives you a schema, not a guarantee that every caller respects it. The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 27,
+            "column": 269
+          },
+          "url": "https://wearearch.com/blog/what-is-api-integration",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 27,
+                "column": 270
+              },
+              "text": "discussion around understanding API connections"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 370
+          },
+          "text": " is useful here because it pushes the conversation away from a single tool and toward how systems connect."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "text": "<a id=\"where-the-failures-hide\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 29,
+            "column": 33
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 5
+          },
+          "text": "Where the failures hide"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 1
+          },
+          "text": "The most common breakpoints are boring, not exotic. "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 32,
+            "column": 53
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 32,
+                "column": 55
+              },
+              "text": "Schema drift"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 69
+          },
+          "text": " happens when the OpenAPI spec and the deployed service stop matching. "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 32,
+            "column": 140
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 32,
+                "column": 142
+              },
+              "text": "Partial coverage"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 160
+          },
+          "text": " shows up when a spec only models the happy path, while the app depends on undocumented edge cases. "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 32,
+            "column": 260
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 32,
+                "column": 262
+              },
+              "text": "Handwritten wrappers"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 284
+          },
+          "text": " are often where types get weakened, especially when someone wants to “move fast” and uses "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 32,
+            "column": 375
+          },
+          "text": "any"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 380
+          },
+          "text": " or a loose response cast."
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 34,
+            "column": 3
+          },
+          "blocks": [
+            {
+              "type": "strong",
+              "location": {
+                "line": 34,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 5
+                  },
+                  "text": "Practical rule:"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 34,
+                "column": 22
+              },
+              "text": " if the wrapper can lie, the generator can't save you."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "text": "There's also a runtime gap. TypeScript types disappear after compilation, so they can't reject malformed JSON coming over the wire. The network does not care what your editor inferred, and that's why a generated client is only one layer in a safer API pipeline."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "text": "The broader operational question is security and contract discipline, not just developer convenience. If you want a structured view of how API contracts fit into a larger app lifecycle, this internal guide on "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 38,
+            "column": 210
+          },
+          "url": "https://capgo.app/blog/top-api-security-standards-for-app-store-compliance/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 38,
+                "column": 211
+              },
+              "text": "API security standards for app store compliance"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 336
+          },
+          "text": " is a useful companion."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 1
+          },
+          "text": "The mature way to think about "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 40,
+            "column": 31
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 40,
+                "column": 33
+              },
+              "text": "openapi typescript"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 53
+          },
+          "text": " is this. It gives you a strict schema-to-types bridge, which is excellent, but it doesn't validate requests, enforce runtime payload shape, or stop a sloppy wrapper from undermining everything. The generator is the easy 20 percent. The rest is pipeline design, and that's where teams either gain trust or accumulate false confidence."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "text": "<a id=\"generating-typescript-types-from-an-openapi-spec\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 42,
+            "column": 58
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 4
+          },
+          "text": "Generating TypeScript Types from an OpenAPI Spec"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 45,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/screenshots/00044b04-b8c6-433e-b489-ee20708430f3/openapi-typescript-documentation.jpg",
+          "title": null,
+          "alt": "Screenshot from https://openapi-ts.dev"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 47,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 47,
+            "column": 1
+          },
+          "text": "The lightest useful setup is usually the one that survives real repo churn. Keep the OpenAPI spec in the same repository, generate a committed type file, and make drift visible in CI instead of relying on someone to remember a refresh step. A command like "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 47,
+            "column": 257
+          },
+          "text": "npx openapi-typescript ./openapi.yaml -o ./src/types/api.d.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 47,
+            "column": 320
+          },
+          "text": " gives you a deterministic output file that reviewers can inspect like any other source change."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 49,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 49,
+            "column": 1
+          },
+          "text": "<a id=\"the-flags-that-actually-matter\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 49,
+            "column": 40
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 5
+          },
+          "text": "The flags that actually matter"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 5
+          },
+          "text": "-o"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 9
+          },
+          "text": " output flag matters because it makes the generated artifact explicit. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 80
+          },
+          "text": "--immutable"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 93
+          },
+          "text": " is useful when you want the generated types to preserve readonly intent in the output, and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 185
+          },
+          "text": "--alphabetize"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 200
+          },
+          "text": " keeps diffs stable when schema order changes without semantic meaning. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 52,
+            "column": 272
+          },
+          "text": "--enum"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 280
+          },
+          "text": " matters when your team prefers enums in the generated surface instead of unions."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "text": "The project's own documentation is clear about the scope, it is a "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 54,
+            "column": 67
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 54,
+                "column": 69
+              },
+              "text": "type generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 85
+          },
+          "text": ", not a client runtime or request layer, and that limitation helps when you want a lightweight, type-first setup. Its repository also shows the maintenance model behind the tool, which is part of why open source tooling can hold up in production when the docs and releases stay active, as discussed in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 54,
+            "column": 387
+          },
+          "url": "https://capgo.app/blog/open-source-advantages/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 54,
+                "column": 388
+              },
+              "text": "the case for open source maintenance"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 473
+          },
+          "text": ". A practical read on that posture is the project's "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 54,
+            "column": 525
+          },
+          "url": "https://github.com/mitchell-merry/openapi-typescript",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 54,
+                "column": 526
+              },
+              "text": "GitHub repository and CLI documentation"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 620
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 1
+          },
+          "text": "Wire generation into "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 56,
+            "column": 22
+          },
+          "text": "package.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 36
+          },
+          "text": " so the command lives beside the rest of the build scripts, then run it whenever the spec changes. In CI, regenerate the file and fail if "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 56,
+            "column": 174
+          },
+          "text": "git diff"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 184
+          },
+          "text": " shows drift. That turns contract changes into visible review work instead of silent runtime risk."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 1
+          },
+          "text": "The schema side matters just as much as the command line. The project recommends "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 58,
+            "column": 82
+          },
+          "text": "compilerOptions.noUncheckedIndexedAccess"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 124
+          },
+          "text": " so "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 58,
+            "column": 128
+          },
+          "text": "additionalProperties"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 150
+          },
+          "text": " become "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 58,
+            "column": 158
+          },
+          "text": "T | undefined"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 173
+          },
+          "text": ", which forces safer indexing at call sites. It also recommends using "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 58,
+            "column": 243
+          },
+          "text": "oneOf"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 250
+          },
+          "text": " by itself rather than mixing it with extra composition, and keeping "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 58,
+            "column": 319
+          },
+          "text": "$defs"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 326
+          },
+          "text": " at the root when placement is ambiguous, because misplaced definitions can disappear from generated output. One more detail saves time later, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 58,
+            "column": 469
+          },
+          "text": "openapi-typescript"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 489
+          },
+          "text": " will never produce "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 58,
+            "column": 509
+          },
+          "text": "any"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 514
+          },
+          "text": ", so missing schema detail gets surfaced early instead of hidden under permissive types."
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 60,
+            "column": 3
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 60,
+                "column": 3
+              },
+              "text": "Keep the spec explicit, or the generator will faithfully expose the ambiguity back to you."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 1
+          },
+          "text": "The workflow that lasts is straightforward. Put the spec under version control, regenerate on build, commit the generated file, and let the type checker complain before anyone merges a mismatch. That gives you a stable contract boundary for the rest of the pipeline."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 64,
+            "column": 1
+          },
+          "text": "<a id=\"choosing-between-pure-types-full-clients-and-no-codegen\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 64,
+            "column": 65
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 65,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 65,
+            "column": 4
+          },
+          "text": "Choosing Between Pure Types, Full Clients, and No Codegen"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 67,
+        "column": 1
+      },
+      "align": [
+        null,
+        "right",
+        "right",
+        "right",
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 67,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 67,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 67,
+                    "column": 3
+                  },
+                  "text": "Pattern"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 67,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 67,
+                    "column": 13
+                  },
+                  "text": "Build time"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 67,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 67,
+                    "column": 26
+                  },
+                  "text": "Output files"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 67,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 67,
+                    "column": 41
+                  },
+                  "text": "Bundle weight"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 67,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 67,
+                    "column": 57
+                  },
+                  "text": "Best fit"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 69,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 69,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 3
+                  },
+                  "text": "Pure types with a thin wrapper"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 69,
+                "column": 34
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 36
+                  },
+                  "text": "Fast"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 69,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 43
+                  },
+                  "text": "Few"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 69,
+                "column": 47
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 49
+                  },
+                  "text": "Low"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 69,
+                "column": 53
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 69,
+                    "column": 55
+                  },
+                  "text": "Teams that want control and small runtime surface"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 70,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 70,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 3
+                  },
+                  "text": "Full-client codegen"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 70,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 25
+                  },
+                  "text": "Slower"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 70,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 34
+                  },
+                  "text": "Many"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 70,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 41
+                  },
+                  "text": "Higher"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 70,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 70,
+                    "column": 50
+                  },
+                  "text": "Teams that want quick handoff and autogenerated operations"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 71,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 71,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 3
+                  },
+                  "text": "No codegen request builders"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 71,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 33
+                  },
+                  "text": "Fast"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 71,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 40
+                  },
+                  "text": "None or minimal"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 71,
+                "column": 56
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 58
+                  },
+                  "text": "Low"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 71,
+                "column": 62
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 71,
+                    "column": 64
+                  },
+                  "text": "Single-codebase apps that prefer hand-written transport logic"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 1
+          },
+          "text": "The choice isn't really “which tool wins”. It's which pipeline shape fits your repo, your team, and how much churn the API sees. In a 2025 benchmark around a large OpenAPI spec of about "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 73,
+            "column": 187
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 73,
+                "column": 189
+              },
+              "text": "75,000 lines, 2 MB, and roughly 1,200 operations"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 239
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 73,
+            "column": 241
+          },
+          "text": "openapi-typescript"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 261
+          },
+          "text": " generated output in about "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 73,
+            "column": 288
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 73,
+                "column": 290
+              },
+              "text": "1.5 seconds"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 303
+          },
+          "text": " on average, compared with about "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 73,
+            "column": 336
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 73,
+                "column": 338
+              },
+              "text": "8.0 seconds"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 351
+          },
+          "text": " for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 73,
+            "column": 356
+          },
+          "text": "@hey-api/openapi-ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 377
+          },
+          "text": ", "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 73,
+            "column": 379
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 73,
+                "column": 381
+              },
+              "text": "5.5 seconds"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 394
+          },
+          "text": " for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 73,
+            "column": 399
+          },
+          "text": "Orval"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 406
+          },
+          "text": ", and "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 73,
+            "column": 412
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 73,
+                "column": 414
+              },
+              "text": "18.1 seconds"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 428
+          },
+          "text": " for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 73,
+            "column": 433
+          },
+          "text": "Kubb"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 439
+          },
+          "text": ", while also producing a single output file versus "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 73,
+            "column": 490
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 73,
+                "column": 492
+              },
+              "text": "16"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 496
+          },
+          "text": " for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 73,
+            "column": 501
+          },
+          "text": "hey-api"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 510
+          },
+          "text": ", "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 73,
+            "column": 512
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 73,
+                "column": 514
+              },
+              "text": "2,719"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 521
+          },
+          "text": " for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 73,
+            "column": 526
+          },
+          "text": "Orval"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 533
+          },
+          "text": ", and "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 73,
+            "column": 539
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 73,
+                "column": 541
+              },
+              "text": "3,877"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 548
+          },
+          "text": " for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 73,
+            "column": 553
+          },
+          "text": "Kubb"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 559
+          },
+          "text": " ("
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 73,
+            "column": 561
+          },
+          "url": "https://dev.to/nyaomaru/which-openapi-codegen-should-you-choose-openapi-typescript-vs-hey-api-vs-orval-vs-kubb-100p",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 73,
+                "column": 562
+              },
+              "text": "benchmark details"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 73,
+            "column": 697
+          },
+          "text": ")."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 75,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 75,
+            "column": 1
+          },
+          "text": "<a id=\"pure-types-favor-control\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 75,
+            "column": 34
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 76,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 5
+          },
+          "text": "Pure types favor control"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 78,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 1
+          },
+          "text": "A pure-types setup pairs well with a handwritten request layer because you can keep the runtime tiny and the API surface boring. That matters in bundler-sensitive front ends and in apps where one team owns both the spec and the consumer. If you need a reminder that developer experience is not just syntax sugar, the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 78,
+            "column": 318
+          },
+          "url": "https://capgo.app/blog/developer-experience/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 78,
+                "column": 319
+              },
+              "text": "developer experience angle"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 392
+          },
+          "text": " is easier to judge when your client code is short, obvious, and reviewable."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 80,
+            "column": 1
+          },
+          "text": "<a id=\"full-clients-favor-handoff-speed\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 80,
+            "column": 42
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 5
+          },
+          "text": "Full clients favor handoff speed"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 83,
+            "column": 1
+          },
+          "text": "openapi-generator"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 20
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 83,
+            "column": 22
+          },
+          "text": "hey-api"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 31
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 83,
+            "column": 33
+          },
+          "text": "Orval"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 40
+          },
+          "text": ", and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 83,
+            "column": 46
+          },
+          "text": "Kubb"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 52
+          },
+          "text": " all try to do more than types. That can be helpful when you want request methods, models, and plumbing generated together, especially in a large handoff between backend and frontend teams. The cost is obvious in the benchmark above, more generated files, more runtime surface, and more room for build friction as the spec grows."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 85,
+            "column": 1
+          },
+          "text": "<a id=\"no-codegen-favors-local-refactors\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 85,
+            "column": 43
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 86,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 86,
+            "column": 5
+          },
+          "text": "No codegen favors local refactors"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 88,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 1
+          },
+          "text": "Typed request builders and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 88,
+            "column": 28
+          },
+          "text": "fetch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 88,
+            "column": 35
+          },
+          "text": " wrappers work well when one codebase owns both ends of the shape and the API changes are tightly coordinated. The downside is maintenance discipline. The more teams and repositories sit between producer and consumer, the more likely a hand-written request layer drifts unless you enforce contract tests aggressively."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 90,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 90,
+            "column": 1
+          },
+          "text": "The core decision point is not ideological. If your bundle budget is tight, pure types are attractive. If your team wants maximum scaffolding and can absorb the output, full clients reduce setup time. If you want minimal moving parts and can keep the contract close, no-codegen request builders can be the right internal trade."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "text": "<a id=\"wiring-a-thin-typed-client-around-fetch-or-axios\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 92,
+            "column": 58
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 93,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 93,
+            "column": 4
+          },
+          "text": "Wiring a Thin Typed Client Around Fetch or Axios"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 95,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 95,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/8a10b186-00e2-49d8-9109-a21af273e2a6/openapi-typescript-typed-client.jpg",
+          "title": null,
+          "alt": "A diagram illustrating a Typed Client Wrapper process using generated TypeScript API definitions for web requests."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 97,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "text": "A thin wrapper is where the generator stops and your application code starts. The wrapper should expose one function per operation, accept typed params and query objects, and forward the call to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 196
+          },
+          "text": "fetch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 203
+          },
+          "text": " or an injected "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 97,
+            "column": 219
+          },
+          "text": "axios"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 226
+          },
+          "text": " instance without trying to be clever. In most production setups, that layer stays around "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 97,
+            "column": 316
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 97,
+                "column": 318
+              },
+              "text": "30–60 lines"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 97,
+            "column": 331
+          },
+          "text": " because the generated types already carry most of the shape."
+        }
+      ]
+    },
+    {
+      "type": "html",
+      "location": {
+        "line": 99,
+        "column": 1
+      },
+      "text": "<iframe width=\"100%\" style=\"aspect-ratio: 16 / 9;\" src=\"https://www.youtube.com/embed/QmW6_lLaxwU\" frameborder=\"0\" allow=\"autoplay; encrypted-media\" allowfullscreen></iframe>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 101,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 101,
+            "column": 1
+          },
+          "text": "Here's the mental model that holds up:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 103,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 103,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 103,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 103,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 103,
+                        "column": 5
+                      },
+                      "text": "Path params stay typed"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 103,
+                    "column": 29
+                  },
+                  "text": " so "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 103,
+                    "column": 33
+                  },
+                  "text": "/users/{id}"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 103,
+                    "column": 46
+                  },
+                  "text": " can't be called without an "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 103,
+                    "column": 74
+                  },
+                  "text": "id"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 103,
+                    "column": 78
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 104,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 104,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 104,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 104,
+                        "column": 5
+                      },
+                      "text": "Query objects stay typed"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 104,
+                    "column": 31
+                  },
+                  "text": " so optional filters don't turn into string soup."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 105,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 105,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 105,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 105,
+                        "column": 5
+                      },
+                      "text": "Response bodies stay typed"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 105,
+                    "column": 33
+                  },
+                  "text": " so parsing code can trust the narrow shape it expects."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 107,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 107,
+            "column": 1
+          },
+          "text": "A wrapper like that is intentionally boring. It should not invent retries, transforms, or auth policy if those belong somewhere else. It should move the request from a typed operation into the transport layer and then hand the typed result back up."
+        }
+      ]
+    },
+    {
+      "type": "blockquote",
+      "location": {
+        "line": 109,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "paragraph",
+          "location": {
+            "line": 109,
+            "column": 3
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 109,
+                "column": 3
+              },
+              "text": "Keep the wrapper boring and dependency-light, or every future codegen change will ripple through your app."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 111,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 1
+          },
+          "text": "The common failure is to patch over mismatches with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 111,
+            "column": 53
+          },
+          "text": "as any"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 111,
+            "column": 61
+          },
+          "text": " when the generated types don't line up with the old wrapper signature. That buys a green build and a fragile app. It also hides the very contract breakage you wanted the generator to reveal."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 113,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 1
+          },
+          "text": "For teams that prefer Axios, the pattern is the same, only the transport implementation changes. For teams that want simpler browser-side code, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 113,
+            "column": 145
+          },
+          "text": "fetch"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 113,
+            "column": 152
+          },
+          "text": " is often enough. The important part is that the request function accepts the generated path type and returns a typed response, not a loosely shaped object that gets massaged later."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 115,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 1
+          },
+          "text": "If you use this seam well, "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 115,
+            "column": 28
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 115,
+                "column": 30
+              },
+              "text": "openapi typescript"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 115,
+            "column": 50
+          },
+          "text": " gives you a clean division of labor. Schema lives in the spec, transport lives in the wrapper, and the app sees typed operations instead of ad hoc request code."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 117,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 117,
+            "column": 1
+          },
+          "text": "<a id=\"adding-runtime-validation-with-zod-ajv-or-io-ts\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 117,
+            "column": 57
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 118,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 4
+          },
+          "text": "Adding Runtime Validation with zod, ajv, or io-ts"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 120,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 1
+          },
+          "text": "TypeScript types disappear at runtime, and the network doesn't care about your editor's confidence. That's why the safe pattern is not “generate types and hope”, it's “generate types, then validate at the edge where untrusted data enters the app”. The generated schema remains the source of truth, and validation libraries like "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 120,
+            "column": 329
+          },
+          "text": "zod"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 334
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 120,
+            "column": 336
+          },
+          "text": "ajv"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 341
+          },
+          "text": ", and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 120,
+            "column": 347
+          },
+          "text": "io-ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 354
+          },
+          "text": " handle the boundary checks that compile-time types can't."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 122,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 122,
+            "column": 1
+          },
+          "text": "<a id=\"validate-where-the-data-enters\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 122,
+            "column": 40
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 123,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 123,
+            "column": 5
+          },
+          "text": "Validate where the data enters"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 125,
+            "column": 1
+          },
+          "text": "For React apps, the edge is usually right after the request resolves and before the payload enters state. For servers, it's before the payload is written into a database or handed to a business rule. The rule is simple, keep validation close to the boundary and don't scatter manual checks through feature code."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 127,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 1
+          },
+          "text": "A "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 127,
+            "column": 3
+          },
+          "text": "zod"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 127,
+            "column": 8
+          },
+          "text": " shape can mirror the generated response shape without replacing it:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "lang": "ts",
+      "meta": null,
+      "text": "import { z } from \"zod\";\n\nconst WeatherForecastSchema = z.object({\n  date: z.string(),\n  temperatureC: z.number(),\n  summary: z.string().nullable(),\n  temperatureF: z.number().optional(),\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 140,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 140,
+            "column": 1
+          },
+          "text": "That example validates the fields the schema marked optional, and it keeps the runtime check aligned with what the generator produced. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 140,
+            "column": 136
+          },
+          "text": "ajv"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 140,
+            "column": 141
+          },
+          "text": " is a strong choice when you want high-throughput JSON Schema validation on the server, while "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 140,
+            "column": 235
+          },
+          "text": "io-ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 140,
+            "column": 242
+          },
+          "text": " still fits teams that already live in the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 140,
+            "column": 285
+          },
+          "text": "fp-ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 140,
+            "column": 292
+          },
+          "text": " style of composition."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 142,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 1
+          },
+          "text": "The big mistake is validating too late. If the payload crosses into your app first, the type system has already been bypassed and the bug has a place to hide. A short guide on "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 142,
+            "column": 177
+          },
+          "url": "https://capgo.app/blog/unit-tests-javascript/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 142,
+                "column": 178
+              },
+              "text": "unit tests for JavaScript"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 142,
+            "column": 251
+          },
+          "text": " pairs well with this mindset, because both unit tests and boundary validation work best when they catch bad assumptions early."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 144,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 1
+          },
+          "text": "The clean layering is predictable. "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 144,
+            "column": 36
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 144,
+                "column": 38
+              },
+              "text": "OpenAPI TypeScript"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 144,
+            "column": 58
+          },
+          "text": " generates the contract, the validator checks the runtime payload, and your app code only sees data that survived both steps. That's a much better boundary than trusting a static type to police an untrusted response."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 146,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 146,
+            "column": 1
+          },
+          "text": "<a id=\"putting-generation-validation-and-contract-tests-in-ci\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 146,
+            "column": 64
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 147,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 147,
+            "column": 4
+          },
+          "text": "Putting Generation, Validation, and Contract Tests in CI"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 149,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 149,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/screenshots/09174c7a-2169-482c-967b-010d0d5d1bdf/openapi-typescript-github-homepage.jpg",
+          "title": null,
+          "alt": "Screenshot from https://github.com"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 151,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 1
+          },
+          "text": "A pipeline that lasts turns the contract into a gate, not a suggestion. Regenerate types, fail on drift, run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 151,
+            "column": 110
+          },
+          "text": "tsc --noEmit"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 124
+          },
+          "text": ", and exercise the API shape against a mock or contract tool before merge. If you pin the generator version in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 151,
+            "column": 235
+          },
+          "text": "package.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 151,
+            "column": 249
+          },
+          "text": ", two engineers can't accidentally produce different outputs from the same spec."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 153,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 153,
+            "column": 1
+          },
+          "text": "<a id=\"a-simple-github-actions-shape\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 153,
+            "column": 39
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 154,
+            "column": 5
+          },
+          "text": "A simple GitHub Actions shape"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 156,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "text": "A practical workflow looks like this:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 158,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 158,
+                    "column": 4
+                  },
+                  "text": "Pull the spec from the repo or generated source."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 159,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 159,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 159,
+                    "column": 4
+                  },
+                  "text": "Regenerate the types."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 160,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 160,
+                    "column": 4
+                  },
+                  "text": "Fail the job if "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 160,
+                    "column": 20
+                  },
+                  "text": "git diff"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 160,
+                    "column": 30
+                  },
+                  "text": " shows changes."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 161,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 161,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 161,
+                    "column": 4
+                  },
+                  "text": "Run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 161,
+                    "column": 8
+                  },
+                  "text": "tsc --noEmit"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 161,
+                    "column": 22
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 162,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 162,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 162,
+                    "column": 4
+                  },
+                  "text": "Execute a contract test against a mock server such as Prism or a Spectral-backed check."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 164,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 164,
+            "column": 1
+          },
+          "text": "The key difference between contract tests and snapshot tests is scope. Snapshots often tell you the file changed. Contract tests tell you whether the shape still behaves like the spec says it should."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 166,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 1
+          },
+          "text": "A mock server is especially useful when backend and frontend work are separated by time or team boundaries. It gives consumer code a predictable API surface while still checking the actual contract rather than a hard-coded fixture. The "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 166,
+            "column": 237
+          },
+          "url": "https://capgo.app/blog/continuous-integration-setup/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 166,
+                "column": 238
+              },
+              "text": "continuous integration setup guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 166,
+            "column": 327
+          },
+          "text": " is a useful reference if your team still needs a clean, repeatable CI baseline."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 168,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 1
+          },
+          "text": "Pinning the generator version avoids one of the nastiest failures in codegen pipelines, invisible output skew. If one developer upgrades the generator locally and another doesn't, the generated file can become a source of random noise instead of signal. CI should make that impossible."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 1
+          },
+          "text": "The result is a pipeline where schema changes, type generation, compiler checks, and contract tests all reinforce one another. That's what makes the workflow honest."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 172,
+            "column": 1
+          },
+          "text": "<a id=\"maintainable-pipelines-performance-and-a-final-checklist\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 172,
+            "column": 66
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 173,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 4
+          },
+          "text": "Maintainable Pipelines, Performance, and a Final Checklist"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 175,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "image",
+          "location": {
+            "line": 175,
+            "column": 1
+          },
+          "url": "https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/f6220d17-0289-4953-b4f1-2a7e0341dcd7/openapi-typescript-pipeline-checklist.jpg",
+          "title": null,
+          "alt": "A checklist showing four key steps for maintaining an OpenAPI TypeScript pipeline for software development projects."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 177,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 177,
+            "column": 1
+          },
+          "text": "The pipelines that survive are the ones with boring governance. Version the spec, review schema changes like code, pin the generator, and document how breaking changes get approved. If the process is fuzzy, people will route around it, and then the generated types become decoration instead of enforcement."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 179,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "html",
+          "location": {
+            "line": 179,
+            "column": 1
+          },
+          "text": "<a id=\"a-few-performance-levers-actually-matter\">"
+        },
+        {
+          "type": "html",
+          "location": {
+            "line": 179,
+            "column": 50
+          },
+          "text": "</a>"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 180,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 180,
+            "column": 5
+          },
+          "text": "A few performance levers actually matter"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 182,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 1
+          },
+          "text": "Incremental generation helps in monorepos where the spec changes often but only one package consumes it. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 182,
+            "column": 106
+          },
+          "text": "tsc --incremental"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 182,
+            "column": 125
+          },
+          "text": " can trim repeated compiler work, and disabling output flags you don't need in production builds keeps the generated surface smaller. In practice, the biggest win is still social, not technical, because a predictable pipeline gets run more often than a clever one."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 184,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 184,
+            "column": 1
+          },
+          "text": "The checklist below is the one worth keeping close:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 186,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 186,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 186,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 186,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 186,
+                        "column": 5
+                      },
+                      "text": "Version pinning:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 186,
+                    "column": 23
+                  },
+                  "text": " Lock the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 186,
+                    "column": 33
+                  },
+                  "text": "openapi-typescript"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 186,
+                    "column": 53
+                  },
+                  "text": " version in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 186,
+                    "column": 65
+                  },
+                  "text": "package.json"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 186,
+                    "column": 79
+                  },
+                  "text": " so output doesn't drift across machines."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 187,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 187,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 187,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 187,
+                        "column": 5
+                      },
+                      "text": "Schema review:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 187,
+                    "column": 21
+                  },
+                  "text": " Treat spec changes as reviewable contract changes, not housekeeping."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 188,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 188,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 188,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 188,
+                        "column": 5
+                      },
+                      "text": "Drift detection:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 188,
+                    "column": 23
+                  },
+                  "text": " Regenerate in CI and fail on diff."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 189,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 189,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 189,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 189,
+                        "column": 5
+                      },
+                      "text": "Edge validation:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 189,
+                    "column": 23
+                  },
+                  "text": " Parse untrusted payloads before they reach app state or persistence."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 190,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 190,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 190,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 190,
+                        "column": 5
+                      },
+                      "text": "Contract testing:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 190,
+                    "column": 24
+                  },
+                  "text": " Run a mock-backed check that proves consumer code still matches the schema."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 191,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 191,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 191,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 191,
+                        "column": 5
+                      },
+                      "text": "Breaking-change policy:"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 191,
+                    "column": 30
+                  },
+                  "text": " Write down who approves shape changes and how clients are notified."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 193,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 1
+          },
+          "text": "A pipeline that includes those gates doesn't just generate types, it makes the contract visible. That visibility is what keeps teams from trusting a file that only looks safe."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 195,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 1
+          },
+          "text": "If you're shipping Capacitor or Electron apps and you want your update pipeline to behave with the same discipline, Capgo gives you a practical way to move JavaScript, CSS, copy, config, and asset fixes quickly without waiting on app store review. Visit "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 195,
+            "column": 255
+          },
+          "url": "https://capgo.app",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 195,
+                "column": 256
+              },
+              "text": "Capgo"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 281
+          },
+          "text": " to see how its signed bundles, rollback protection, and release controls fit into a release process that needs speed without losing control."
+        }
+      ]
+    }
+  ]
+}

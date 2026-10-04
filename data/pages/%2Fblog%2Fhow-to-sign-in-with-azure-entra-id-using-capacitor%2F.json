@@ -1,0 +1,4088 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-sign-in-with-azure-entra-id-using-capacitor/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-sign-in-with-azure-entra-id-using-capacitor.md",
+  "sourceSha256": "44f61f55619d27f32463b0289c5b3fdc908b21b4be3fe2124bead623f1fbc937",
+  "metadata": {
+    "slug": "how-to-sign-in-with-azure-entra-id-using-capacitor",
+    "title": "Sign In with Microsoft Entra ID (Azure AD) in Capacitor",
+    "description": "Add Microsoft Entra ID (Azure AD) login to a Capacitor 8 app with PKCE: app registration, redirect URIs, Graph and API scopes, and AADSTS error fixes.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/login.webp",
+    "head_image_alt": "Microsoft Entra ID sign-in page launched from a Capacitor app",
+    "keywords": "azure entra id capacitor, microsoft entra id capacitor, azure ad capacitor login, ionic azure ad, msal capacitor, microsoft graph capacitor, aadsts50011, capacitor enterprise login",
+    "tag": "Tutorial, Security, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Do I need MSAL to use Microsoft Entra ID in a Capacitor app?",
+        "answer": "No. Entra ID is a standard OpenID Connect provider, so an authorization code flow with PKCE in the system browser works on iOS, Android and web. Microsoft does not ship an MSAL build for Capacitor. You only need native MSAL or the Intune App SDK if you must support broker-based device Conditional Access or Intune app protection policies."
+      },
+      {
+        "question": "Do I need a client secret?",
+        "answer": "No. Register the redirect URI under the Mobile and desktop applications platform, which makes it a public client. The app uses PKCE. If you register it under the Web platform by mistake, the token endpoint demands a secret and returns AADSTS7000218."
+      },
+      {
+        "question": "Can users from any Microsoft tenant sign in?",
+        "answer": "Only if you choose a multitenant account type at registration and use the organizations or common authority. Single-tenant apps must use the tenant ID in the URLs. Personal Microsoft accounts need the multitenant plus personal accounts option and the common or consumers authority."
+      },
+      {
+        "question": "Can I use the Graph access token to call my own API?",
+        "answer": "No. A Graph token is meant for Microsoft Graph and your API cannot validate it. Expose a scope on your app registration, such as api://<client-id>/access_as_user, and request that scope for your API. One access token can only target one resource."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To sign in with Microsoft Entra ID (formerly Azure Active Directory) in a Capacitor app, register a public client app in the Entra admin center, add a "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 2,
+            "column": 152
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 2,
+                "column": 154
+              },
+              "text": "Mobile and desktop applications"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 187
+          },
+          "text": " redirect URI such as "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 209
+          },
+          "text": "com.example.app://oauth/azure"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 240
+          },
+          "text": ", and run the OpenID Connect authorization code flow with PKCE through the system browser. With "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 336
+          },
+          "text": "@capgo/capacitor-social-login"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 367
+          },
+          "text": " that means one "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 383
+          },
+          "text": "initialize"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 395
+          },
+          "text": " call with the Microsoft identity platform v2.0 endpoints and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 457
+          },
+          "text": "SocialLogin.login({ provider: 'oauth2', options: { providerId: 'azure' } })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 534
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide covers the app registration, choosing the right authority, Graph and custom API scopes, token validation, Conditional Access, logout, and the AADSTS errors you will see. It targets Capacitor 8 in October 2026."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "What you need"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "A Microsoft Entra tenant and a role that can create app registrations (Application Developer or higher)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 9,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 9,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "text": "A Capacitor 8 app and its "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 9,
+                    "column": 29
+                  },
+                  "text": "appId"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 36
+                  },
+                  "text": ", which you will reuse as the redirect scheme."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Optionally, a backend API that should accept Entra tokens."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 12,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 12,
+            "column": 4
+          },
+          "text": "Why not MSAL.js inside the WebView"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "text": "MSAL.js is built for browsers that own their origin and can open popups. In a Capacitor WebView the origin is "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 14,
+            "column": 111
+          },
+          "text": "capacitor://localhost"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 134
+          },
+          "text": " on iOS and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 14,
+            "column": 146
+          },
+          "text": "https://localhost"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 165
+          },
+          "text": " on Android, popups are blocked, and a full-page redirect would navigate your app away from its own bundle. Microsoft's guidance for native apps is the system browser with PKCE (RFC 8252), which is what the plugin does:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "text": "Platform"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 14
+                  },
+                  "text": "Browser used"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 29
+                  },
+                  "text": "Extra setup"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 18,
+                    "column": 9
+                  },
+                  "text": "ASWebAuthenticationSession"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 18,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 40
+                  },
+                  "text": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 3
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 13
+                  },
+                  "text": "Chrome Custom Tabs with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 19,
+                    "column": 37
+                  },
+                  "text": "androidUseCustomTabs: true"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 68
+                  },
+                  "text": "Intent filter"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 3
+                  },
+                  "text": "Web"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 9
+                  },
+                  "text": "Popup or redirect"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 20,
+                "column": 27
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 20,
+                    "column": 29
+                  },
+                  "text": "SPA redirect URI"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "text": "On Android, turn Custom Tabs on. The default embedded WebView cannot talk to Microsoft Authenticator, passkeys or the Company Portal, which Conditional Access often relies on."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 4
+          },
+          "text": "Step 1: Register the app in Entra ID"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 26,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 4
+                  },
+                  "text": "Open the "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 26,
+                    "column": 13
+                  },
+                  "url": "https://entra.microsoft.com",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 26,
+                        "column": 14
+                      },
+                      "text": "Microsoft Entra admin center"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 72
+                  },
+                  "text": " and go to "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 26,
+                    "column": 83
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 26,
+                        "column": 85
+                      },
+                      "text": "Entra ID > App registrations > New registration"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 134
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 27,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 27,
+                    "column": 4
+                  },
+                  "text": "Enter a name, such as \"Example Mobile\"."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 28,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 4
+                  },
+                  "text": "Pick "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 28,
+                    "column": 9
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 28,
+                        "column": 11
+                      },
+                      "text": "Supported account types"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 28,
+                    "column": 36
+                  },
+                  "text": ". This decides the authority you use later."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 29,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 29,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 4
+                  },
+                  "text": "Skip the redirect URI for now and click "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 29,
+                    "column": 44
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 29,
+                        "column": 46
+                      },
+                      "text": "Register"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 29,
+                    "column": 56
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 30,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 4
+                  },
+                  "text": "On "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 30,
+                    "column": 7
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 30,
+                        "column": 9
+                      },
+                      "text": "Overview"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 19
+                  },
+                  "text": ", copy the "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 30,
+                    "column": 30
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 30,
+                        "column": 32
+                      },
+                      "text": "Application (client) ID"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 57
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 30,
+                    "column": 62
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 30,
+                        "column": 64
+                      },
+                      "text": "Directory (tenant) ID"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 30,
+                    "column": 87
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 5
+          },
+          "text": "Choose the authority"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 3
+                  },
+                  "text": "Account type at registration"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 34,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 34
+                  },
+                  "text": "Authority segment in URLs"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 3
+                  },
+                  "text": "Single tenant (your org only)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 36,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 35
+                  },
+                  "text": "Your tenant ID, for example "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 36,
+                    "column": 63
+                  },
+                  "text": "8f1c..."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 37,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 37,
+                    "column": 3
+                  },
+                  "text": "Any organizational directory"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 37,
+                "column": 32
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 37,
+                    "column": 34
+                  },
+                  "text": "organizations"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 38,
+                    "column": 3
+                  },
+                  "text": "Any org directory plus personal Microsoft accounts"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 38,
+                "column": 54
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 38,
+                    "column": 56
+                  },
+                  "text": "common"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 39,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 39,
+                    "column": 3
+                  },
+                  "text": "Personal Microsoft accounts only"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 39,
+                "column": 36
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 39,
+                    "column": 38
+                  },
+                  "text": "consumers"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 41,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 41,
+            "column": 1
+          },
+          "text": "Use the tenant ID whenever you can. It produces predictable issuers and avoids accidental sign-ins from other tenants."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 43,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 43,
+            "column": 5
+          },
+          "text": "Add redirect URIs"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 45,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 1
+          },
+          "text": "Go to "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 45,
+            "column": 7
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 45,
+                "column": 9
+              },
+              "text": "Authentication > Add a platform"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 45,
+            "column": 42
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 47,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 47,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 47,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 47,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 47,
+                        "column": 5
+                      },
+                      "text": "Mobile and desktop applications"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 38
+                  },
+                  "text": ": add "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 44
+                  },
+                  "text": "com.example.app://oauth/azure"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 75
+                  },
+                  "text": " as a custom redirect URI. Add "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 106
+                  },
+                  "text": "com.example.app://oauth/logout"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 138
+                  },
+                  "text": " too if you want a post-logout redirect."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 48,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 48,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 48,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 48,
+                        "column": 5
+                      },
+                      "text": "Single-page application"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 48,
+                    "column": 30
+                  },
+                  "text": " (only if you ship a web build): add "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 48,
+                    "column": 67
+                  },
+                  "text": "https://app.example.com/auth/callback"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 48,
+                    "column": 106
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 1
+          },
+          "text": "Do not register the mobile URI under "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 50,
+            "column": 38
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 50,
+                "column": 40
+              },
+              "text": "Web"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 45
+          },
+          "text": ". Web platform redirects are confidential clients and require a secret at the token endpoint."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 52,
+            "column": 5
+          },
+          "text": "API permissions"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 54,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 54,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 54,
+                "column": 3
+              },
+              "text": "API permissions"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 20
+          },
+          "text": " already contains "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 38
+          },
+          "text": "Microsoft Graph > User.Read"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 67
+          },
+          "text": ". Add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 73
+          },
+          "text": "offline_access"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 89
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 91
+          },
+          "text": "openid"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 99
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 101
+          },
+          "text": "profile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 110
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 54,
+            "column": 115
+          },
+          "text": "email"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 122
+          },
+          "text": " if they are not listed. Some tenants block user consent. In that case an admin must click "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 54,
+            "column": 213
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 54,
+                "column": 215
+              },
+              "text": "Grant admin consent"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 54,
+            "column": 236
+          },
+          "text": ", otherwise users see AADSTS65001 or a \"Need admin approval\" screen."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 5
+          },
+          "text": "Expose a scope for your own API (optional)"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 1
+          },
+          "text": "If your backend should accept the token:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 60,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 60,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 60,
+                    "column": 4
+                  },
+                  "text": "Open "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 60,
+                    "column": 9
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 60,
+                        "column": 11
+                      },
+                      "text": "Expose an API"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 60,
+                    "column": 26
+                  },
+                  "text": " and set the Application ID URI, typically "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 60,
+                    "column": 69
+                  },
+                  "text": "api://<client-id>"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 60,
+                    "column": 88
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 61,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 61,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 61,
+                    "column": 4
+                  },
+                  "text": "Add a scope named "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 61,
+                    "column": 22
+                  },
+                  "text": "access_as_user"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 61,
+                    "column": 38
+                  },
+                  "text": ", who can consent: Admins and users."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 62,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 62,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 62,
+                    "column": 4
+                  },
+                  "text": "In "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 62,
+                    "column": 7
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 62,
+                        "column": 9
+                      },
+                      "text": "Manifest"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 62,
+                    "column": 19
+                  },
+                  "text": ", set "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 62,
+                    "column": 25
+                  },
+                  "text": "\"requestedAccessTokenVersion\": 2"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 62,
+                    "column": 59
+                  },
+                  "text": " so access tokens use the v2.0 issuer format."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 4
+          },
+          "text": "Step 2: Install the plugin and add the intent filter"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-social-login\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 71,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 1
+          },
+          "text": "In "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 71,
+            "column": 4
+          },
+          "text": "android/app/src/main/AndroidManifest.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 46
+          },
+          "text": ", inside "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 71,
+            "column": 55
+          },
+          "text": "MainActivity"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 71,
+            "column": 69
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 73,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<intent-filter>\n    <action android:name=\"android.intent.action.VIEW\" />\n    <category android:name=\"android.intent.category.DEFAULT\" />\n    <category android:name=\"android.intent.category.BROWSABLE\" />\n    <data android:scheme=\"com.example.app\" android:host=\"oauth\" />\n</intent-filter>"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 1
+          },
+          "text": "Keep "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 82,
+            "column": 6
+          },
+          "text": "android:launchMode=\"singleTask\""
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 39
+          },
+          "text": " on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 82,
+            "column": 43
+          },
+          "text": "MainActivity"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 57
+          },
+          "text": " (the Capacitor default). If you do not use Google, Apple or Facebook login, disable them under "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 82,
+            "column": 153
+          },
+          "text": "plugins.SocialLogin.providers"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 184
+          },
+          "text": " in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 82,
+            "column": 188
+          },
+          "text": "capacitor.config.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 82,
+            "column": 209
+          },
+          "text": " to keep their SDKs out of the build."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 84,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 84,
+            "column": 4
+          },
+          "text": "Step 3: Initialize the Entra ID provider"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 86,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Capacitor } from '@capacitor/core';\nimport { SocialLogin } from '@capgo/capacitor-social-login';\n\nconst TENANT = 'YOUR_TENANT_ID'; // or organizations / common\nconst AUTHORITY = `https://login.microsoftonline.com/${TENANT}/oauth2/v2.0`;\nconst isWeb = Capacitor.getPlatform() === 'web';\n\nexport async function initAuth() {\n  await SocialLogin.initialize({\n    oauth2: {\n      azure: {\n        appId: 'YOUR_CLIENT_ID',\n        authorizationBaseUrl: `${AUTHORITY}/authorize`,\n        accessTokenEndpoint: `${AUTHORITY}/token`,\n        redirectUrl: isWeb\n          ? 'https://app.example.com/auth/callback'\n          : 'com.example.app://oauth/azure',\n        scope: 'openid profile email offline_access User.Read',\n        pkceEnabled: true,\n        resourceUrl: 'https://graph.microsoft.com/v1.0/me',\n        logoutUrl: `${AUTHORITY}/logout`,\n        postLogoutRedirectUrl: isWeb ? 'https://app.example.com/' : 'com.example.app://oauth/logout',\n        androidUseCustomTabs: true,\n      },\n    },\n  });\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 116,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 116,
+            "column": 1
+          },
+          "text": "With "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 116,
+            "column": 6
+          },
+          "text": "resourceUrl"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 116,
+            "column": 19
+          },
+          "text": " pointing at Graph "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 116,
+            "column": 38
+          },
+          "text": "/me"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 116,
+            "column": 43
+          },
+          "text": ", the plugin calls Graph right after login and returns the profile in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 116,
+            "column": 113
+          },
+          "text": "resourceData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 116,
+            "column": 127
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 118,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 1
+          },
+          "text": "If you are migrating from Ionic Auth Connect, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 118,
+            "column": 47
+          },
+          "text": "SocialLoginAuthConnect"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 71
+          },
+          "text": " has an "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 118,
+            "column": 79
+          },
+          "text": "azure"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 86
+          },
+          "text": " preset that only needs "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 118,
+            "column": 110
+          },
+          "text": "tenantId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 120
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 118,
+            "column": 122
+          },
+          "text": "clientId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 132
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 118,
+            "column": 137
+          },
+          "text": "redirectUrl"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 150
+          },
+          "text": ". See the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 118,
+            "column": 160
+          },
+          "url": "/docs/plugins/social-login/integrations/azure/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 118,
+                "column": 161
+              },
+              "text": "Entra ID integration page"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 118,
+            "column": 235
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 120,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 120,
+            "column": 4
+          },
+          "text": "Step 4: Sign in"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 122,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { SocialLogin } from '@capgo/capacitor-social-login';\n\nexport async function signInWithMicrosoft() {\n  try {\n    const { result } = await SocialLogin.login({\n      provider: 'oauth2',\n      options: { providerId: 'azure' },\n    });\n\n    const me = result.resourceData as {\n      id: string;\n      displayName?: string;\n      mail?: string | null;\n      userPrincipalName?: string;\n    } | null;\n\n    return {\n      idToken: result.idToken,\n      graphToken: result.accessToken?.token,\n      refreshToken: result.refreshToken,\n      user: me,\n    };\n  } catch (error: any) {\n    if (error?.code === 'USER_CANCELLED') return null;\n    throw error;\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 152,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 152,
+            "column": 1
+          },
+          "text": "Useful options:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 154,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 154,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 154,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 154,
+                    "column": 3
+                  },
+                  "text": "loginHint: 'jane@contoso.com'"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 154,
+                    "column": 34
+                  },
+                  "text": " pre-fills the account and skips the account picker for that user."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 155,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 155,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 155,
+                    "column": 3
+                  },
+                  "text": "prompt: 'select_account'"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 155,
+                    "column": 29
+                  },
+                  "text": " always shows the account picker, useful for shared devices."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 156,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 156,
+                    "column": 3
+                  },
+                  "text": "additionalParameters: { domain_hint: 'contoso.com' }"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 156,
+                    "column": 57
+                  },
+                  "text": " sends users straight to their federated IdP."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 158,
+            "column": 1
+          },
+          "text": "mail"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 7
+          },
+          "text": " is often "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 158,
+            "column": 17
+          },
+          "text": "null"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 23
+          },
+          "text": " for accounts without a mailbox. Fall back to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 158,
+            "column": 69
+          },
+          "text": "userPrincipalName"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 88
+          },
+          "text": " or the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 158,
+            "column": 96
+          },
+          "text": "preferred_username"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 116
+          },
+          "text": " claim of the ID token."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 4
+          },
+          "text": "Step 5: Call Microsoft Graph"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 162,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "export async function getMyPhotoBlob(graphToken: string) {\n  const res = await fetch('https://graph.microsoft.com/v1.0/me/photo/$value', {\n    headers: { Authorization: `Bearer ${graphToken}` },\n  });\n  if (res.status === 404) return null; // no photo set\n  if (!res.ok) throw new Error(`Graph error ${res.status}`);\n  return res.blob();\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 173,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 1
+          },
+          "text": "Add each Graph scope you need (for example "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 173,
+            "column": 44
+          },
+          "text": "Calendars.Read"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 60
+          },
+          "text": ") both in "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 173,
+            "column": 70
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 173,
+                "column": 72
+              },
+              "text": "API permissions"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 89
+          },
+          "text": " and in the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 173,
+            "column": 101
+          },
+          "text": "scope"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 108
+          },
+          "text": " string."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 175,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 175,
+            "column": 4
+          },
+          "text": "Step 6: Get a token for your own API"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 177,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 177,
+            "column": 1
+          },
+          "text": "An access token targets one resource. To call your backend, add a second entry next to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 177,
+            "column": 88
+          },
+          "text": "azure"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 177,
+            "column": 95
+          },
+          "text": " in the same "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 177,
+            "column": 108
+          },
+          "text": "oauth2"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 177,
+            "column": 116
+          },
+          "text": " map of your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 177,
+            "column": 129
+          },
+          "text": "initialize"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 177,
+            "column": 141
+          },
+          "text": " call, requesting your API scope instead of Graph:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 179,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await SocialLogin.initialize({\n  oauth2: {\n    azure: graphConfig, // the object from step 3, moved into a const\n    azureApi: {\n      appId: 'YOUR_CLIENT_ID',\n      authorizationBaseUrl: `${AUTHORITY}/authorize`,\n      accessTokenEndpoint: `${AUTHORITY}/token`,\n      redirectUrl: 'com.example.app://oauth/azure-api', // register this URI too\n      scope: 'openid profile offline_access api://YOUR_CLIENT_ID/access_as_user',\n      pkceEnabled: true,\n      androidUseCustomTabs: true,\n    },\n  },\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 196,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 196,
+            "column": 1
+          },
+          "text": "The user already has a Microsoft session, so the second login usually completes without a prompt. Validate the token on the server:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 198,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { createRemoteJWKSet, jwtVerify } from 'jose';\n\nconst TENANT_ID = 'YOUR_TENANT_ID';\nconst jwks = createRemoteJWKSet(\n  new URL(`https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`),\n);\n\nexport async function verifyEntraToken(token: string) {\n  const { payload } = await jwtVerify(token, jwks, {\n    issuer: `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,\n    audience: 'YOUR_CLIENT_ID', // v2 tokens use the client ID as aud\n  });\n  if (!String(payload.scp ?? '').split(' ').includes('access_as_user')) {\n    throw new Error('Missing scope');\n  }\n  return payload; // payload.oid is the stable user object ID\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 218,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 1
+          },
+          "text": "For multitenant apps, the issuer contains each customer's tenant ID. Validate the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 218,
+            "column": 83
+          },
+          "text": "tid"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 88
+          },
+          "text": " claim against the list of tenants you accept instead of a fixed issuer. Key users on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 218,
+            "column": 174
+          },
+          "text": "oid"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 179
+          },
+          "text": " plus "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 218,
+            "column": 185
+          },
+          "text": "tid"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 218,
+            "column": 190
+          },
+          "text": ", not on email."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 220,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 220,
+            "column": 4
+          },
+          "text": "Step 7: Refresh and sign out"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 222,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// Get a valid Graph token, refreshing it when it has expired\nexport async function getGraphToken() {\n  const { isLoggedIn } = await SocialLogin.isLoggedIn({ provider: 'oauth2', providerId: 'azure' });\n  if (!isLoggedIn) {\n    try {\n      await SocialLogin.refresh({ provider: 'oauth2', options: { providerId: 'azure' } });\n    } catch {\n      // no session, or the refresh token expired or was revoked\n      const loginResult = await signInWithMicrosoft();\n      if (!loginResult) throw new Error('Sign-in cancelled');\n    }\n  }\n  const { accessToken } = await SocialLogin.getAuthorizationCode({ provider: 'oauth2', providerId: 'azure' });\n  return accessToken;\n}\n\n// Sign out\nawait SocialLogin.logout({ provider: 'oauth2', providerId: 'azure' });"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 1
+          },
+          "text": "Entra refresh tokens for public clients last up to 90 days with a sliding window and are replaced on each use. The plugin stores the new one. If you store tokens yourself, use the Keychain or Keystore, for example "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 243,
+            "column": 215
+          },
+          "text": "NativeBiometric.setData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 240
+          },
+          "text": " from "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 243,
+            "column": 246
+          },
+          "url": "/plugins/capacitor-native-biometric/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 243,
+                "column": 247
+              },
+              "text": "@capgo/capacitor-native-biometric"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 319
+          },
+          "text": ", and pass them to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 243,
+            "column": 338
+          },
+          "text": "SocialLogin.refreshToken"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 364
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 245,
+            "column": 1
+          },
+          "text": "logout"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 9
+          },
+          "text": " clears local tokens and opens the v2.0 logout endpoint in the system browser. Microsoft sometimes shows a \"You signed out of your account\" page instead of redirecting to a custom scheme, so the user may have to close it. If you only need a local logout, drop "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 245,
+            "column": 269
+          },
+          "text": "logoutUrl"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 280
+          },
+          "text": " and pass "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 245,
+            "column": 290
+          },
+          "text": "prompt: 'select_account'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 245,
+            "column": 316
+          },
+          "text": " at the next login."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 247,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 247,
+            "column": 4
+          },
+          "text": "Conditional Access and Intune"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 249,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 249,
+            "column": 1
+          },
+          "text": "Browser-based OIDC works with MFA, passwordless and most Conditional Access policies. Two cases need more:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 251,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 251,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 251,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 251,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 251,
+                        "column": 5
+                      },
+                      "text": "Require compliant or hybrid-joined device"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 251,
+                    "column": 48
+                  },
+                  "text": ": Entra must see device state. On Android this works through Custom Tabs when the Company Portal or Authenticator is installed. On managed iOS devices, the Microsoft Enterprise SSO plug-in deployed by your MDM provides it. Test this early with a real policy."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 252,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 252,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 252,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 252,
+                        "column": 5
+                      },
+                      "text": "Intune app protection policies (MAM)"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 252,
+                    "column": 43
+                  },
+                  "text": ": these require the Intune App SDK inside the native app. OIDC alone does not satisfy \"Require app protection policy\" grants."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 254,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 254,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 256,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 256,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 256,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 256,
+                    "column": 3
+                  },
+                  "text": "Error"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 256,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 256,
+                    "column": 11
+                  },
+                  "text": "Meaning"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 256,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 256,
+                    "column": 21
+                  },
+                  "text": "Fix"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 258,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 258,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 258,
+                    "column": 3
+                  },
+                  "text": "AADSTS50011"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 258,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 258,
+                    "column": 17
+                  },
+                  "text": "Redirect URI mismatch"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 258,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 258,
+                    "column": 41
+                  },
+                  "text": "Add the exact URI under Mobile and desktop applications"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 259,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 259,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 259,
+                    "column": 3
+                  },
+                  "text": "AADSTS7000218"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 259,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 259,
+                    "column": 19
+                  },
+                  "text": "Token request needs a secret"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 259,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 259,
+                    "column": 50
+                  },
+                  "text": "Redirect was registered under Web. Move it to Mobile and desktop"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 260,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 260,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 260,
+                    "column": 3
+                  },
+                  "text": "AADSTS9002326"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 260,
+                "column": 17
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 260,
+                    "column": 19
+                  },
+                  "text": "Cross-origin token redemption only allowed for SPA"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 260,
+                "column": 70
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 260,
+                    "column": 72
+                  },
+                  "text": "Web build uses a mobile redirect. Register the web URL under Single-page application"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 261,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 261,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 261,
+                    "column": 3
+                  },
+                  "text": "AADSTS700016"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 261,
+                "column": 16
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 261,
+                    "column": 18
+                  },
+                  "text": "App not found in directory"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 261,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 261,
+                    "column": 47
+                  },
+                  "text": "Wrong tenant in the authority, or single-tenant app used with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 261,
+                    "column": 109
+                  },
+                  "text": "common"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 262,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 262,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 262,
+                    "column": 3
+                  },
+                  "text": "AADSTS50020"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 262,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 262,
+                    "column": 17
+                  },
+                  "text": "User account from another tenant"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 262,
+                "column": 50
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 262,
+                    "column": 52
+                  },
+                  "text": "Use a multitenant registration, or invite the user as a guest"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 263,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 263,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 263,
+                    "column": 3
+                  },
+                  "text": "AADSTS65001"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 263,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 263,
+                    "column": 17
+                  },
+                  "text": "Consent not granted"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 263,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 263,
+                    "column": 39
+                  },
+                  "text": "Grant admin consent or allow user consent"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 264,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 264,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 264,
+                    "column": 3
+                  },
+                  "text": "AADSTS53003"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 264,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 264,
+                    "column": 17
+                  },
+                  "text": "Blocked by Conditional Access"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 264,
+                "column": 47
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 264,
+                    "column": 49
+                  },
+                  "text": "Check sign-in logs, see the section above"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 265,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 265,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 265,
+                    "column": 3
+                  },
+                  "text": "AADSTS28000"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 265,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 265,
+                    "column": 17
+                  },
+                  "text": "Scopes for more than one resource in one request"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 265,
+                "column": 66
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 265,
+                    "column": 68
+                  },
+                  "text": "Request Graph and your API scopes in separate logins"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 266,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 266,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 266,
+                    "column": 3
+                  },
+                  "text": "No refresh token"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 266,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 266,
+                    "column": 22
+                  },
+                  "text": "offline_access"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 266,
+                    "column": 38
+                  },
+                  "text": " missing"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 266,
+                "column": 47
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 266,
+                    "column": 49
+                  },
+                  "text": "Add it to scopes and permissions"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 268,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 268,
+            "column": 1
+          },
+          "text": "The Entra admin center "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 268,
+            "column": 24
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 268,
+                "column": 26
+              },
+              "text": "Sign-in logs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 268,
+            "column": 40
+          },
+          "text": " show the exact failure reason for each attempt, and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 268,
+            "column": 93
+          },
+          "text": "logsEnabled: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 268,
+            "column": 112
+          },
+          "text": " in the plugin config prints the authorize URL and token response on the device."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 270,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 270,
+            "column": 4
+          },
+          "text": "Shipping updates"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 272,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 272,
+            "column": 1
+          },
+          "text": "Policy changes on the Entra side are instant, but client-side fixes still need to reach devices. TypeScript changes such as scopes or error handling can ship through "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 272,
+            "column": 167
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 272,
+                "column": 168
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 272,
+            "column": 202
+          },
+          "text": ". Native changes (intent filters, new schemes) need a new store build, which "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 272,
+            "column": 279
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 272,
+                "column": 280
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 272,
+            "column": 308
+          },
+          "text": " can produce without a local Mac."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 274,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 274,
+            "column": 4
+          },
+          "text": "Related guides"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 276,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 276,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 276,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 276,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-sign-in-with-okta-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 276,
+                        "column": 4
+                      },
+                      "text": "How to sign in with Okta using Capacitor"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 277,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 277,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 277,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-sign-in-with-auth0-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 277,
+                        "column": 4
+                      },
+                      "text": "How to sign in with Auth0 using Capacitor"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 278,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 278,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 278,
+                    "column": 3
+                  },
+                  "url": "/blog/how-to-add-authentication-to-a-capacitor-app/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 278,
+                        "column": 4
+                      },
+                      "text": "How to add authentication to a Capacitor app"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 279,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 279,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 279,
+                    "column": 3
+                  },
+                  "url": "/docs/plugins/social-login/oauth2/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 279,
+                        "column": 4
+                      },
+                      "text": "Generic OAuth2 provider reference"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

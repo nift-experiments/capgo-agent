@@ -1,0 +1,3854 @@
+{
+  "version": 1,
+  "route": "/blog/drizzle-orm-capacitor-sqlite/",
+  "source": "corpus/source/apps/web/src/content/blog/en/drizzle-orm-capacitor-sqlite.md",
+  "sourceSha256": "14fdaa590a4d55451edc87a4eb38fb245c9ff9236ec1a090c41744d4239b3af6",
+  "metadata": {
+    "slug": "drizzle-orm-capacitor-sqlite",
+    "title": "How to Use Drizzle ORM with Capacitor and SQLite",
+    "description": "Set up Drizzle ORM with Capacitor and SQLite: a working sqlite-proxy driver, typed schema, relational queries, transactions and in-app Drizzle Kit migrations.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capacitor-guide.webp",
+    "head_image_alt": "Capacitor logo for a guide on using Drizzle ORM with Capacitor and SQLite",
+    "keywords": "drizzle capacitor, drizzle orm capacitor sqlite, drizzle sqlite-proxy, drizzle kit migrations mobile, capacitor sqlite orm, ionic drizzle",
+    "tag": "Tutorial, Capacitor, Development",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Does Drizzle ORM support Capacitor?",
+        "answer": "Drizzle has no Capacitor-specific driver, but its sqlite-proxy driver accepts any async function that runs SQL and returns rows as arrays. Wrapping a Capacitor SQLite plugin in that function gives you the full Drizzle query builder, relational queries and transactions. This guide includes a tested implementation."
+      },
+      {
+        "question": "How do I run Drizzle Kit migrations in a Capacitor app?",
+        "answer": "Set driver: 'expo' in drizzle.config.ts so Drizzle Kit also writes a migrations.js bundle with the SQL embedded. Import that bundle in the app, make your bundler load .sql files as strings, and apply pending entries at startup with a small migration runner that records applied migrations in a table."
+      },
+      {
+        "question": "Why are some columns undefined or wrong after a join?",
+        "answer": "Drizzle does not alias joined columns, so two columns with the same name (for example users.id and posts.id) arrive from the plugin as one object key. Select only uniquely named columns, or alias them with sql`${posts.id}`.as('post_id')."
+      },
+      {
+        "question": "Which SQLite plugin should I use with Drizzle on Capacitor?",
+        "answer": "@capacitor-community/sqlite works with the proxy approach because it returns row objects in column order on iOS, Android and web. @capgo/capacitor-fast-sql returns rows keyed by column name without a guaranteed key order on iOS, so for Fast SQL a query builder that reads rows by name, like Kysely, is the better match today."
+      },
+      {
+        "question": "Can I use Drizzle relational queries on mobile?",
+        "answer": "Yes, as long as you define relations() in the schema and pass the schema to drizzle(). Relational queries use SQLite JSON functions, which are available on iOS and recent Android versions. Test on the oldest Android version you support."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "Drizzle ORM runs in a Capacitor app through its "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 49
+          },
+          "text": "sqlite-proxy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 63
+          },
+          "text": " driver: you give Drizzle one async function that executes SQL on a native SQLite plugin and returns rows as arrays, and Drizzle handles the typed query builder, relational queries and transactions on top. This guide builds that function for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 305
+          },
+          "text": "@capacitor-community/sqlite"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 334
+          },
+          "text": ", shows how to ship Drizzle Kit migrations inside the app bundle, and lists the edge cases that silently corrupt results if you miss them."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "Everything below was tested with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 4,
+            "column": 34
+          },
+          "text": "drizzle-orm"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 47
+          },
+          "text": " 0.45 and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 4,
+            "column": 57
+          },
+          "text": "drizzle-kit"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 70
+          },
+          "text": " 0.31 on Capacitor 8."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "Why Drizzle on a mobile database"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 8,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 8,
+                        "column": 5
+                      },
+                      "text": "Schema in TypeScript."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 28
+                  },
+                  "text": " Tables are plain TypeScript objects. Types for selects and inserts are inferred, no code generation step."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 9,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 9,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 9,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 9,
+                        "column": 5
+                      },
+                      "text": "SQL-shaped API."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 22
+                  },
+                  "text": " "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 9,
+                    "column": 23
+                  },
+                  "text": "db.select().from(users).where(eq(users.id, 1))"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 9,
+                    "column": 71
+                  },
+                  "text": " maps one to one to SQL, so you can reason about what runs on the device."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 10,
+                        "column": 5
+                      },
+                      "text": "Migrations generated from the schema."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 44
+                  },
+                  "text": " Drizzle Kit diffs your schema and writes SQL migration files."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 11,
+                        "column": 5
+                      },
+                      "text": "No decorators."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 21
+                  },
+                  "text": " Works with Vite and esbuild without extra TypeScript flags."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 13,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "text": "The trade-off: Drizzle has no Capacitor driver in its package, so you write the bridge yourself. It is about 30 lines."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 15,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 15,
+            "column": 4
+          },
+          "text": "Picking the SQLite plugin"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 17,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "text": "Drizzle's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 17,
+            "column": 11
+          },
+          "text": "sqlite-proxy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 25
+          },
+          "text": " driver maps result rows "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 17,
+            "column": 50
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 17,
+                "column": 52
+              },
+              "text": "by position"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 65
+          },
+          "text": ": for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 17,
+            "column": 71
+          },
+          "text": "all"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 76
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 17,
+            "column": 81
+          },
+          "text": "values"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 89
+          },
+          "text": " it expects an array of arrays, for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 17,
+            "column": 125
+          },
+          "text": "get"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 130
+          },
+          "text": " a single array, in the same order as the columns in the generated "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 17,
+            "column": 197
+          },
+          "text": "SELECT"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 17,
+            "column": 205
+          },
+          "text": ". Capacitor SQLite plugins return objects keyed by column name, so the driver has to turn each object back into an array. That only works when the object keys keep the column order."
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 19,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 3
+                  },
+                  "text": "Plugin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 12
+                  },
+                  "text": "Row format"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 25
+                  },
+                  "text": "Column order preserved"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 19,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 19,
+                    "column": 50
+                  },
+                  "text": "Fit for Drizzle proxy"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 21,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 21,
+                    "column": 3
+                  },
+                  "text": "@capacitor-community/sqlite"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 35
+                  },
+                  "text": "Objects"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 45
+                  },
+                  "text": "Yes. On iOS the plugin sends an "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 21,
+                    "column": 77
+                  },
+                  "text": "ios_columns"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 90
+                  },
+                  "text": " list and the JS layer rebuilds each row in column order"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 21,
+                "column": 147
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 21,
+                    "column": 149
+                  },
+                  "text": "Good"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 22,
+                    "column": 3
+                  },
+                  "text": "@capgo/capacitor-fast-sql"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 33
+                  },
+                  "text": "Objects"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 43
+                  },
+                  "text": "Not guaranteed on iOS, rows are serialized from a Swift dictionary"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 110
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 112
+                  },
+                  "text": "Use Kysely instead"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "text": "That is why this guide uses the community plugin. If you already use Fast SQL, or want its faster data path, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 24,
+            "column": 110
+          },
+          "url": "/blog/kysely-capacitor-sqlite/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 24,
+                "column": 111
+              },
+              "text": "Kysely"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 150
+          },
+          "text": " reads rows by column name and works with it directly. For an overview of both plugins, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 24,
+            "column": 242
+          },
+          "url": "/blog/how-to-use-sqlite-in-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 24,
+                "column": 243
+              },
+              "text": "How to use SQLite in a Capacitor app"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 324
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 4
+          },
+          "text": "Install"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add drizzle-orm @capacitor-community/sqlite\nbun add -d drizzle-kit\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "text": "@capacitor-community/sqlite"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 34,
+            "column": 30
+          },
+          "text": " bundles SQLCipher on iOS and Android, so your app ships encryption code even if you do not encrypt anything. Keep that in mind for App Store export compliance questions."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 36,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 36,
+            "column": 4
+          },
+          "text": "Define the schema"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/schema.ts\nimport { relations } from 'drizzle-orm';\nimport { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';\n\nexport const users = sqliteTable('users', {\n  id: integer('id').primaryKey({ autoIncrement: true }),\n  name: text('name').notNull(),\n  email: text('email').notNull().unique(),\n  createdAt: integer('created_at', { mode: 'timestamp' })\n    .notNull()\n    .$defaultFn(() => new Date()),\n});\n\nexport const posts = sqliteTable(\n  'posts',\n  {\n    id: integer('id').primaryKey({ autoIncrement: true }),\n    authorId: integer('author_id')\n      .notNull()\n      .references(() => users.id, { onDelete: 'cascade' }),\n    title: text('title').notNull(),\n    published: integer('published', { mode: 'boolean' }).notNull().default(false),\n  },\n  (t) => [index('idx_posts_author').on(t.authorId)],\n);\n\nexport const usersRelations = relations(users, ({ many }) => ({\n  posts: many(posts),\n}));\n\nexport const postsRelations = relations(posts, ({ one }) => ({\n  author: one(users, { fields: [posts.authorId], references: [users.id] }),\n}));"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 74,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 74,
+            "column": 1
+          },
+          "text": "A few details matter on mobile:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 76,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 76,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 76,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 76,
+                    "column": 3
+                  },
+                  "text": "mode: 'timestamp'"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 22
+                  },
+                  "text": " stores seconds since epoch as an integer and gives you "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 76,
+                    "column": 78
+                  },
+                  "text": "Date"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 76,
+                    "column": 84
+                  },
+                  "text": " objects in TypeScript."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 77,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 77,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 77,
+                    "column": 3
+                  },
+                  "text": "$defaultFn(() => new Date())"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 33
+                  },
+                  "text": " sets the default in JavaScript. A SQL default like "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 77,
+                    "column": 85
+                  },
+                  "text": "unixepoch()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 77,
+                    "column": 98
+                  },
+                  "text": " needs SQLite 3.38 or newer, which older Android system SQLite does not have."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 78,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 78,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 78,
+                    "column": 3
+                  },
+                  "text": "mode: 'boolean'"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 20
+                  },
+                  "text": " stores "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 78,
+                    "column": 28
+                  },
+                  "text": "1"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 31
+                  },
+                  "text": "/"
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 78,
+                    "column": 32
+                  },
+                  "text": "0"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 78,
+                    "column": 35
+                  },
+                  "text": ". Drizzle converts both ways."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 79,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 79,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 79,
+                    "column": 3
+                  },
+                  "text": "relations()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 79,
+                    "column": 16
+                  },
+                  "text": " is what powers "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 79,
+                    "column": 32
+                  },
+                  "text": "db.query.*"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 79,
+                    "column": 44
+                  },
+                  "text": " with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 79,
+                    "column": 50
+                  },
+                  "text": "with: {...}"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 79,
+                    "column": 63
+                  },
+                  "text": ". Foreign keys alone are not enough for relational queries."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 81,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 81,
+            "column": 4
+          },
+          "text": "Open the connection"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 83,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 83,
+            "column": 1
+          },
+          "text": "The community plugin keeps a registry of connections. During live reload or hot module replacement your code can run twice, so reuse an existing connection instead of creating a second one."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 85,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/connection.ts\nimport {\n  CapacitorSQLite,\n  SQLiteConnection,\n  type SQLiteDBConnection,\n} from '@capacitor-community/sqlite';\n\nconst sqlite = new SQLiteConnection(CapacitorSQLite);\n\nexport async function openConnection(name: string): Promise<SQLiteDBConnection> {\n  const consistent = (await sqlite.checkConnectionsConsistency()).result;\n  const exists = (await sqlite.isConnection(name, false)).result;\n\n  const conn =\n    consistent && exists\n      ? await sqlite.retrieveConnection(name, false)\n      : await sqlite.createConnection(name, false, 'no-encryption', 1, false);\n\n  await conn.open();\n  await conn.execute('PRAGMA foreign_keys = ON', false);\n  return conn;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 110,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 1
+          },
+          "text": "The plugin appends "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 110,
+            "column": 20
+          },
+          "text": "SQLite.db"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 31
+          },
+          "text": " to the file name, so "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 110,
+            "column": 53
+          },
+          "text": "app"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 58
+          },
+          "text": " becomes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 110,
+            "column": 67
+          },
+          "text": "appSQLite.db"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 81
+          },
+          "text": " on disk. On the web the plugin needs the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 110,
+            "column": 123
+          },
+          "text": "jeep-sqlite"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 136
+          },
+          "text": " custom element and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 110,
+            "column": 156
+          },
+          "text": "sqlite.initWebStore()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 179
+          },
+          "text": " before the first connection. Follow the plugin's web setup if you target the browser."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 112,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 112,
+            "column": 4
+          },
+          "text": "The sqlite-proxy driver"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 114,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 1
+          },
+          "text": "This is the core of the integration. Drizzle calls the function with the SQL, the parameters, and a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 114,
+            "column": 101
+          },
+          "text": "method"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 114,
+            "column": 109
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 116,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 116,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 116,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 116,
+                    "column": 3
+                  },
+                  "text": "run"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 116,
+                    "column": 8
+                  },
+                  "text": ": no rows needed (INSERT, UPDATE, DELETE, DDL, transaction control)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 117,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 117,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 117,
+                    "column": 3
+                  },
+                  "text": "all"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 117,
+                    "column": 8
+                  },
+                  "text": ": every row, as arrays."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 118,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 118,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 118,
+                    "column": 3
+                  },
+                  "text": "get"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 118,
+                    "column": 8
+                  },
+                  "text": ": the first row, as an array, or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 118,
+                    "column": 41
+                  },
+                  "text": "undefined"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 118,
+                    "column": 52
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 119,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 119,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 119,
+                    "column": 3
+                  },
+                  "text": "values"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 119,
+                    "column": 11
+                  },
+                  "text": ": every row, as arrays (used by raw "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 119,
+                    "column": 47
+                  },
+                  "text": "values()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 119,
+                    "column": 57
+                  },
+                  "text": " calls and internals)."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/client.ts\nimport type { SQLiteDBConnection } from '@capacitor-community/sqlite';\nimport { drizzle } from 'drizzle-orm/sqlite-proxy';\nimport * as schema from './schema';\n\nconst READ = /^\\s*(select|pragma|with|explain)\\b/i;\nconst TX_CONTROL = /^\\s*(begin|commit|rollback|savepoint|release)\\b/i;\n\nexport function createDb(conn: SQLiteDBConnection) {\n  return drizzle(\n    async (sql, params, method) => {\n      // Transaction control: no params, no rows, no implicit wrapping\n      if (TX_CONTROL.test(sql)) {\n        await conn.execute(sql, false);\n        return { rows: [] };\n      }\n\n      let rows: Record<string, unknown>[];\n      if (READ.test(sql)) {\n        rows = (await conn.query(sql, params)).values ?? [];\n      } else {\n        // 'all' returns rows for INSERT/UPDATE/DELETE ... RETURNING\n        const res = await conn.run(sql, params, false, method === 'run' ? 'no' : 'all');\n        rows = res.changes?.values ?? [];\n      }\n\n      if (method === 'run') return { rows: [] };\n\n      // Drizzle maps by position. The plugin keeps column order in each object.\n      const arrays = rows.map((row) => Object.values(row));\n      return { rows: method === 'get' ? (arrays[0] as any) : arrays };\n    },\n    { schema },\n  );\n}\n\nexport type AppDb = ReturnType<typeof createDb>;"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 161,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 161,
+            "column": 1
+          },
+          "text": "Why each branch exists:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 163,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 163,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 163,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 163,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 163,
+                        "column": 5
+                      },
+                      "text": "TX_CONTROL"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 19
+                  },
+                  "text": ": Drizzle implements "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 163,
+                    "column": 40
+                  },
+                  "text": "db.transaction()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 58
+                  },
+                  "text": " by sending "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 163,
+                    "column": 70
+                  },
+                  "text": "begin"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 77
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 163,
+                    "column": 79
+                  },
+                  "text": "commit"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 87
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 163,
+                    "column": 89
+                  },
+                  "text": "rollback"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 99
+                  },
+                  "text": ", and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 163,
+                    "column": 105
+                  },
+                  "text": "savepoint"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 116
+                  },
+                  "text": "/"
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 163,
+                    "column": 117
+                  },
+                  "text": "release"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 126
+                  },
+                  "text": " for nested transactions. They go through "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 163,
+                    "column": 168
+                  },
+                  "text": "execute(sql, false)"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 189
+                  },
+                  "text": ", the same path TypeORM's official Capacitor driver uses for "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 163,
+                    "column": 250
+                  },
+                  "text": "BEGIN"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 257
+                  },
+                  "text": "/"
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 163,
+                    "column": 258
+                  },
+                  "text": "COMMIT"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 163,
+                    "column": 266
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 164,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 164,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 164,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 164,
+                        "column": 5
+                      },
+                      "text": "false"
+                    },
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 164,
+                        "column": 12
+                      },
+                      "text": " as the third argument to "
+                    },
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 164,
+                        "column": 38
+                      },
+                      "text": "run()"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 164,
+                    "column": 47
+                  },
+                  "text": ": the plugin's default wraps each statement in its own transaction, which collides with Drizzle's explicit "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 164,
+                    "column": 154
+                  },
+                  "text": "begin"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 164,
+                    "column": 161
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 165,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 165,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 165,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 165,
+                        "column": 5
+                      },
+                      "text": "returnMode 'all'"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 25
+                  },
+                  "text": ": makes "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 165,
+                    "column": 33
+                  },
+                  "text": ".returning()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 165,
+                    "column": 47
+                  },
+                  "text": " work for inserts, updates and deletes."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 166,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 166,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 166,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 166,
+                        "column": 5
+                      },
+                      "text": "Object.values(row)"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 166,
+                    "column": 27
+                  },
+                  "text": ": turns the keyed row back into a positional array."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 168,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 1
+          },
+          "text": "I ran this exact function against an in-memory SQLite that returns rows the way the plugin does. Inserts with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 168,
+            "column": 111
+          },
+          "text": ".returning()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 125
+          },
+          "text": ", filtered selects, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 168,
+            "column": 145
+          },
+          "text": ".get()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 168,
+            "column": 153
+          },
+          "text": ", relational queries, transactions, and rollbacks on a thrown error all produce correct results."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 170,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 170,
+            "column": 4
+          },
+          "text": "Initialize once"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 172,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/index.ts\nimport { openConnection } from './connection';\nimport { createDb, type AppDb } from './client';\nimport { runMigrations } from './migrate';\nimport bundle from '../../drizzle/migrations';\n\nlet dbPromise: Promise<AppDb> | null = null;\n\nexport function getDb(): Promise<AppDb> {\n  if (!dbPromise) {\n    dbPromise = (async () => {\n      const conn = await openConnection('app');\n      await runMigrations(conn, bundle);\n      return createDb(conn);\n    })();\n  }\n  return dbPromise;\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 193,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 193,
+            "column": 4
+          },
+          "text": "Migrations with Drizzle Kit"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 195,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 1
+          },
+          "text": "Drizzle's built-in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 195,
+            "column": 20
+          },
+          "text": "sqlite-proxy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 34
+          },
+          "text": " migrator reads "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 195,
+            "column": 50
+          },
+          "text": ".sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 56
+          },
+          "text": " files from disk with Node's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 195,
+            "column": 85
+          },
+          "text": "fs"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 195,
+            "column": 89
+          },
+          "text": ", which a WebView does not have. The fix is to let Drizzle Kit bundle the SQL into a JavaScript module and apply it yourself."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 197,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 197,
+            "column": 5
+          },
+          "text": "1. Configure Drizzle Kit"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 199,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// drizzle.config.ts\nimport { defineConfig } from 'drizzle-kit';\n\nexport default defineConfig({\n  schema: './src/db/schema.ts',\n  out: './drizzle',\n  dialect: 'sqlite',\n  driver: 'expo',\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 211,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 211,
+            "column": 1
+          },
+          "text": "driver: 'expo'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 211,
+            "column": 17
+          },
+          "text": " does not mean you need Expo. It tells Drizzle Kit to also write "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 211,
+            "column": 82
+          },
+          "text": "drizzle/migrations.js"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 211,
+            "column": 105
+          },
+          "text": ", which imports the journal and each "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 211,
+            "column": 142
+          },
+          "text": ".sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 211,
+            "column": 148
+          },
+          "text": " file. That is the format any non-Node runtime needs."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 213,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 213,
+            "column": 5
+          },
+          "text": "2. Generate"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 215,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bunx drizzle-kit generate"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 219,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 219,
+            "column": 1
+          },
+          "text": "You get "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 219,
+            "column": 9
+          },
+          "text": "drizzle/0000_<name>.sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 219,
+            "column": 34
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 219,
+            "column": 36
+          },
+          "text": "drizzle/meta/_journal.json"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 219,
+            "column": 64
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 219,
+            "column": 69
+          },
+          "text": "drizzle/migrations.js"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 219,
+            "column": 92
+          },
+          "text": ". Commit all three. Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 219,
+            "column": 116
+          },
+          "text": "generate"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 219,
+            "column": 126
+          },
+          "text": " again after every schema change. Do not edit SQL files that already shipped."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 221,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 221,
+            "column": 5
+          },
+          "text": "3. Let the bundler import .sql as text"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 223,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 1
+          },
+          "text": "migrations.js"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 16
+          },
+          "text": " has lines like "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 32
+          },
+          "text": "import m0000 from './0000_fearless_selene.sql'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 80
+          },
+          "text": ". Vite does not know "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 223,
+            "column": 101
+          },
+          "text": ".sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 223,
+            "column": 107
+          },
+          "text": ", so add a tiny plugin instead of another dependency:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 225,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// vite.config.ts\nimport { defineConfig } from 'vite';\n\nexport default defineConfig({\n  plugins: [\n    {\n      name: 'sql-as-text',\n      transform(code, id) {\n        if (id.endsWith('.sql')) {\n          return { code: `export default ${JSON.stringify(code)};`, map: null };\n        }\n      },\n    },\n  ],\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 1
+          },
+          "text": "And a type declaration so TypeScript accepts the import:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/sql.d.ts\ndeclare module '*.sql' {\n  const content: string;\n  export default content;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 253,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 253,
+            "column": 1
+          },
+          "text": "With webpack (Angular custom builders, older setups) use an "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 253,
+            "column": 61
+          },
+          "text": "asset/source"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 253,
+            "column": 75
+          },
+          "text": " rule for "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 253,
+            "column": 85
+          },
+          "text": ".sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 253,
+            "column": 91
+          },
+          "text": " files instead."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 255,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 255,
+            "column": 5
+          },
+          "text": "4. Apply migrations at startup"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 257,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/migrate.ts\nimport type { SQLiteDBConnection } from '@capacitor-community/sqlite';\n\ninterface MigrationBundle {\n  journal: { entries: { idx: number; when: number; tag: string }[] };\n  migrations: Record<string, string>;\n}\n\nexport async function runMigrations(conn: SQLiteDBConnection, bundle: MigrationBundle) {\n  await conn.execute(\n    `CREATE TABLE IF NOT EXISTS __drizzle_migrations (\n       id INTEGER PRIMARY KEY AUTOINCREMENT,\n       hash TEXT NOT NULL,\n       created_at NUMERIC\n     )`,\n    false,\n  );\n\n  const res = await conn.query(\n    'SELECT created_at FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 1',\n  );\n  const lastApplied = Number(res.values?.[0]?.created_at ?? 0);\n\n  for (const entry of bundle.journal.entries) {\n    if (entry.when <= lastApplied) continue;\n\n    const key = `m${entry.idx.toString().padStart(4, '0')}`;\n    const sqlText = bundle.migrations[key];\n    if (!sqlText) throw new Error(`Missing migration ${entry.tag}`);\n\n    const statements = sqlText\n      .split('--> statement-breakpoint')\n      .map((s) => s.trim())\n      .filter(Boolean);\n\n    await conn.beginTransaction();\n    try {\n      for (const statement of statements) {\n        await conn.execute(statement, false);\n      }\n      await conn.run(\n        'INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)',\n        [entry.tag, entry.when],\n        false,\n      );\n      await conn.commitTransaction();\n    } catch (error) {\n      await conn.rollbackTransaction();\n      throw error;\n    }\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 312,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 312,
+            "column": 1
+          },
+          "text": "This follows the same rule Drizzle's own migrators use: a migration is pending when its journal timestamp is newer than the newest one recorded. Each migration runs in its own transaction, so a failure leaves the previous state intact. Calling it on every launch is cheap."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 314,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 314,
+            "column": 1
+          },
+          "text": "If you ship JavaScript with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 314,
+            "column": 29
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 314,
+                "column": 30
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 314,
+            "column": 64
+          },
+          "text": ", new migrations reach users without a store release. Keep them additive (new tables, new nullable columns), because a rollback to an older bundle will run against the newer schema."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 316,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 316,
+            "column": 4
+          },
+          "text": "Queries"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 318,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { and, desc, eq, sql } from 'drizzle-orm';\nimport { getDb } from './db';\nimport { posts, users } from './db/schema';\n\nconst db = await getDb();\n\n// Insert and get the row back\nconst [ada] = await db\n  .insert(users)\n  .values({ name: 'Ada', email: 'ada@example.com' })\n  .returning();\n\n// Bulk insert\nawait db.insert(posts).values([\n  { authorId: ada.id, title: 'Draft' },\n  { authorId: ada.id, title: 'Live', published: true },\n]);\n\n// Select with filters\nconst live = await db\n  .select()\n  .from(posts)\n  .where(and(eq(posts.authorId, ada.id), eq(posts.published, true)))\n  .orderBy(desc(posts.id));\n\n// Single row or undefined\nconst user = await db.select().from(users).where(eq(users.email, 'ada@example.com')).get();\n\n// Update and delete\nawait db.update(posts).set({ published: true }).where(eq(posts.id, live[0].id));\nawait db.delete(posts).where(eq(posts.published, false));\n\n// Aggregate\nconst [{ count }] = await db\n  .select({ count: sql<number>`count(*)` })\n  .from(posts);"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 357,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 357,
+            "column": 5
+          },
+          "text": "Relational queries"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 359,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const authors = await db.query.users.findMany({\n  with: { posts: { where: (p, { eq }) => eq(p.published, true) } },\n});\n\nconst one = await db.query.users.findFirst({\n  where: (u, { eq }) => eq(u.id, ada.id),\n  with: { posts: true },\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 370,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 370,
+            "column": 1
+          },
+          "text": "Drizzle builds these with SQLite's JSON functions, then parses the result. They work on iOS and on recent Android versions. If your "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 370,
+            "column": 133
+          },
+          "text": "minSdkVersion"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 370,
+            "column": 148
+          },
+          "text": " is old, check "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 370,
+            "column": 163
+          },
+          "text": "SELECT json('{}')"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 370,
+            "column": 182
+          },
+          "text": " on your oldest test device."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 372,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 372,
+            "column": 5
+          },
+          "text": "Joins: alias duplicate column names"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 374,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 374,
+            "column": 1
+          },
+          "text": "This is the one sharp edge of any proxy driver built on object rows. Drizzle does not add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 374,
+            "column": 91
+          },
+          "text": "AS"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 374,
+            "column": 95
+          },
+          "text": " aliases to joined columns, so this query:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 376,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// Wrong: both columns are named \"id\" in the result set\nawait db\n  .select({ postId: posts.id, userId: users.id })\n  .from(posts)\n  .innerJoin(users, eq(posts.authorId, users.id));"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 384,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 384,
+            "column": 1
+          },
+          "text": "produces two columns called "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 384,
+            "column": 29
+          },
+          "text": "id"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 384,
+            "column": 33
+          },
+          "text": ". They collapse into one key in the row object, the array is one value short, and Drizzle assigns values to the wrong fields. In my test "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 384,
+            "column": 170
+          },
+          "text": "postId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 384,
+            "column": 178
+          },
+          "text": " came back with the user id and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 384,
+            "column": 210
+          },
+          "text": "userId"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 384,
+            "column": 218
+          },
+          "text": " was "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 384,
+            "column": 223
+          },
+          "text": "undefined"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 384,
+            "column": 234
+          },
+          "text": ". No error is thrown."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 386,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 386,
+            "column": 1
+          },
+          "text": "Alias them explicitly:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 388,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await db\n  .select({\n    postId: sql<number>`${posts.id}`.as('post_id'),\n    userId: sql<number>`${users.id}`.as('user_id'),\n    title: posts.title,\n    author: users.name,\n  })\n  .from(posts)\n  .innerJoin(users, eq(posts.authorId, users.id));"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 400,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 400,
+            "column": 1
+          },
+          "text": "Selecting columns with different names ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 400,
+            "column": 41
+          },
+          "text": "posts.title"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 400,
+            "column": 54
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 400,
+            "column": 56
+          },
+          "text": "users.name"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 400,
+            "column": 68
+          },
+          "text": ") is fine. Avoid "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 400,
+            "column": 85
+          },
+          "text": "db.select().from(a).innerJoin(b, ...)"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 400,
+            "column": 124
+          },
+          "text": " without a field list when both tables share column names like "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 400,
+            "column": 187
+          },
+          "text": "id"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 400,
+            "column": 191
+          },
+          "text": " or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 400,
+            "column": 195
+          },
+          "text": "created_at"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 400,
+            "column": 207
+          },
+          "text": ". Relational queries do not have this problem."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 402,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 402,
+            "column": 4
+          },
+          "text": "Transactions"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 404,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "await db.transaction(async (tx) => {\n  const [user] = await tx\n    .insert(users)\n    .values({ name: 'Grace', email: 'grace@example.com' })\n    .returning();\n\n  await tx.insert(posts).values({ authorId: user.id, title: 'Hello' });\n\n  // Nested transactions become savepoints\n  await tx.transaction(async (inner) => {\n    await inner.insert(posts).values({ authorId: user.id, title: 'Maybe' });\n  });\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 420,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 420,
+            "column": 1
+          },
+          "text": "If the callback throws, Drizzle sends "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 420,
+            "column": 39
+          },
+          "text": "rollback"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 420,
+            "column": 49
+          },
+          "text": ". Calling "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 420,
+            "column": 59
+          },
+          "text": "tx.rollback()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 420,
+            "column": 74
+          },
+          "text": " also aborts the transaction, by throwing."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 422,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 422,
+            "column": 1
+          },
+          "text": "There is one connection per database, so keep transactions short and do not "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 422,
+            "column": 77
+          },
+          "text": "await"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 422,
+            "column": 84
+          },
+          "text": " network calls inside them. Other writes on the same connection would run inside your open transaction."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 424,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 424,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 426,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 426,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 426,
+                "column": 3
+              },
+              "text": "\"Connection already exists\" error on startup."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 426,
+            "column": 50
+          },
+          "text": " Your initialization ran twice, usually because of hot reload. Use the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 426,
+            "column": 121
+          },
+          "text": "checkConnectionsConsistency"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 426,
+            "column": 150
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 426,
+            "column": 155
+          },
+          "text": "retrieveConnection"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 426,
+            "column": 175
+          },
+          "text": " pattern shown above."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 428,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 428,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 428,
+                "column": 3
+              },
+              "text": "cannot start a transaction within a transaction"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 428,
+                "column": 52
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 428,
+            "column": 55
+          },
+          "text": " A "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 428,
+            "column": 58
+          },
+          "text": "run()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 428,
+            "column": 65
+          },
+          "text": " call was made without "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 428,
+            "column": 88
+          },
+          "text": "false"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 428,
+            "column": 95
+          },
+          "text": " as the third argument, so the plugin opened its own transaction inside Drizzle's."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 430,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 430,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 430,
+                "column": 3
+              },
+              "text": "Migrations run on every launch and fail with "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 430,
+                "column": 48
+              },
+              "text": "table already exists"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 430,
+                "column": 70
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 430,
+            "column": 73
+          },
+          "text": " The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 430,
+            "column": 78
+          },
+          "text": "__drizzle_migrations"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 430,
+            "column": 100
+          },
+          "text": " insert is missing or rolled back. Check that the journal "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 430,
+            "column": 158
+          },
+          "text": "when"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 430,
+            "column": 164
+          },
+          "text": " values in your bundle match the rows in the table."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 432,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 432,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 432,
+                "column": 3
+              },
+              "text": "Build error "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 432,
+                "column": 15
+              },
+              "text": "Failed to parse source for import analysis"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 432,
+                "column": 59
+              },
+              "text": " on "
+            },
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 432,
+                "column": 63
+              },
+              "text": ".sql"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 432,
+                "column": 69
+              },
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 432,
+            "column": 72
+          },
+          "text": " The Vite transform plugin is missing or runs after another plugin that tries to parse the file. Put it first in the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 432,
+            "column": 189
+          },
+          "text": "plugins"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 432,
+            "column": 198
+          },
+          "text": " array."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 434,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 434,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 434,
+                "column": 3
+              },
+              "text": ".returning()"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 434,
+                "column": 17
+              },
+              "text": " returns an empty array."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 434,
+            "column": 43
+          },
+          "text": " The write went through "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 434,
+            "column": 67
+          },
+          "text": "run"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 434,
+            "column": 72
+          },
+          "text": " with return mode "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 434,
+            "column": 90
+          },
+          "text": "no"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 434,
+            "column": 94
+          },
+          "text": ". Make sure the driver passes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 434,
+            "column": 124
+          },
+          "text": "'all'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 434,
+            "column": 131
+          },
+          "text": " when "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 434,
+            "column": 137
+          },
+          "text": "method"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 434,
+            "column": 145
+          },
+          "text": " is not "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 434,
+            "column": 153
+          },
+          "text": "run"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 434,
+            "column": 158
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 436,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 436,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 436,
+                "column": 3
+              },
+              "text": "Dates are off by a factor of 1000."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 436,
+            "column": 39
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 436,
+            "column": 40
+          },
+          "text": "mode: 'timestamp'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 436,
+            "column": 59
+          },
+          "text": " stores seconds, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 436,
+            "column": 76
+          },
+          "text": "mode: 'timestamp_ms'"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 436,
+            "column": 98
+          },
+          "text": " stores milliseconds. Pick one per column and do not mix it with raw "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 436,
+            "column": 167
+          },
+          "text": "Date.now()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 436,
+            "column": 179
+          },
+          "text": " inserts."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 438,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 438,
+            "column": 4
+          },
+          "text": "When to pick something else"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 440,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 440,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 440,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 440,
+                    "column": 3
+                  },
+                  "text": "You want the fastest data path with Fast SQL, or row objects keyed by name: "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 440,
+                    "column": 79
+                  },
+                  "url": "/blog/kysely-capacitor-sqlite/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 440,
+                        "column": 80
+                      },
+                      "text": "Kysely with Capacitor"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 440,
+                    "column": 134
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 441,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 441,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 441,
+                    "column": 3
+                  },
+                  "text": "You prefer decorators, entities and repositories, or you are porting a TypeORM backend model: "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 441,
+                    "column": 97
+                  },
+                  "url": "/blog/typeorm-capacitor-sqlite/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 441,
+                        "column": 98
+                      },
+                      "text": "TypeORM with Capacitor"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 441,
+                    "column": 154
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 442,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 442,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 442,
+                    "column": 3
+                  },
+                  "text": "You need encryption at rest: "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 442,
+                    "column": 32
+                  },
+                  "url": "/blog/encrypt-sqlite-database-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 442,
+                        "column": 33
+                      },
+                      "text": "Encrypting a SQLite database in Capacitor"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 442,
+                    "column": 117
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 444,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 444,
+            "column": 1
+          },
+          "text": "Adding a native plugin means rebuilding the iOS and Android apps. If you do not have a Mac at hand, "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 444,
+            "column": 101
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 444,
+                "column": 102
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 444,
+            "column": 130
+          },
+          "text": " builds and signs both in the cloud."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3545 @@
+{
+  "version": 1,
+  "route": "/blog/encrypt-sqlite-database-capacitor/",
+  "source": "corpus/source/apps/web/src/content/blog/en/encrypt-sqlite-database-capacitor.md",
+  "sourceSha256": "9dc047223d6630d06dd366c9d49979e3004e18f3aa9c9549514326df688fcc61",
+  "metadata": {
+    "slug": "encrypt-sqlite-database-capacitor",
+    "title": "How to Encrypt a SQLite Database in Capacitor",
+    "description": "Encrypt a SQLite database in Capacitor with SQLCipher: set it up on iOS and Android, store the key securely, migrate existing data and rotate keys.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_plugins.webp",
+    "head_image_alt": "Capgo logo for a guide on encrypting a SQLite database in Capacitor with SQLCipher",
+    "keywords": "encrypt sqlite capacitor, capacitor sqlcipher, encrypted sqlite ionic, capacitor database encryption, sqlcipher ios android, capacitor secure database",
+    "tag": "Security, Tutorial, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "How do I encrypt a SQLite database in a Capacitor app?",
+        "answer": "Use a SQLite plugin with SQLCipher support, such as @capgo/capacitor-fast-sql. Add SQLCipher to the Android and iOS builds, generate a random 256-bit key on first launch, store it in the Keychain or Android Keystore, and open the database with encrypted: true and that key."
+      },
+      {
+        "question": "Where should I store the SQLite encryption key?",
+        "answer": "In platform secure storage: the iOS Keychain or Android Keystore-backed storage. @capgo/capacitor-native-biometric provides setData and getData for this, with optional biometric protection. Never hardcode the key in JavaScript or in capacitor.config, because both ship inside the app and can be extracted."
+      },
+      {
+        "question": "Can I encrypt an existing unencrypted SQLite database?",
+        "answer": "Yes. Open the plaintext database and a new encrypted one, recreate the schema, copy every table inside a transaction, copy PRAGMA user_version, then delete the old file and its -wal and -shm files. This guide includes code that does it with Fast SQL."
+      },
+      {
+        "question": "Is SQLite encryption available on the web in Capacitor?",
+        "answer": "No. SQLCipher runs on iOS and Android only. On the web there is no secure place to keep the key anyway, so do not store sensitive data in the browser build, or require the user to sign in and fetch it from your backend."
+      },
+      {
+        "question": "What happens if the encryption key is lost?",
+        "answer": "The database cannot be opened and the data cannot be recovered. That is the point of encryption. Design for it: keep the server as the source of truth, catch the open error, delete the local file and resync."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To encrypt a SQLite database in Capacitor, use a plugin built with SQLCipher, open the database with an encryption key, and keep that key in the iOS Keychain or the Android Keystore instead of in your code. This guide does it with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 232
+          },
+          "text": "@capgo/capacitor-fast-sql"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 259
+          },
+          "text": " on Capacitor 8: build setup for both platforms, key generation and storage, encrypting a database that already has user data, key rotation, and the failure cases you have to handle."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "What SQLCipher protects, and what it does not"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "SQLCipher is an open source extension of SQLite that encrypts every page of the database file with AES-256. Without the key the file is random bytes. It also covers the WAL and journal files."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "It protects against:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 10,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "someone copying the app's files from a jailbroken or rooted device, an unencrypted backup, or a lost phone with a weak passcode,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 11,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "forensic tools that read app containers,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 12,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "other apps reading the file through a misconfigured shared directory."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 14,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "text": "It does not protect against:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 16,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "text": "code running inside your app (a malicious dependency, an XSS bug in the WebView) that can call your data layer,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 17,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 3
+                  },
+                  "text": "an attacker who can extract the key, which is why key storage matters more than the cipher,"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 18,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 18,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 3
+                  },
+                  "text": "data you also keep in plaintext elsewhere: logs, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 18,
+                    "column": 52
+                  },
+                  "text": "localStorage"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 18,
+                    "column": 66
+                  },
+                  "text": ", caches, analytics events."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "text": "iOS and Android already encrypt app storage when the device is locked. SQLCipher adds a layer that does not depend on the device passcode and that survives backups. It is worth it for health, finance, and anything regulated. For a broader view of storage threats, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 20,
+            "column": 269
+          },
+          "url": "/blog/secure-database-storage/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 20,
+                "column": 270
+              },
+              "text": "secure database storage"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 20,
+            "column": 326
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 22,
+            "column": 4
+          },
+          "text": "Prerequisites"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 24,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "text": "Fast SQL installed and configured as in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 24,
+            "column": 41
+          },
+          "url": "/blog/how-to-use-sqlite-in-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 24,
+                "column": 42
+              },
+              "text": "How to use SQLite in a Capacitor app"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 24,
+            "column": 123
+          },
+          "text": ", including the iOS local networking and Android localhost cleartext settings. Encryption is opt-in, so the base install does not include SQLCipher."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 26,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 26,
+            "column": 4
+          },
+          "text": "Step 1: add SQLCipher to the native builds"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 5
+          },
+          "text": "Android"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 1
+          },
+          "text": "Add the dependency to the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 30,
+            "column": 27
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 30,
+                "column": 29
+              },
+              "text": "app-level"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 40
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 30,
+            "column": 41
+          },
+          "text": "android/app/build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 67
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "lang": "groovy",
+      "meta": null,
+      "text": "dependencies {\n    implementation 'net.zetetic:sqlcipher-android:4.13.0'\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "text": "The plugin README pins 4.13.0. Newer 4.x releases work as long as the major version stays 4. Without this dependency, "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 38,
+            "column": 119
+          },
+          "text": "encrypted: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 136
+          },
+          "text": " fails with a clear error (\"SQLCipher native library not found\") instead of crashing."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 1
+          },
+          "text": "SQLCipher ships native "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 40,
+            "column": 24
+          },
+          "text": ".so"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 29
+          },
+          "text": " files for each ABI. Expect the APK to grow by a few megabytes. App Bundles only deliver the ABI each device needs."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 42,
+            "column": 5
+          },
+          "text": "iOS"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 44,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "text": "Switch the plugin to its SQLCipher subspec in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 44,
+            "column": 47
+          },
+          "text": "ios/App/Podfile"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 44,
+            "column": 64
+          },
+          "text": ", after "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 44,
+            "column": 72
+          },
+          "text": "bunx cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 44,
+            "column": 87
+          },
+          "text": " has written the default entry:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 46,
+        "column": 1
+      },
+      "lang": "ruby",
+      "meta": null,
+      "text": "pod 'CapgoCapacitorFastSql/SQLCipher', :path => '../../node_modules/@capgo/capacitor-fast-sql'"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 50,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 50,
+            "column": 1
+          },
+          "text": "Then:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 52,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "cd ios/App && pod install"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 56,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 56,
+            "column": 1
+          },
+          "text": "bunx cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 16
+          },
+          "text": " regenerates the Capacitor section of the Podfile, so check this line after every sync. Without the subspec the plugin builds against the system SQLite, and opening with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 56,
+            "column": 186
+          },
+          "text": "encrypted: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 203
+          },
+          "text": " returns "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 56,
+            "column": 212
+          },
+          "text": "Encryption is not available in this build"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 56,
+            "column": 255
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 58,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 58,
+            "column": 5
+          },
+          "text": "Web"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 60,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 1
+          },
+          "text": "There is no SQLCipher on the web. Fast SQL's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 46
+          },
+          "text": "encrypted"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 57
+          },
+          "text": " option is iOS and Android only. If your app also ships as a PWA, branch on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 60,
+            "column": 133
+          },
+          "text": "Capacitor.isNativePlatform()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 60,
+            "column": 163
+          },
+          "text": " and do not persist sensitive tables in the browser build."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 4
+          },
+          "text": "Step 2: generate a key"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 1
+          },
+          "text": "Use the Web Crypto API, which is available in the iOS and Android WebViews:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "export function generateKey(): string {\n  const bytes = new Uint8Array(32); // 256 bits\n  crypto.getRandomValues(bytes);\n  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 74,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 74,
+            "column": 1
+          },
+          "text": "This gives a 64-character hex string. SQLCipher treats the string as a passphrase and derives the actual key with PBKDF2-HMAC-SHA512 (256,000 iterations by default in SQLCipher 4). That derivation runs once per open and costs a noticeable fraction of a second on older phones, which is normal."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 76,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 76,
+            "column": 1
+          },
+          "text": "Do not use a user password directly as the key unless you want the database locked to that password. Users forget passwords, change them on another device, and pick weak ones. A random device key plus secure storage is the usual design. If you need user-gated access, gate access to the key (with biometrics) instead."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 78,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 4
+          },
+          "text": "Step 3: store the key in the Keychain or Keystore"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 80,
+            "column": 1
+          },
+          "text": "@capgo/capacitor-native-biometric"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 36
+          },
+          "text": " stores arbitrary strings encrypted at rest with the iOS Keychain and Android Keystore. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 80,
+            "column": 124
+          },
+          "text": "setData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 133
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 80,
+            "column": 138
+          },
+          "text": "getData"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 147
+          },
+          "text": " (plugin 8.6.0 and later) do not prompt the user. Add "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 80,
+            "column": 201
+          },
+          "text": "accessControl"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 216
+          },
+          "text": " to require Face ID, Touch ID or fingerprint before the key can be read."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-native-biometric\nbunx cap sync"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 87,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/key.ts\nimport { NativeBiometric } from '@capgo/capacitor-native-biometric';\nimport { generateKey } from './generate-key';\n\nconst KEY_NAME = 'app.db.key';\n\nexport async function getOrCreateDbKey(): Promise<{ key: string; created: boolean }> {\n  const { isSaved } = await NativeBiometric.isDataSaved({ key: KEY_NAME });\n  if (isSaved) {\n    const { value } = await NativeBiometric.getData({ key: KEY_NAME });\n    return { key: value, created: false };\n  }\n  const key = generateKey();\n  await NativeBiometric.setData({ key: KEY_NAME, value: key });\n  return { key, created: true };\n}\n\nexport async function deleteDbKey(): Promise<void> {\n  await NativeBiometric.deleteData({ key: KEY_NAME });\n}"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 110,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 5
+          },
+          "text": "Optional: require biometrics to unlock the database"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 112,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { AccessControl, NativeBiometric } from '@capgo/capacitor-native-biometric';\n\n// When creating the key\nawait NativeBiometric.setData({\n  key: 'app.db.key',\n  value: generateKey(),\n  accessControl: AccessControl.BIOMETRY_ANY,\n});\n\n// When opening the database\nconst { value: key } = await NativeBiometric.getSecureData({\n  key: 'app.db.key',\n  reason: 'Unlock your records',\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 129,
+            "column": 1
+          },
+          "text": "BIOMETRY_ANY"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 15
+          },
+          "text": " survives a new fingerprint or face being enrolled. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 129,
+            "column": 67
+          },
+          "text": "BIOMETRY_CURRENT_SET"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 89
+          },
+          "text": " invalidates the key when enrollment changes, which is stricter but means the local database becomes unreadable when the user adds a fingerprint. Only choose it if the data can be resynced from your server. More on prompts and fallbacks in "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 129,
+            "column": 329
+          },
+          "url": "/blog/biometric-authentication-in-capacitor-apps/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 129,
+                "column": 330
+              },
+              "text": "biometric authentication in Capacitor apps"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 424
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 131,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 5
+          },
+          "text": "Where not to put the key"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 133,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 133,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 133,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 133,
+                    "column": 3
+                  },
+                  "text": "In your JavaScript, "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 133,
+                    "column": 23
+                  },
+                  "text": ".env"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 133,
+                    "column": 29
+                  },
+                  "text": " files, or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 133,
+                    "column": 40
+                  },
+                  "text": "capacitor.config.ts"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 133,
+                    "column": 61
+                  },
+                  "text": ". All of them ship inside the app bundle and anyone can unzip an IPA or APK."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 134,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 134,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 134,
+                    "column": 3
+                  },
+                  "text": "In "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 134,
+                    "column": 6
+                  },
+                  "text": "@capacitor/preferences"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 134,
+                    "column": 30
+                  },
+                  "text": " or "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 134,
+                    "column": 34
+                  },
+                  "text": "localStorage"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 134,
+                    "column": 48
+                  },
+                  "text": ". Those are plaintext."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 135,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 135,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 135,
+                    "column": 3
+                  },
+                  "text": "Fetched from your API on every launch without any local copy. The app would not open offline, which defeats the purpose of a local database. Fetching it once after login and storing it in the Keychain or Keystore is fine."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 137,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 137,
+            "column": 4
+          },
+          "text": "Step 4: open the encrypted database"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/index.ts\nimport { FastSQL, type SQLConnection } from '@capgo/capacitor-fast-sql';\nimport { getOrCreateDbKey } from './key';\nimport { migrate } from './migrate';\n\nlet dbPromise: Promise<SQLConnection> | null = null;\n\nexport function getDb(): Promise<SQLConnection> {\n  if (!dbPromise) {\n    dbPromise = (async () => {\n      const { key } = await getOrCreateDbKey();\n      const db = await FastSQL.connect({\n        database: 'vault',\n        encrypted: true,\n        encryptionKey: key,\n        walMode: true,\n      });\n      await verifyKey(db);\n      await migrate(db);\n      return db;\n    })();\n  }\n  return dbPromise;\n}\n\n// SQLCipher only notices a wrong key when it reads the first page\nasync function verifyKey(db: SQLConnection): Promise<void> {\n  await db.query('SELECT count(*) AS n FROM sqlite_master');\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 171,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 171,
+            "column": 1
+          },
+          "text": "verifyKey"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 12
+          },
+          "text": " matters. SQLCipher does not validate the key at open time. The first real read fails with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 171,
+            "column": 103
+          },
+          "text": "file is not a database"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 171,
+            "column": 127
+          },
+          "text": " if the key is wrong, so do a cheap read immediately and handle the error in one place instead of in the middle of a screen."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 173,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 1
+          },
+          "text": "To check that encryption is active, run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 173,
+            "column": 41
+          },
+          "text": "PRAGMA cipher_version"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 173,
+            "column": 64
+          },
+          "text": " on the connection. It returns the SQLCipher version, and an empty result on plain SQLite."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 175,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 175,
+            "column": 4
+          },
+          "text": "Step 5: handle a lost or wrong key"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 177,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 177,
+            "column": 1
+          },
+          "text": "A key can go missing in normal use:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 179,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 179,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 179,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 179,
+                    "column": 3
+                  },
+                  "text": "The user restores a backup on a new phone. The database file comes back, but Keychain items created as device-only and Android Keystore keys do not move to new hardware."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 180,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 180,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 180,
+                    "column": 3
+                  },
+                  "text": "Android Auto Backup restores the app's files but the Keystore key used to encrypt the stored secret was not restored."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 181,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 181,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 3
+                  },
+                  "text": "The user changes biometric enrollment and you used "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 181,
+                    "column": 54
+                  },
+                  "text": "BIOMETRY_CURRENT_SET"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 181,
+                    "column": 76
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 183,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 183,
+            "column": 1
+          },
+          "text": "The recovery is always the same: the data is gone locally, so delete the file and start over, then resync from your backend."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 185,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Directory, Filesystem } from '@capacitor/filesystem';\nimport { FastSQL } from '@capgo/capacitor-fast-sql';\nimport { deleteDbKey } from './key';\n\nexport async function resetEncryptedDatabase(name = 'vault'): Promise<void> {\n  try {\n    await FastSQL.disconnect(name);\n  } catch {\n    // not connected\n  }\n  // Fast SQL stores <name>.db in Documents on iOS and in files/ on Android.\n  // Directory.Data maps to those two locations.\n  for (const suffix of ['', '-wal', '-shm']) {\n    await Filesystem.deleteFile({ path: `${name}.db${suffix}`, directory: Directory.Data }).catch(\n      () => undefined,\n    );\n  }\n  await deleteDbKey();\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 207,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 1
+          },
+          "text": "Call it when "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 207,
+            "column": 14
+          },
+          "text": "verifyKey"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 25
+          },
+          "text": " fails with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 207,
+            "column": 37
+          },
+          "text": "file is not a database"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 61
+          },
+          "text": ", reset the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 207,
+            "column": 73
+          },
+          "text": "dbPromise"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 207,
+            "column": 84
+          },
+          "text": ", then open again. A new key is generated and an empty database is created."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 209,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 209,
+            "column": 1
+          },
+          "text": "Two related settings to review:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 211,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 211,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 211,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 211,
+                    "column": 3
+                  },
+                  "text": "On Android, consider excluding the database from Auto Backup in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 211,
+                    "column": 67
+                  },
+                  "text": "data_extraction_rules.xml"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 211,
+                    "column": 94
+                  },
+                  "text": " if it cannot be decrypted after restore anyway. It saves your users a confusing reset."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 212,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 212,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 212,
+                    "column": 3
+                  },
+                  "text": "On iOS, files in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 212,
+                    "column": 20
+                  },
+                  "text": "Documents"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 212,
+                    "column": 31
+                  },
+                  "text": " go to iCloud backups. Encrypted, so readable only with the key, but excluding them keeps backups small if the data can be resynced."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 214,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 214,
+            "column": 4
+          },
+          "text": "Encrypting an existing plaintext database"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 216,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 216,
+            "column": 1
+          },
+          "text": "If your app already shipped with an unencrypted database, you cannot flip "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 216,
+            "column": 75
+          },
+          "text": "encrypted: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 216,
+            "column": 92
+          },
+          "text": " on the same file. SQLCipher would try to decrypt plaintext pages and fail. Copy the data into a new encrypted database once:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 218,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "// src/db/encrypt-existing.ts\nimport { Directory, Filesystem } from '@capacitor/filesystem';\nimport { FastSQL, type SQLConnection } from '@capgo/capacitor-fast-sql';\n\nexport async function encryptExistingDatabase(\n  plainName: string,\n  encryptedName: string,\n  key: string,\n): Promise<SQLConnection> {\n  const plain = await FastSQL.connect({ database: plainName });\n  const enc = await FastSQL.connect({ database: encryptedName, encrypted: true, encryptionKey: key });\n\n  const objects = (await plain.query(\n    `SELECT type, name, sql FROM sqlite_master\n     WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%'\n     ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'index' THEN 1 WHEN 'view' THEN 2 ELSE 3 END`,\n  )) as { type: string; name: string; sql: string }[];\n\n  const [{ user_version }] = await plain.query('PRAGMA user_version');\n\n  const tables = objects.filter((o) => o.type === 'table');\n  const others = objects.filter((o) => o.type !== 'table'); // indexes, triggers, views\n\n  await enc.transaction(async (tx) => {\n    for (const t of tables) {\n      await tx.execute(t.sql);\n    }\n    for (const t of tables) {\n      const rows = await plain.query(`SELECT * FROM \"${t.name}\"`);\n      if (rows.length === 0) continue;\n      const columns = Object.keys(rows[0]);\n      const statement = `INSERT INTO \"${t.name}\" (${columns.map((c) => `\"${c}\"`).join(', ')})\n                         VALUES (${columns.map(() => '?').join(', ')})`;\n      await tx.executeBatch(rows.map((r) => ({ statement, params: columns.map((c) => r[c]) })));\n    }\n    // Indexes and triggers after the data: faster, and triggers do not fire during the copy\n    for (const o of others) {\n      await tx.execute(o.sql);\n    }\n    await tx.execute(`PRAGMA user_version = ${Number(user_version)}`);\n  });\n\n  await FastSQL.disconnect(plainName);\n  for (const suffix of ['', '-wal', '-shm']) {\n    await Filesystem.deleteFile({ path: `${plainName}.db${suffix}`, directory: Directory.Data }).catch(\n      () => undefined,\n    );\n  }\n  return enc;\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 271,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 271,
+            "column": 1
+          },
+          "text": "Run it once, guarded by a flag stored after success, and show a progress state because it reads every row. Notes:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 273,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 273,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 273,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 273,
+                    "column": 3
+                  },
+                  "text": "Tables are created and filled first, indexes, triggers and views afterwards. Building indexes once at the end is faster, and triggers do not fire while existing rows are copied."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 274,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 274,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 274,
+                    "column": 3
+                  },
+                  "text": "sqlite_sequence"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 274,
+                    "column": 20
+                  },
+                  "text": " is skipped. SQLite updates it automatically when rows with explicit ids are inserted, so "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 274,
+                    "column": 110
+                  },
+                  "text": "AUTOINCREMENT"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 274,
+                    "column": 125
+                  },
+                  "text": " continues from the highest id."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 275,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 275,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 275,
+                    "column": 3
+                  },
+                  "text": "Virtual tables (FTS) create internal shadow tables. Recreate FTS tables from their "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 275,
+                    "column": 86
+                  },
+                  "text": "CREATE VIRTUAL TABLE"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 275,
+                    "column": 108
+                  },
+                  "text": " statement and rebuild the index instead of copying the shadow tables."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 276,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 276,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 276,
+                    "column": 3
+                  },
+                  "text": "For very large tables, page through with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 276,
+                    "column": 44
+                  },
+                  "text": "WHERE rowid > ? ORDER BY rowid LIMIT 5000"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 276,
+                    "column": 87
+                  },
+                  "text": " instead of a single "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 276,
+                    "column": 108
+                  },
+                  "text": "SELECT *"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 276,
+                    "column": 118
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 277,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 277,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 277,
+                    "column": 3
+                  },
+                  "text": "Deleting the plaintext file is the point of the exercise. Deleted flash storage can still hold old blocks, but the file is no longer reachable through the file system."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 279,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 279,
+            "column": 4
+          },
+          "text": "Rotating the key"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 281,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 281,
+            "column": 1
+          },
+          "text": "SQLCipher re-encrypts the whole database with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 281,
+            "column": 47
+          },
+          "text": "PRAGMA rekey"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 281,
+            "column": 61
+          },
+          "text": ". With Fast SQL you run it as a statement on an open encrypted connection:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 283,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { NativeBiometric } from '@capgo/capacitor-native-biometric';\nimport { getDb } from './index';\nimport { generateKey } from './generate-key';\n\nexport async function rotateKey(): Promise<void> {\n  const db = await getDb();\n  const newKey = generateKey(); // hex only, safe to inline\n  await db.execute(`PRAGMA rekey = '${newKey}'`);\n  await NativeBiometric.setData({ key: 'app.db.key', value: newKey });\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 296,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 296,
+            "column": 1
+          },
+          "text": "Order matters. If the app is killed between the two lines, the database uses the new key while the Keychain still has the old one. To avoid that, write the new key under a second name first, rekey, then promote it and delete the old entry, and on startup try the pending key if the main one fails. "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 296,
+            "column": 299
+          },
+          "text": "PRAGMA"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 296,
+            "column": 307
+          },
+          "text": " does not accept bound parameters, which is why the key is inlined. Only inline values you generated, never user input. Test rotation on both platforms with a copy of production-sized data, since "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 296,
+            "column": 503
+          },
+          "text": "rekey"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 296,
+            "column": 510
+          },
+          "text": " rewrites every page."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 298,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 298,
+            "column": 4
+          },
+          "text": "Encryption with other plugins"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 300,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 300,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 300,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 3
+                  },
+                  "text": "Plugin"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 300,
+                "column": 10
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 12
+                  },
+                  "text": "How encryption works"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 300,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 300,
+                    "column": 35
+                  },
+                  "text": "Key handling"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 302,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 302,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 302,
+                    "column": 3
+                  },
+                  "text": "@capgo/capacitor-fast-sql"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 302,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 302,
+                    "column": 33
+                  },
+                  "text": "Opt-in SQLCipher on iOS and Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 302,
+                "column": 69
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 302,
+                    "column": 71
+                  },
+                  "text": "You pass the key on "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 302,
+                    "column": 91
+                  },
+                  "text": "connect()"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 303,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 303,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 303,
+                    "column": 3
+                  },
+                  "text": "@capacitor-community/sqlite"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 303,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 303,
+                    "column": 35
+                  },
+                  "text": "SQLCipher always bundled, enabled in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 303,
+                    "column": 72
+                  },
+                  "text": "capacitor.config"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 303,
+                "column": 91
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 303,
+                    "column": 93
+                  },
+                  "text": "The plugin stores one passphrase per app with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 303,
+                    "column": 139
+                  },
+                  "text": "setEncryptionSecret()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 303,
+                    "column": 162
+                  },
+                  "text": ", modes "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 303,
+                    "column": 170
+                  },
+                  "text": "secret"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 303,
+                    "column": 178
+                  },
+                  "text": ", "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 303,
+                    "column": 180
+                  },
+                  "text": "encryption"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 303,
+                    "column": 192
+                  },
+                  "text": " (encrypt an existing file), "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 303,
+                    "column": 221
+                  },
+                  "text": "newsecret"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 304,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 304,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 304,
+                    "column": 3
+                  },
+                  "text": "@capgo/capacitor-data-storage-sqlite"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 304,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 304,
+                    "column": 44
+                  },
+                  "text": "SQLCipher for its key-value store"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 304,
+                "column": 78
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 304,
+                    "column": 80
+                  },
+                  "text": "Passphrase set in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 304,
+                    "column": 98
+                  },
+                  "text": "capacitor.config"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 304,
+                    "column": 116
+                  },
+                  "text": ", so it ships in the app"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 306,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 306,
+            "column": 1
+          },
+          "text": "The community plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 306,
+            "column": 24
+          },
+          "text": "encryption"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 306,
+            "column": 36
+          },
+          "text": " mode can encrypt an existing database in place, which is convenient if you are already on it. With a passphrase in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 306,
+            "column": 152
+          },
+          "text": "capacitor.config"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 306,
+            "column": 170
+          },
+          "text": " (data-storage-sqlite), treat encryption as obfuscation: the secret is in the bundle. For truly sensitive values, prefer Fast SQL with a key from secure storage. See "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 306,
+            "column": 336
+          },
+          "url": "/blog/capacitor-key-value-storage/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 306,
+                "column": 337
+              },
+              "text": "key-value storage options in Capacitor"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 306,
+            "column": 412
+          },
+          "text": " for that trade-off."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 308,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 308,
+            "column": 4
+          },
+          "text": "Compliance notes"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 310,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 310,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 310,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 310,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 310,
+                        "column": 5
+                      },
+                      "text": "App Store export compliance."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 310,
+                    "column": 35
+                  },
+                  "text": " Shipping SQLCipher means your app contains encryption. App Store Connect asks about it for each build (or you set "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 310,
+                    "column": 150
+                  },
+                  "text": "ITSAppUsesNonExemptEncryption"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 310,
+                    "column": 181
+                  },
+                  "text": " in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 310,
+                    "column": 185
+                  },
+                  "text": "Info.plist"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 310,
+                    "column": 197
+                  },
+                  "text": "). Encryption of the user's own data on the device commonly falls under exemptions, but the answer depends on your app and the countries you distribute to. Check Apple's guidance and get advice if you are unsure. Our "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 310,
+                    "column": 414
+                  },
+                  "url": "/blog/app-encryption/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 310,
+                        "column": 415
+                      },
+                      "text": "app encryption overview"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 310,
+                    "column": 462
+                  },
+                  "text": " covers the broader picture."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 311,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 311,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 311,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 311,
+                        "column": 5
+                      },
+                      "text": "SQLCipher license."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 311,
+                    "column": 25
+                  },
+                  "text": " The community edition uses a BSD-style license that requires its copyright notice in your app. Add it to your open source licenses screen."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 312,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 312,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 312,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 312,
+                        "column": 5
+                      },
+                      "text": "Google Play Data safety."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 312,
+                    "column": 31
+                  },
+                  "text": " You can declare data as encrypted at rest. Make sure that is true for every copy, including caches and logs."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 314,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 314,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 316,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 316,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 316,
+                "column": 3
+              },
+              "text": "file is not a database"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 316,
+                "column": 27
+              },
+              "text": " on the first query."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 316,
+            "column": 49
+          },
+          "text": " Wrong key, or the file is plaintext and you opened it with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 316,
+            "column": 109
+          },
+          "text": "encrypted: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 316,
+            "column": 126
+          },
+          "text": ". Check that the key in secure storage is the one used at creation, then use the migration above for plaintext files."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 318,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 318,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 318,
+                "column": 3
+              },
+              "text": "Encryption is not available in this build"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 318,
+                "column": 46
+              },
+              "text": " on iOS."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 318,
+            "column": 56
+          },
+          "text": " The Podfile still uses the default subspec. Re-add the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 318,
+            "column": 112
+          },
+          "text": "CapgoCapacitorFastSql/SQLCipher"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 318,
+            "column": 145
+          },
+          "text": " line after "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 318,
+            "column": 157
+          },
+          "text": "cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 318,
+            "column": 167
+          },
+          "text": " and run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 318,
+            "column": 176
+          },
+          "text": "pod install"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 318,
+            "column": 189
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 320,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 320,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 320,
+                "column": 3
+              },
+              "text": "SQLCipher native library not found"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 320,
+                "column": 39
+              },
+              "text": " on Android."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 320,
+            "column": 53
+          },
+          "text": " The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 320,
+            "column": 58
+          },
+          "text": "sqlcipher-android"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 320,
+            "column": 77
+          },
+          "text": " dependency is missing from the app module, or you added it to the plugin's or the root "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 320,
+            "column": 165
+          },
+          "text": "build.gradle"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 320,
+            "column": 179
+          },
+          "text": " instead."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 322,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 322,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 322,
+                "column": 3
+              },
+              "text": "Opening the database is slow."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 322,
+            "column": 34
+          },
+          "text": " Key derivation runs on every open. Open once at startup and reuse the connection instead of connecting per query."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 324,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 324,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 324,
+                "column": 3
+              },
+              "text": "The database opens on one device but not after restore."
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 324,
+            "column": 60
+          },
+          "text": " The key did not travel with the backup. Handle it with the reset flow, and resync from the server."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 326,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 326,
+            "column": 4
+          },
+          "text": "Summary"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 328,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 328,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 328,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 328,
+                    "column": 4
+                  },
+                  "text": "Add SQLCipher: "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 328,
+                    "column": 19
+                  },
+                  "text": "sqlcipher-android"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 328,
+                    "column": 38
+                  },
+                  "text": " in the Android app module, the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 328,
+                    "column": 70
+                  },
+                  "text": "SQLCipher"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 328,
+                    "column": 81
+                  },
+                  "text": " subspec on iOS."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 329,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 329,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 329,
+                    "column": 4
+                  },
+                  "text": "Generate a random 256-bit key on first launch."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 330,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 330,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 330,
+                    "column": 4
+                  },
+                  "text": "Store it with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 330,
+                    "column": 18
+                  },
+                  "text": "@capgo/capacitor-native-biometric"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 330,
+                    "column": 53
+                  },
+                  "text": " ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 330,
+                    "column": 55
+                  },
+                  "text": "setData"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 330,
+                    "column": 64
+                  },
+                  "text": ", optionally with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 330,
+                    "column": 82
+                  },
+                  "text": "accessControl"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 330,
+                    "column": 97
+                  },
+                  "text": ")."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 331,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 331,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 331,
+                    "column": 4
+                  },
+                  "text": "Open with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 331,
+                    "column": 14
+                  },
+                  "text": "encrypted: true"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 331,
+                    "column": 31
+                  },
+                  "text": ", then read once to verify the key."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 332,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 332,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 332,
+                    "column": 4
+                  },
+                  "text": "Plan for key loss: reset and resync."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 333,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 333,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 333,
+                    "column": 4
+                  },
+                  "text": "Migrate existing plaintext databases once, and rotate keys with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 333,
+                    "column": 68
+                  },
+                  "text": "PRAGMA rekey"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 333,
+                    "column": 82
+                  },
+                  "text": " if your policy requires it."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 335,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 335,
+            "column": 1
+          },
+          "text": "Native changes like adding SQLCipher need a new store build. "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 335,
+            "column": 62
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 335,
+                "column": 63
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 335,
+            "column": 91
+          },
+          "text": " can produce signed iOS and Android binaries without a local Mac, and the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 335,
+            "column": 165
+          },
+          "url": "/docs/plugins/fast-sql/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 335,
+                "column": 166
+              },
+              "text": "Fast SQL docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 335,
+            "column": 205
+          },
+          "text": " list every connection option."
+        }
+      ]
+    }
+  ]
+}

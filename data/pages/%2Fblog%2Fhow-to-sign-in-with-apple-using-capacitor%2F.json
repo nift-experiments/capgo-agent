@@ -1,0 +1,4924 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-sign-in-with-apple-using-capacitor/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-sign-in-with-apple-using-capacitor.md",
+  "sourceSha256": "e52ab2a3ae2a20843346388983414daa0232f14a68d8075973383211bfbed8ef",
+  "metadata": {
+    "slug": "how-to-sign-in-with-apple-using-capacitor",
+    "title": "How to Sign In with Apple Using Capacitor (2026)",
+    "description": "Add Sign in with Apple to a Capacitor 8 app on iOS, Android, and web: Apple Developer setup, plugin code, backend token checks, and common errors.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/social_login_plugin_blog.webp",
+    "head_image_alt": "Sign in with Apple button running in a Capacitor app with the Capgo Social Login plugin",
+    "keywords": "sign in with apple capacitor, capacitor apple login, apple sign in ionic, capacitor social login, apple identity token, sign in with apple android, capacitor 8 authentication",
+    "tag": "Tutorial, iOS, Capacitor",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Do I need a backend to use Sign in with Apple in a Capacitor app?",
+        "answer": "Not on iOS. The native AuthenticationServices sheet returns an identity token directly to your app. On Android you need a small HTTPS endpoint, because Apple only supports a web OAuth flow there and posts the result to a server URL. In every case you should verify the identity token on a server before you trust it."
+      },
+      {
+        "question": "Why does Apple only return the user's name and email once?",
+        "answer": "Apple sends the name and email only on the first authorization between a given Apple ID and your app. Later sign-ins return just the stable user identifier (the sub claim). Save the name and email on your backend the first time you receive them. To test the first-login path again, remove the app under Settings > [your name] > Sign-In & Security > Sign in with Apple on the test device."
+      },
+      {
+        "question": "Is Sign in with Apple mandatory for my iOS app?",
+        "answer": "Under App Store Review Guideline 4.8, if your app uses a third-party or social login such as Google or Facebook for the primary account, you must also offer an equivalent login service that limits data collection to name and email, lets users hide their email, and does not track them. Sign in with Apple meets those rules, so most teams simply add it. Apps that only use their own email and password, or an enterprise SSO, are exempt."
+      },
+      {
+        "question": "Which Capacitor version does @capgo/capacitor-social-login support?",
+        "answer": "The plugin major version follows Capacitor. Version 8.x targets Capacitor 8, which is the current release in October 2026. Older majors exist for Capacitor 7 and earlier, but only the latest major is actively maintained."
+      },
+      {
+        "question": "Can I test Sign in with Apple on the iOS Simulator?",
+        "answer": "Yes, if the simulator is signed in to an Apple Account, but a physical device is more reliable and is what Apple reviewers use. Make sure the Sign in with Apple capability is present in the target you build, otherwise the request fails immediately with error 1000."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To add Sign in with Apple to a Capacitor app, install "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 55
+          },
+          "text": "@capgo/capacitor-social-login"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 86
+          },
+          "text": ", enable the Sign in with Apple capability on your App ID and in Xcode, call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 163
+          },
+          "text": "SocialLogin.initialize({ apple: {} })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 202
+          },
+          "text": ", then call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 214
+          },
+          "text": "SocialLogin.login({ provider: 'apple' })"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 256
+          },
+          "text": ". On iOS this opens the native Apple sheet and returns an identity token. Android and web use Apple's web OAuth flow, which needs a Services ID and an HTTPS redirect URL."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 1
+          },
+          "text": "This guide covers Apple Developer setup, the client code for iOS, Android and web, verifying the token on your backend, and the errors you are most likely to hit. It targets Capacitor 8 and Xcode 26, which App Store Connect has required for uploads since April 2026."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 4
+          },
+          "text": "What you need before you start"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 3
+                  },
+                  "text": "Requirement"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 8,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 8,
+                    "column": 17
+                  },
+                  "text": "Why"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "Paid Apple Developer Program membership"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 45
+                  },
+                  "text": "App IDs, Services IDs and Sign in with Apple keys are only available to members"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 11,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 3
+                  },
+                  "text": "A Mac with Xcode 26"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 11,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 11,
+                    "column": 25
+                  },
+                  "text": "Needed to build and upload iOS apps in 2026"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "Capacitor 8 project"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 23
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 25
+                  },
+                  "text": "Plugin v8 targets Capacitor 8"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "An HTTPS domain you control"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 31
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 33
+                  },
+                  "text": "Only for Android and web. Apple refuses "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 73
+                  },
+                  "text": "localhost"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 84
+                  },
+                  "text": " and plain HTTP return URLs"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "A backend endpoint"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 22
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 24
+                  },
+                  "text": "Always to verify tokens. On Android it also receives Apple's callback"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 16,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "text": "If you do not have signing certificates yet, the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 16,
+            "column": 50
+          },
+          "url": "/tools/ios-certificate-generator/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 16,
+                "column": 51
+              },
+              "text": "iOS certificate generator"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 16,
+            "column": 112
+          },
+          "text": " creates them without a Mac keychain dance."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 18,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 18,
+            "column": 4
+          },
+          "text": "How Sign in with Apple works on each platform"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 20,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 20,
+            "column": 1
+          },
+          "text": "Apple only ships a native SDK for its own platforms, so the flow differs:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 22,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 22,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 3
+                  },
+                  "text": "Platform"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 14
+                  },
+                  "text": "Mechanism"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 26
+                  },
+                  "text": "Client ID used"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 22,
+                "column": 41
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 22,
+                    "column": 43
+                  },
+                  "text": "Backend required for login"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "text": "iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 9
+                  },
+                  "text": "Native "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 24,
+                    "column": 16
+                  },
+                  "text": "ASAuthorizationAppleIDProvider"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 48
+                  },
+                  "text": " sheet"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 55
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 57
+                  },
+                  "text": "Your app's bundle ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 24,
+                "column": 78
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 80
+                  },
+                  "text": "No"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "text": "Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 13
+                  },
+                  "text": "Apple web OAuth in a Chrome Custom Tab, Apple posts to your server, server redirects back into the app"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 116
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 118
+                  },
+                  "text": "Services ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 25,
+                "column": 130
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 132
+                  },
+                  "text": "Yes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 26,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 3
+                  },
+                  "text": "Web"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 7
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 9
+                  },
+                  "text": "Apple JS popup"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 26
+                  },
+                  "text": "Services ID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 26,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 26,
+                    "column": 40
+                  },
+                  "text": "No (but verify the token)"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 28,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 1
+          },
+          "text": "The audience ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 28,
+            "column": 15
+          },
+          "text": "aud"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 28,
+            "column": 20
+          },
+          "text": ") of the identity token follows the client ID. Tokens from iOS carry your bundle ID, tokens from Android and web carry the Services ID. Your backend has to accept both."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 30,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 30,
+            "column": 4
+          },
+          "text": "Step 1: Configure the Apple Developer account"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 32,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 32,
+            "column": 5
+          },
+          "text": "Enable the capability on your App ID"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 34,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 34,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 34,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 4
+                  },
+                  "text": "Open "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 34,
+                    "column": 9
+                  },
+                  "url": "https://developer.apple.com/account/resources/identifiers/list",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 34,
+                        "column": 10
+                      },
+                      "text": "Certificates, Identifiers & Profiles"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 111
+                  },
+                  "text": " and select "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 34,
+                    "column": 123
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 34,
+                        "column": 125
+                      },
+                      "text": "Identifiers"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 34,
+                    "column": 138
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 35,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 35,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 4
+                  },
+                  "text": "Open the App ID that matches your Capacitor "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 48
+                  },
+                  "text": "appId"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 55
+                  },
+                  "text": " (for example "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 35,
+                    "column": 69
+                  },
+                  "text": "com.example.app"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 35,
+                    "column": 86
+                  },
+                  "text": "). Create it if it does not exist."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 36,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 36,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 4
+                  },
+                  "text": "Under "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 36,
+                    "column": 10
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 36,
+                        "column": 12
+                      },
+                      "text": "Capabilities"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 26
+                  },
+                  "text": ", tick "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 36,
+                    "column": 33
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 36,
+                        "column": 35
+                      },
+                      "text": "Sign in with Apple"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 36,
+                    "column": 55
+                  },
+                  "text": " and save. Leave it as a primary App ID unless you group several apps."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 38,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 38,
+            "column": 1
+          },
+          "text": "If you change capabilities on an existing App ID, regenerate the provisioning profiles that use it. Old profiles do not include the new entitlement."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 5
+          },
+          "text": "Create a Services ID (Android and web only)"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 42,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 42,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 4
+                  },
+                  "text": "In "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 42,
+                    "column": 7
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 42,
+                        "column": 9
+                      },
+                      "text": "Identifiers"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 22
+                  },
+                  "text": ", click "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 42,
+                    "column": 30
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 42,
+                        "column": 32
+                      },
+                      "text": "+"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 35
+                  },
+                  "text": " and choose "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 42,
+                    "column": 47
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 42,
+                        "column": 49
+                      },
+                      "text": "Services IDs"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 42,
+                    "column": 63
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 43,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 43,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 4
+                  },
+                  "text": "Use a description like \"Example Web Login\" and an identifier like "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 43,
+                    "column": 70
+                  },
+                  "text": "com.example.app.signin"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 94
+                  },
+                  "text": ". This value becomes the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 43,
+                    "column": 119
+                  },
+                  "text": "clientId"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 43,
+                    "column": 129
+                  },
+                  "text": " on Android and web."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 44,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 44,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 4
+                  },
+                  "text": "Open the new Services ID, tick "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 44,
+                    "column": 35
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 44,
+                        "column": 37
+                      },
+                      "text": "Sign in with Apple"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 57
+                  },
+                  "text": ", and click "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 44,
+                    "column": 69
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 44,
+                        "column": 71
+                      },
+                      "text": "Configure"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 44,
+                    "column": 82
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 45,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 45,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 45,
+                    "column": 4
+                  },
+                  "text": "Pick your App ID as the primary App ID."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 46,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 46,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 4
+                  },
+                  "text": "Add your domain under "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 46,
+                    "column": 26
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 46,
+                        "column": 28
+                      },
+                      "text": "Domains and Subdomains"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 52
+                  },
+                  "text": " (no scheme, for example "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 46,
+                    "column": 77
+                  },
+                  "text": "auth.example.com"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 46,
+                    "column": 95
+                  },
+                  "text": ")."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 47,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 47,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 4
+                  },
+                  "text": "Add the return URLs under "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 47,
+                    "column": 30
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 47,
+                        "column": 32
+                      },
+                      "text": "Return URLs"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 45
+                  },
+                  "text": " with the full "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 60
+                  },
+                  "text": "https://"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 70
+                  },
+                  "text": " path, for example "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 47,
+                    "column": 89
+                  },
+                  "text": "https://auth.example.com/apple/callback"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 47,
+                    "column": 130
+                  },
+                  "text": ". For web logins add the page URL that calls the login, with and without a trailing slash."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 49,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 5
+          },
+          "text": "Create a Sign in with Apple key (Android and server token exchange)"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 51,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 51,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 51,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 51,
+                    "column": 4
+                  },
+                  "text": "Go to "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 51,
+                    "column": 10
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 51,
+                        "column": 12
+                      },
+                      "text": "Keys"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 51,
+                    "column": 18
+                  },
+                  "text": ", click "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 51,
+                    "column": 26
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 51,
+                        "column": 28
+                      },
+                      "text": "+"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 51,
+                    "column": 31
+                  },
+                  "text": ", tick "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 51,
+                    "column": 38
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 51,
+                        "column": 40
+                      },
+                      "text": "Sign in with Apple"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 51,
+                    "column": 60
+                  },
+                  "text": ", and click "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 51,
+                    "column": 72
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 51,
+                        "column": 74
+                      },
+                      "text": "Configure"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 51,
+                    "column": 85
+                  },
+                  "text": " to choose the primary App ID."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 52,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 52,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 52,
+                    "column": 4
+                  },
+                  "text": "Register the key and download the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 52,
+                    "column": 38
+                  },
+                  "text": ".p8"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 52,
+                    "column": 43
+                  },
+                  "text": " file. Apple lets you download it only once."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 53,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 53,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 53,
+                    "column": 4
+                  },
+                  "text": "Note the "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 53,
+                    "column": 13
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 53,
+                        "column": 15
+                      },
+                      "text": "Key ID"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 53,
+                    "column": 23
+                  },
+                  "text": " and your "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 53,
+                    "column": 33
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 53,
+                        "column": 35
+                      },
+                      "text": "Team ID"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 53,
+                    "column": 44
+                  },
+                  "text": " (shown in the top right of the developer portal and under Membership)."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 55,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 55,
+            "column": 1
+          },
+          "text": "Your server uses the key to sign the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 55,
+            "column": 38
+          },
+          "text": "client_secret"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 55,
+            "column": 53
+          },
+          "text": " JWT it sends to Apple's token endpoint."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 57,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 57,
+            "column": 5
+          },
+          "text": "Register email sources if you send email"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 59,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 1
+          },
+          "text": "Users can choose "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 59,
+            "column": 18
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 59,
+                "column": 20
+              },
+              "text": "Hide My Email"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 35
+          },
+          "text": ", which gives you an "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 59,
+            "column": 56
+          },
+          "text": "@privaterelay.appleid.com"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 83
+          },
+          "text": " address. Apple only forwards mail from domains and addresses you register under "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 59,
+            "column": 164
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 59,
+                "column": 166
+              },
+              "text": "Services > Sign in with Apple for Email Communication"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 59,
+            "column": 221
+          },
+          "text": ". Skip this and your password reset and receipt emails silently disappear."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 61,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 61,
+            "column": 4
+          },
+          "text": "Step 2: Install the plugin"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 63,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-social-login\nbunx cap sync"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 68,
+            "column": 1
+          },
+          "text": "The plugin bundles several providers. If you only use Apple (and maybe Google), turn the others off in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 68,
+            "column": 104
+          },
+          "text": "capacitor.config.ts"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 68,
+            "column": 125
+          },
+          "text": " so their SDKs are not shipped:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 70,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import type { CapacitorConfig } from '@capacitor/cli';\n\nconst config: CapacitorConfig = {\n  appId: 'com.example.app',\n  appName: 'Example',\n  webDir: 'dist',\n  plugins: {\n    SocialLogin: {\n      providers: {\n        apple: true,\n        google: false,\n        facebook: false,\n        twitter: false,\n      },\n    },\n  },\n};\n\nexport default config;"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 92,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 1
+          },
+          "text": "Run "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 92,
+            "column": 5
+          },
+          "text": "bunx cap sync"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 20
+          },
+          "text": " again after changing this block. A disabled provider is unavailable at runtime, so do not disable one you call. Dropping Facebook also removes the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 92,
+            "column": 168
+          },
+          "text": "AD_ID"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 92,
+            "column": 175
+          },
+          "text": " permission warnings that its SDK triggers in Google Play Console."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 94,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 94,
+            "column": 4
+          },
+          "text": "Step 3: iOS setup"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 96,
+        "column": 1
+      },
+      "ordered": true,
+      "start": 1,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 96,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 96,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 96,
+                    "column": 4
+                  },
+                  "text": "Run "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 96,
+                    "column": 8
+                  },
+                  "text": "bunx cap open ios"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 96,
+                    "column": 27
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 97,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 97,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 97,
+                    "column": 4
+                  },
+                  "text": "Select the "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 97,
+                    "column": 15
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 97,
+                        "column": 17
+                      },
+                      "text": "App"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 97,
+                    "column": 22
+                  },
+                  "text": " target, open "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 97,
+                    "column": 36
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 97,
+                        "column": 38
+                      },
+                      "text": "Signing & Capabilities"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 97,
+                    "column": 62
+                  },
+                  "text": ", click "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 97,
+                    "column": 70
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 97,
+                        "column": 72
+                      },
+                      "text": "+ Capability"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 97,
+                    "column": 86
+                  },
+                  "text": ", and add "
+                },
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 97,
+                    "column": 96
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 97,
+                        "column": 98
+                      },
+                      "text": "Sign in with Apple"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 97,
+                    "column": 118
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 98,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 98,
+                "column": 4
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 98,
+                    "column": 4
+                  },
+                  "text": "Make sure the bundle identifier matches the App ID you configured."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 100,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 1
+          },
+          "text": "Xcode writes "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 100,
+            "column": 14
+          },
+          "text": "com.apple.developer.applesignin"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 47
+          },
+          "text": " into "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 100,
+            "column": 53
+          },
+          "text": "App.entitlements"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 71
+          },
+          "text": ". If you build in CI or with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 100,
+            "column": 100
+          },
+          "url": "/native-build/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 100,
+                "column": 101
+              },
+              "text": "Capgo Build"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 129
+          },
+          "text": ", commit that entitlements file, otherwise the cloud build produces an app that fails with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 100,
+            "column": 220
+          },
+          "text": "ASAuthorizationError"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 100,
+            "column": 242
+          },
+          "text": " code 1000."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 102,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 102,
+            "column": 1
+          },
+          "text": "No "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 102,
+            "column": 4
+          },
+          "text": "Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 102,
+            "column": 16
+          },
+          "text": " URL scheme or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 102,
+            "column": 31
+          },
+          "text": "AppDelegate"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 102,
+            "column": 44
+          },
+          "text": " change is needed for Apple on iOS."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 104,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 104,
+            "column": 4
+          },
+          "text": "Step 4: Android setup"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 106,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 106,
+            "column": 1
+          },
+          "text": "Apple has no Android SDK. The plugin opens Apple's authorize page in a Custom Tab with your Services ID. Apple then sends the result as a form POST to your HTTPS return URL. Your server exchanges the code, then redirects to a deep link that reopens the app with the tokens."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 108,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 108,
+            "column": 5
+          },
+          "text": "Add the deep link"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 110,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 1
+          },
+          "text": "In "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 110,
+            "column": 4
+          },
+          "text": "android/app/src/main/AndroidManifest.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 46
+          },
+          "text": ", inside the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 110,
+            "column": 59
+          },
+          "text": "MainActivity"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 73
+          },
+          "text": " "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 110,
+            "column": 74
+          },
+          "text": "<activity>"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 110,
+            "column": 86
+          },
+          "text": " element:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 112,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<intent-filter>\n    <action android:name=\"android.intent.action.VIEW\" />\n    <category android:name=\"android.intent.category.DEFAULT\" />\n    <category android:name=\"android.intent.category.BROWSABLE\" />\n    <data android:scheme=\"com.example.app\" android:host=\"apple-login\" />\n</intent-filter>"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 121,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 121,
+            "column": 5
+          },
+          "text": "Forward the intent to the plugin"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 123,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 123,
+            "column": 1
+          },
+          "text": "Edit "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 123,
+            "column": 6
+          },
+          "text": "MainActivity.java"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 123,
+            "column": 25
+          },
+          "text": " so the deep link reaches the plugin:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 125,
+        "column": 1
+      },
+      "lang": "java",
+      "meta": null,
+      "text": "package com.example.app;\n\nimport android.content.Intent;\nimport android.net.Uri;\nimport com.getcapacitor.BridgeActivity;\nimport com.getcapacitor.Plugin;\nimport com.getcapacitor.PluginHandle;\nimport ee.forgr.capacitor.social.login.SocialLoginPlugin;\n\npublic class MainActivity extends BridgeActivity {\n\n    @Override\n    protected void onNewIntent(Intent intent) {\n        Uri data = intent.getData();\n        if (Intent.ACTION_VIEW.equals(intent.getAction()) && data != null\n                && \"apple-login\".equals(data.getHost())) {\n            PluginHandle handle = getBridge().getPlugin(\"SocialLogin\");\n            if (handle != null) {\n                Plugin plugin = handle.getInstance();\n                if (plugin instanceof SocialLoginPlugin) {\n                    ((SocialLoginPlugin) plugin).handleAppleLoginIntent(intent);\n                    return;\n                }\n            }\n        }\n        super.onNewIntent(intent);\n    }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 156,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 156,
+            "column": 1
+          },
+          "text": "Filtering on the host keeps your other deep links (password reset, marketing links) working."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 158,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 158,
+            "column": 5
+          },
+          "text": "The callback endpoint"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 160,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 1
+          },
+          "text": "Apple posts "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 13
+          },
+          "text": "code"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 19
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 21
+          },
+          "text": "id_token"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 31
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 33
+          },
+          "text": "state"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 40
+          },
+          "text": ", and on first login a "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 63
+          },
+          "text": "user"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 69
+          },
+          "text": " JSON string to your return URL. The endpoint has to exchange the code and redirect to the app with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 169
+          },
+          "text": "success=true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 183
+          },
+          "text": " plus the tokens, which is the contract the plugin parses. A minimal Hono example using "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 160,
+            "column": 271
+          },
+          "text": "jose"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 160,
+            "column": 277
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 162,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Hono } from 'hono';\nimport { SignJWT, importPKCS8, createRemoteJWKSet, jwtVerify } from 'jose';\nimport { saveAppleRefreshToken } from './db'; // your own persistence layer\n\nconst app = new Hono();\n\nconst TEAM_ID = process.env.APPLE_TEAM_ID!;\nconst KEY_ID = process.env.APPLE_KEY_ID!;\nconst SERVICE_ID = process.env.APPLE_SERVICE_ID!; // com.example.app.signin\nconst PRIVATE_KEY = process.env.APPLE_PRIVATE_KEY!; // contents of the .p8 file\nconst APP_REDIRECT = 'com.example.app://apple-login';\nconst APPLE_JWKS = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));\n\nasync function appleClientSecret() {\n  const key = await importPKCS8(PRIVATE_KEY, 'ES256');\n  return new SignJWT({})\n    .setProtectedHeader({ alg: 'ES256', kid: KEY_ID })\n    .setIssuer(TEAM_ID)\n    .setSubject(SERVICE_ID)\n    .setAudience('https://appleid.apple.com')\n    .setIssuedAt()\n    .setExpirationTime('5m')\n    .sign(key);\n}\n\napp.post('/apple/callback', async (c) => {\n  const form = await c.req.parseBody();\n  const code = String(form.code ?? '');\n  if (!code) {\n    return c.redirect(`${APP_REDIRECT}?success=false`);\n  }\n\n  // `form.user` is only present on the first authorization. Store it now.\n\n  const res = await fetch('https://appleid.apple.com/auth/token', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },\n    body: new URLSearchParams({\n      client_id: SERVICE_ID,\n      client_secret: await appleClientSecret(),\n      code,\n      grant_type: 'authorization_code',\n      redirect_uri: 'https://auth.example.com/apple/callback',\n    }),\n  });\n  if (!res.ok) {\n    return c.redirect(`${APP_REDIRECT}?success=false`);\n  }\n  const tokens = await res.json();\n\n  // Verify the identity token, then keep the long-lived refresh token on the server.\n  // Only the short-lived tokens go back to the app in the deep link.\n  const { payload } = await jwtVerify(tokens.id_token, APPLE_JWKS, {\n    issuer: 'https://appleid.apple.com',\n    audience: SERVICE_ID,\n  });\n  if (tokens.refresh_token) {\n    await saveAppleRefreshToken(String(payload.sub), tokens.refresh_token);\n  }\n  const params = new URLSearchParams({\n    success: 'true',\n    access_token: tokens.access_token,\n    id_token: tokens.id_token,\n  });\n  return c.redirect(`${APP_REDIRECT}?${params}`);\n});\n\nexport default app;"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 233,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 233,
+            "column": 1
+          },
+          "text": "The plugin reads the tokens from the deep link query string, so anything you put there can end up in logs or be read by another app that registers the same custom scheme. Send only the short-lived "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 233,
+            "column": 198
+          },
+          "text": "access_token"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 233,
+            "column": 212
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 233,
+            "column": 217
+          },
+          "text": "id_token"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 233,
+            "column": 227
+          },
+          "text": ", never the refresh token, verify the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 233,
+            "column": 265
+          },
+          "text": "id_token"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 233,
+            "column": 275
+          },
+          "text": " signature and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 233,
+            "column": 290
+          },
+          "text": "nonce"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 233,
+            "column": 297
+          },
+          "text": " on your server before trusting it, and use a scheme unique to your app (your reverse bundle ID)."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 235,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 235,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 235,
+            "column": 5
+          },
+          "text": "client_secret"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 235,
+            "column": 20
+          },
+          "text": " JWT can live up to six months, but generating a short one per request avoids an expiry outage. Keep the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 235,
+            "column": 125
+          },
+          "text": ".p8"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 235,
+            "column": 130
+          },
+          "text": " file in your secret manager, never in the app bundle."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 237,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 237,
+            "column": 4
+          },
+          "text": "Step 5: Web setup"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 239,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 239,
+            "column": 1
+          },
+          "text": "The web build uses Apple JS with the Services ID. Add the exact page URL that triggers the login to the Services ID return URLs. Apple does not accept "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 239,
+            "column": 152
+          },
+          "text": "localhost"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 239,
+            "column": 163
+          },
+          "text": ", so test web login on a deployed preview domain or through a tunnel with a real hostname."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 241,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 241,
+            "column": 4
+          },
+          "text": "Step 6: Initialize and sign in"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 243,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 1
+          },
+          "text": "Initialize once at app start. Pass the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 243,
+            "column": 40
+          },
+          "text": "redirectUrl"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 53
+          },
+          "text": " only on Android and web. On iOS, a non-empty "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 243,
+            "column": 99
+          },
+          "text": "redirectUrl"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 243,
+            "column": 112
+          },
+          "text": " makes the plugin POST the result to that URL, which you do not want with the native flow."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 245,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Capacitor } from '@capacitor/core';\nimport { SocialLogin } from '@capgo/capacitor-social-login';\n\nconst platform = Capacitor.getPlatform();\n\nexport async function initAuth() {\n  await SocialLogin.initialize({\n    apple: {\n      clientId: platform === 'ios' ? 'com.example.app' : 'com.example.app.signin',\n      redirectUrl:\n        platform === 'android'\n          ? 'https://auth.example.com/apple/callback'\n          : platform === 'web'\n            ? 'https://app.example.com/login'\n            : '',\n    },\n  });\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 266,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 266,
+            "column": 1
+          },
+          "text": "Then trigger the login from a button. Use a random nonce so your server can reject replayed tokens:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 268,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { SocialLogin } from '@capgo/capacitor-social-login';\n\nexport async function signInWithApple() {\n  const nonce = crypto.randomUUID();\n\n  try {\n    const { result } = await SocialLogin.login({\n      provider: 'apple',\n      options: {\n        scopes: ['email', 'name'],\n        nonce,\n      },\n    });\n\n    if (!result.idToken) {\n      throw new Error('Apple did not return an identity token');\n    }\n\n    // Send to your backend. Name and email are only present on the first login.\n    const response = await fetch('https://api.example.com/auth/apple', {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify({\n        idToken: result.idToken,\n        nonce,\n        givenName: result.profile.givenName,\n        familyName: result.profile.familyName,\n      }),\n    });\n    return response.json();\n  } catch (error: any) {\n    if (error?.code === 'USER_CANCELLED') {\n      return null; // user closed the sheet, not a failure\n    }\n    throw error;\n  }\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 308,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 308,
+            "column": 1
+          },
+          "text": "The response gives you:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 310,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 310,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 310,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 310,
+                    "column": 3
+                  },
+                  "text": "Field"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 310,
+                "column": 9
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 310,
+                    "column": 11
+                  },
+                  "text": "Content"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 312,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 312,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 312,
+                    "column": 3
+                  },
+                  "text": "result.idToken"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 312,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 312,
+                    "column": 22
+                  },
+                  "text": "Signed JWT from Apple, the thing your server verifies"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 313,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 313,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 313,
+                    "column": 3
+                  },
+                  "text": "result.profile.user"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 313,
+                "column": 25
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 313,
+                    "column": 27
+                  },
+                  "text": "Apple's stable user ID (same as the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 313,
+                    "column": 63
+                  },
+                  "text": "sub"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 313,
+                    "column": 68
+                  },
+                  "text": " claim)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 314,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 314,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 314,
+                    "column": 3
+                  },
+                  "text": "result.profile.email"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 314,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 314,
+                    "column": 28
+                  },
+                  "text": "Email or private relay address, when granted"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 315,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 315,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 315,
+                    "column": 3
+                  },
+                  "text": "result.profile.givenName"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 315,
+                    "column": 29
+                  },
+                  "text": " / "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 315,
+                    "column": 32
+                  },
+                  "text": "familyName"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 315,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 315,
+                    "column": 47
+                  },
+                  "text": "Only on the first authorization"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 316,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 316,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 316,
+                    "column": 3
+                  },
+                  "text": "result.accessToken"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 316,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 316,
+                    "column": 26
+                  },
+                  "text": "With the default settings this holds the authorization code, not a real access token"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 317,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 317,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 317,
+                    "column": 3
+                  },
+                  "text": "result.authorizationCode"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 317,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 317,
+                    "column": 32
+                  },
+                  "text": "Present when you initialize with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 317,
+                    "column": 65
+                  },
+                  "text": "useProperTokenExchange: true"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 319,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 319,
+            "column": 1
+          },
+          "text": "If your server needs Apple refresh tokens (for example to call the revoke endpoint when a user deletes their account), set "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 319,
+            "column": 124
+          },
+          "text": "useProperTokenExchange: true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 319,
+            "column": 154
+          },
+          "text": " in the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 319,
+            "column": 162
+          },
+          "text": "apple"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 319,
+            "column": 169
+          },
+          "text": " config and exchange "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 319,
+            "column": 190
+          },
+          "text": "authorizationCode"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 319,
+            "column": 209
+          },
+          "text": " on the server."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 321,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 321,
+            "column": 4
+          },
+          "text": "Step 7: Verify the identity token on your backend"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 323,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 323,
+            "column": 1
+          },
+          "text": "Never trust the profile fields the client sends. Verify the JWT signature against Apple's public keys and check the claims:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 325,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { createRemoteJWKSet, jwtVerify } from 'jose';\n\nconst appleKeys = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));\n\nexport async function verifyAppleToken(idToken: string, expectedNonce: string) {\n  const { payload } = await jwtVerify(idToken, appleKeys, {\n    issuer: 'https://appleid.apple.com',\n    audience: ['com.example.app', 'com.example.app.signin'], // bundle ID + Services ID\n  });\n\n  if (payload.nonce !== expectedNonce) {\n    throw new Error('Nonce mismatch');\n  }\n\n  return {\n    appleUserId: payload.sub as string,\n    email: payload.email as string | undefined,\n    emailVerified: payload.email_verified === true || payload.email_verified === 'true',\n  };\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 348,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 348,
+            "column": 1
+          },
+          "text": "Key the user record on "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 348,
+            "column": 24
+          },
+          "text": "sub"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 348,
+            "column": 29
+          },
+          "text": ", not on email. The email can be a relay address, and users can stop sharing it. After verification, issue your own session token. If you use Supabase or Firebase, they verify the token for you, see "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 348,
+            "column": 228
+          },
+          "url": "/blog/setup-supabase-with-capacitor-social-login/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 348,
+                "column": 229
+              },
+              "text": "Supabase with Capacitor Social Login"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 348,
+            "column": 317
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 350,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 350,
+            "column": 4
+          },
+          "text": "App Store rules to keep in mind"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 352,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 352,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 352,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 352,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 352,
+                        "column": 5
+                      },
+                      "text": "Guideline 4.8"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 352,
+                    "column": 20
+                  },
+                  "text": ": if you offer Google, Facebook or another third-party login as the main account system, you must also offer an equivalent privacy-focused option. Sign in with Apple qualifies."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 353,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 353,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 353,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 353,
+                        "column": 5
+                      },
+                      "text": "Guideline 5.1.1(v)"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 353,
+                    "column": 25
+                  },
+                  "text": ": apps that let users create accounts must let them delete the account in the app. For Sign in with Apple users, call Apple's "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 353,
+                    "column": 151
+                  },
+                  "text": "https://appleid.apple.com/auth/revoke"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 353,
+                    "column": 190
+                  },
+                  "text": " endpoint on deletion. See our "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 353,
+                    "column": 221
+                  },
+                  "url": "/blog/account-deletion-compliance-apple-guidelines/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 353,
+                        "column": 222
+                      },
+                      "text": "account deletion guide"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 353,
+                    "column": 298
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 354,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 354,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 354,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 354,
+                        "column": 5
+                      },
+                      "text": "Button design"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 354,
+                    "column": 20
+                  },
+                  "text": ": use Apple's approved button styles and make the button at least as prominent as other login buttons."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 356,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 356,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 358,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 358,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 358,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 358,
+                    "column": 3
+                  },
+                  "text": "Symptom"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 358,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 358,
+                    "column": 13
+                  },
+                  "text": "Likely cause"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 358,
+                "column": 26
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 358,
+                    "column": 28
+                  },
+                  "text": "Fix"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 360,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 360,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 360,
+                    "column": 3
+                  },
+                  "text": "ASAuthorizationError"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 360,
+                    "column": 25
+                  },
+                  "text": " code 1000 on iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 360,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 360,
+                    "column": 45
+                  },
+                  "text": "Capability or entitlement missing in the built target"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 360,
+                "column": 99
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 360,
+                    "column": 101
+                  },
+                  "text": "Add Sign in with Apple in Xcode, commit "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 360,
+                    "column": 141
+                  },
+                  "text": "App.entitlements"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 360,
+                    "column": 159
+                  },
+                  "text": ", regenerate profiles"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 361,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 361,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 361,
+                    "column": 3
+                  },
+                  "text": "Code 1001 on iOS"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 361,
+                "column": 20
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 361,
+                    "column": 22
+                  },
+                  "text": "User cancelled"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 361,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 361,
+                    "column": 39
+                  },
+                  "text": "The plugin rejects with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 361,
+                    "column": 63
+                  },
+                  "text": "USER_CANCELLED"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 361,
+                    "column": 79
+                  },
+                  "text": ", treat as a non-error"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 362,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 362,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 362,
+                    "column": 3
+                  },
+                  "text": "invalid_client"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 362,
+                    "column": 19
+                  },
+                  "text": " on Android or web"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 362,
+                "column": 38
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 362,
+                    "column": 40
+                  },
+                  "text": "Wrong "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 362,
+                    "column": 46
+                  },
+                  "text": "clientId"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 362,
+                    "column": 56
+                  },
+                  "text": " (bundle ID used instead of Services ID) or bad "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 362,
+                    "column": 104
+                  },
+                  "text": "client_secret"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 362,
+                "column": 120
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 362,
+                    "column": 122
+                  },
+                  "text": "Use the Services ID, check Team ID, Key ID and key contents"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 363,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 363,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 363,
+                    "column": 3
+                  },
+                  "text": "invalid_request: Invalid redirect_uri"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 363,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 363,
+                    "column": 45
+                  },
+                  "text": "Return URL not registered exactly"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 363,
+                "column": 79
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 363,
+                    "column": 81
+                  },
+                  "text": "Add the full "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 363,
+                    "column": 94
+                  },
+                  "text": "https://"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 363,
+                    "column": 104
+                  },
+                  "text": " URL to the Services ID, match trailing slashes"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 364,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 364,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 364,
+                    "column": 3
+                  },
+                  "text": "App does not come back after Android login"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 364,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 364,
+                    "column": 48
+                  },
+                  "text": "Intent filter scheme or host differs from the server redirect"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 364,
+                "column": 110
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 364,
+                    "column": 112
+                  },
+                  "text": "Compare "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 364,
+                    "column": 120
+                  },
+                  "text": "com.example.app://apple-login"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 364,
+                    "column": 151
+                  },
+                  "text": " character by character"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 365,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 365,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 365,
+                    "column": 3
+                  },
+                  "text": "apple.android.redirectUrl is null or empty"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 365,
+                "column": 48
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 365,
+                    "column": 50
+                  },
+                  "text": "No "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 365,
+                    "column": 53
+                  },
+                  "text": "redirectUrl"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 365,
+                    "column": 66
+                  },
+                  "text": " on Android"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 365,
+                "column": 78
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 365,
+                    "column": 80
+                  },
+                  "text": "Pass your HTTPS callback URL when initializing on Android"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 366,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 366,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 366,
+                    "column": 3
+                  },
+                  "text": "Name and email are "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 366,
+                    "column": 22
+                  },
+                  "text": "null"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 366,
+                "column": 29
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 366,
+                    "column": 31
+                  },
+                  "text": "Not the first authorization"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 366,
+                "column": 59
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 366,
+                    "column": 61
+                  },
+                  "text": "Read them from your database. Revoke the app in device settings to test again"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 367,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 367,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 367,
+                    "column": 3
+                  },
+                  "text": "Token rejected by backend: "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 367,
+                    "column": 30
+                  },
+                  "text": "aud"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 367,
+                    "column": 35
+                  },
+                  "text": " mismatch"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 367,
+                "column": 45
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 367,
+                    "column": 47
+                  },
+                  "text": "Server only accepts one audience"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 367,
+                "column": 80
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 367,
+                    "column": 82
+                  },
+                  "text": "Accept both bundle ID and Services ID"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 369,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 369,
+            "column": 4
+          },
+          "text": "Shipping fixes after release"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 371,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 371,
+            "column": 1
+          },
+          "text": "Most auth bugs live in TypeScript: a wrong client ID per platform, a missing nonce, bad error handling. Those can be shipped to users the same day with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 371,
+            "column": 153
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 371,
+                "column": 154
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 371,
+            "column": 188
+          },
+          "text": " without waiting for App Review. Changes to entitlements, the Android manifest or "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 371,
+            "column": 270
+          },
+          "text": "MainActivity"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 371,
+            "column": 284
+          },
+          "text": " are native and need a new store build."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 373,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 373,
+            "column": 4
+          },
+          "text": "Where to go next"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 375,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 375,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 375,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 375,
+                    "column": 3
+                  },
+                  "text": "Add Google next to Apple: "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 375,
+                    "column": 29
+                  },
+                  "url": "/blog/how-to-sign-in-with-google-using-capacitor/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 375,
+                        "column": 30
+                      },
+                      "text": "How to sign in with Google using Capacitor"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 375,
+                    "column": 124
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 376,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 376,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 376,
+                    "column": 3
+                  },
+                  "text": "Pick the right mix of methods for your app: "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 376,
+                    "column": 47
+                  },
+                  "url": "/blog/how-to-add-authentication-to-a-capacitor-app/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 376,
+                        "column": 48
+                      },
+                      "text": "How to add authentication to a Capacitor app"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 376,
+                    "column": 146
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 377,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 377,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 377,
+                    "column": 3
+                  },
+                  "text": "Plugin reference and platform pages: "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 377,
+                    "column": 40
+                  },
+                  "url": "/docs/plugins/social-login/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 377,
+                        "column": 41
+                      },
+                      "text": "Social Login docs"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 377,
+                    "column": 88
+                  },
+                  "text": " and the "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 377,
+                    "column": 97
+                  },
+                  "url": "/docs/plugins/social-login/apple/ios/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 377,
+                        "column": 98
+                      },
+                      "text": "Apple iOS setup page"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 377,
+                    "column": 158
+                  },
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

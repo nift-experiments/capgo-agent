@@ -1,0 +1,3010 @@
+{
+  "version": 1,
+  "route": "/blog/how-to-build-a-heart-rate-monitor-with-capacitor/",
+  "source": "corpus/source/apps/web/src/content/blog/en/how-to-build-a-heart-rate-monitor-with-capacitor.md",
+  "sourceSha256": "7d3d1a66ea60976d7317739942540bd6d8eb473fc557fa2cff777dbff22e9628",
+  "metadata": {
+    "slug": "how-to-build-a-heart-rate-monitor-with-capacitor",
+    "title": "How to Build a Heart Rate Monitor with Capacitor",
+    "description": "Build a heart rate monitor with Capacitor and Bluetooth Low Energy: scan for 0x180D sensors, parse BPM and RR intervals, and save readings to Health.",
+    "author": "Martin Donadieu",
+    "author_image_url": "https://avatars.githubusercontent.com/u/4084527?v=4",
+    "author_url": "https://github.com/riderx",
+    "created_at": "2026-10-01 09:00:00+00:00",
+    "updated_at": "2026-10-01 03:59:51+00:00",
+    "head_image": "/capgo_plugins.webp",
+    "head_image_alt": "Capacitor app showing live heart rate from a Bluetooth chest strap",
+    "keywords": "capacitor heart rate monitor, capacitor bluetooth low energy, ble heart rate service, 0x180D, 0x2A37 heart rate measurement, ionic ble, capacitor ble plugin, polar h10 capacitor",
+    "tag": "Tutorial, Capacitor, Development",
+    "published": true,
+    "locale": "en",
+    "origin": "human",
+    "next_blog": "",
+    "faq": [
+      {
+        "question": "Which heart rate sensors work with this Capacitor app?",
+        "answer": "Any sensor that implements the standard Bluetooth SIG Heart Rate Service (UUID 0x180D), which covers most chest straps (Polar H9 and H10, Garmin HRM series, Wahoo TICKR) and many armbands. Many smartwatches can broadcast heart rate over BLE too, but usually only when the user enables a broadcast mode."
+      },
+      {
+        "question": "Do I need a real device to build a BLE heart rate monitor?",
+        "answer": "Yes. The iOS Simulator has no Bluetooth, and Android emulators do not expose a real BLE radio. Test on a physical phone with the sensor worn, since most chest straps only advertise when they detect skin contact."
+      },
+      {
+        "question": "Why is my heart rate value wrong above 255 bpm or always 0?",
+        "answer": "Check bit 0 of the flags byte. When it is 1, the value is a 16-bit little-endian integer in bytes 1 and 2, so bpm = byte1 | (byte2 << 8). Reading it big-endian or always as 8-bit gives wrong results. A value of 0 usually means the sensor has no skin contact."
+      },
+      {
+        "question": "Can the monitor keep running with the screen off?",
+        "answer": "On iOS, add bluetooth-central to UIBackgroundModes and notifications keep arriving in the background. On Android, the connection survives while the process lives, but for long workouts you should keep the app in the foreground with a screen wake lock or run your own connectedDevice foreground service."
+      },
+      {
+        "question": "Can I read heart rate from the phone itself without a sensor?",
+        "answer": "Phones have no heart rate sensor. You can read heart rate that a watch already wrote to Apple Health or Health Connect with @capgo/capacitor-health, but that data arrives with a delay and is not a live stream."
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 2,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 1
+          },
+          "text": "To build a heart rate monitor with Capacitor, connect to a Bluetooth Low Energy sensor that exposes the standard Heart Rate Service ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 134
+          },
+          "text": "0x180D"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 142
+          },
+          "text": "), subscribe to the Heart Rate Measurement characteristic ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 201
+          },
+          "text": "0x2A37"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 209
+          },
+          "text": "), and decode each notification into beats per minute. This tutorial does that with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 2,
+            "column": 293
+          },
+          "text": "@capgo/capacitor-bluetooth-low-energy"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 2,
+            "column": 332
+          },
+          "text": " on Capacitor 8, including RR intervals, sensor contact, reconnection, and saving readings to Apple Health or Health Connect."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 4,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 4,
+            "column": 4
+          },
+          "text": "How BLE heart rate sensors work"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 6,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 1
+          },
+          "text": "Bluetooth Low Energy splits devices into two roles. Your phone is the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 6,
+            "column": 71
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 6,
+                "column": 73
+              },
+              "text": "central"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 82
+          },
+          "text": ": it scans, connects and asks for data. The chest strap is the "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 6,
+            "column": 145
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 6,
+                "column": 147
+              },
+              "text": "peripheral"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 6,
+            "column": 159
+          },
+          "text": ": it advertises and serves data."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 8,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 1
+          },
+          "text": "A peripheral exposes "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 8,
+            "column": 22
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 8,
+                "column": 24
+              },
+              "text": "services"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 34
+          },
+          "text": ", and each service holds "
+        },
+        {
+          "type": "strong",
+          "location": {
+            "line": 8,
+            "column": 59
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 8,
+                "column": 61
+              },
+              "text": "characteristics"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 8,
+            "column": 78
+          },
+          "text": ", small values you can read, write or subscribe to. Standard services have 16-bit UUIDs assigned by the Bluetooth SIG:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 10,
+        "column": 1
+      },
+      "align": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 10,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 3
+                  },
+                  "text": "UUID"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 8
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 10
+                  },
+                  "text": "Name"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 15
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 17
+                  },
+                  "text": "Access"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 10,
+                "column": 24
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 10,
+                    "column": 26
+                  },
+                  "text": "What it gives you"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 12,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 12,
+                    "column": 3
+                  },
+                  "text": "0x180D"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 14
+                  },
+                  "text": "Heart Rate Service"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 33
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 35
+                  },
+                  "text": "Service"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 12,
+                "column": 43
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 12,
+                    "column": 45
+                  },
+                  "text": "Container for the items below"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 13,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 13,
+                    "column": 3
+                  },
+                  "text": "0x2A37"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 14
+                  },
+                  "text": "Heart Rate Measurement"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 37
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 39
+                  },
+                  "text": "Notify"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 13,
+                "column": 46
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 13,
+                    "column": 48
+                  },
+                  "text": "BPM, sensor contact, energy expended, RR intervals"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 14,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 14,
+                    "column": 3
+                  },
+                  "text": "0x2A38"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 14
+                  },
+                  "text": "Body Sensor Location"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 35
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 37
+                  },
+                  "text": "Read"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 14,
+                "column": 42
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 14,
+                    "column": 44
+                  },
+                  "text": "Chest, wrist, finger, hand, ear lobe, foot"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 15,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 3
+                  },
+                  "text": "0x2A39"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 14
+                  },
+                  "text": "Heart Rate Control Point"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 39
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 41
+                  },
+                  "text": "Write"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 15,
+                "column": 47
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 15,
+                    "column": 49
+                  },
+                  "text": "0x01"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 15,
+                    "column": 55
+                  },
+                  "text": " resets the energy expended counter"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 16,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 16,
+                    "column": 3
+                  },
+                  "text": "0x180F"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 14
+                  },
+                  "text": "Battery Service"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 30
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 32
+                  },
+                  "text": "Service"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 16,
+                "column": 40
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 16,
+                    "column": 42
+                  },
+                  "text": "Battery level of the strap"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 17,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 17,
+                    "column": 3
+                  },
+                  "text": "0x2A19"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 14
+                  },
+                  "text": "Battery Level"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 28
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 30
+                  },
+                  "text": "Read / Notify"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 17,
+                "column": 44
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 17,
+                    "column": 46
+                  },
+                  "text": "0 to 100 percent"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 19,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 19,
+            "column": 1
+          },
+          "text": "A 16-bit UUID is shorthand for the full 128-bit form "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 19,
+            "column": 54
+          },
+          "text": "0000XXXX-0000-1000-8000-00805F9B34FB"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 19,
+            "column": 92
+          },
+          "text": ". The Capgo plugin accepts both forms."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 21,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 21,
+            "column": 4
+          },
+          "text": "Prerequisites"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 23,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 23,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 23,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 23,
+                    "column": 3
+                  },
+                  "text": "A Capacitor 8 app (any framework: Angular, React, Vue, Svelte, or plain TypeScript)"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 24,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 24,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 24,
+                    "column": 3
+                  },
+                  "text": "A physical iPhone or Android phone. Simulators and emulators have no usable Bluetooth radio"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 25,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 25,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 25,
+                    "column": 3
+                  },
+                  "text": "A BLE heart rate strap such as a Polar H10, Garmin HRM-Pro, or Wahoo TICKR. Wet the electrodes and wear it, many straps stay asleep without skin contact"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 27,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 27,
+            "column": 1
+          },
+          "text": "If you are starting from scratch:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 29,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun create vite heart-rate --template vanilla-ts\ncd heart-rate\nbun add @capacitor/core @capacitor/ios @capacitor/android\nbun add -d @capacitor/cli\nbunx cap init \"Heart Rate\" com.example.heartrate --web-dir dist\nbun run build\nbunx cap add ios\nbunx cap add android"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 40,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 40,
+            "column": 4
+          },
+          "text": "Install the Bluetooth Low Energy plugin"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 42,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun add @capgo/capacitor-bluetooth-low-energy\nbunx cap sync"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 47,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 47,
+            "column": 5
+          },
+          "text": "iOS configuration"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 49,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 1
+          },
+          "text": "Add the Bluetooth usage strings to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 49,
+            "column": 36
+          },
+          "text": "ios/App/App/Info.plist"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 60
+          },
+          "text": ", and the "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 49,
+            "column": 70
+          },
+          "text": "bluetooth-central"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 49,
+            "column": 89
+          },
+          "text": " background mode if you want readings while the screen is locked:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 51,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<key>NSBluetoothAlwaysUsageDescription</key>\n<string>Connect to your heart rate sensor during workouts.</string>\n<key>NSBluetoothPeripheralUsageDescription</key>\n<string>Connect to your heart rate sensor during workouts.</string>\n<key>UIBackgroundModes</key>\n<array>\n  <string>bluetooth-central</string>\n</array>"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 62,
+        "column": 1
+      },
+      "depth": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 62,
+            "column": 5
+          },
+          "text": "Android configuration"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 64,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 1
+          },
+          "text": "The plugin merges the permissions it needs into your manifest: "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 64,
+            "column": 64
+          },
+          "text": "BLUETOOTH_SCAN"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 80
+          },
+          "text": " (with "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 64,
+            "column": 87
+          },
+          "text": "neverForLocation"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 105
+          },
+          "text": "), "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 64,
+            "column": 108
+          },
+          "text": "BLUETOOTH_CONNECT"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 127
+          },
+          "text": " and "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 64,
+            "column": 132
+          },
+          "text": "BLUETOOTH_ADVERTISE"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 153
+          },
+          "text": " for Android 12+, plus the legacy "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 64,
+            "column": 187
+          },
+          "text": "BLUETOOTH"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 198
+          },
+          "text": ", "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 64,
+            "column": 200
+          },
+          "text": "BLUETOOTH_ADMIN"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 217
+          },
+          "text": " and location permissions for Android 11 and lower. On Android 12+ you still need to request them at runtime, which "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 64,
+            "column": 333
+          },
+          "text": "requestPermissions()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 64,
+            "column": 355
+          },
+          "text": " does."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 66,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 1
+          },
+          "text": "It also declares "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 66,
+            "column": 18
+          },
+          "text": "android.hardware.bluetooth_le"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 49
+          },
+          "text": " as required, which hides your app on Google Play for devices without BLE. If heart rate is an optional feature in your app, override it in "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 66,
+            "column": 189
+          },
+          "text": "android/app/src/main/AndroidManifest.xml"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 66,
+            "column": 231
+          },
+          "text": ":"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 68,
+        "column": 1
+      },
+      "lang": "xml",
+      "meta": null,
+      "text": "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"\n    xmlns:tools=\"http://schemas.android.com/tools\">\n    <uses-feature\n        android:name=\"android.hardware.bluetooth_le\"\n        android:required=\"false\"\n        tools:replace=\"android:required\" />\n</manifest>"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 78,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 78,
+            "column": 4
+          },
+          "text": "Decode the Heart Rate Measurement"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 80,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 80,
+            "column": 1
+          },
+          "text": "Do this part first, because it is where most implementations go wrong. The characteristic value is a byte array:"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "location": {
+        "line": 82,
+        "column": 1
+      },
+      "align": [
+        null,
+        null
+      ],
+      "blocks": [
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 82,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 82,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 82,
+                    "column": 3
+                  },
+                  "text": "Byte(s)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 82,
+                "column": 11
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 82,
+                    "column": 13
+                  },
+                  "text": "Meaning"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 84,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 84,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 84,
+                    "column": 3
+                  },
+                  "text": "0"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 84,
+                "column": 5
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 84,
+                    "column": 7
+                  },
+                  "text": "Flags"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 85,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 85,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 85,
+                    "column": 3
+                  },
+                  "text": "1 or 1-2"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 85,
+                "column": 12
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 85,
+                    "column": 14
+                  },
+                  "text": "Heart rate: UINT8 if flag bit 0 is 0, UINT16 little-endian if 1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 86,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 86,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 86,
+                    "column": 3
+                  },
+                  "text": "next 2 (optional)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 86,
+                "column": 21
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 86,
+                    "column": 23
+                  },
+                  "text": "Energy expended in kJ, present if flag bit 3 is 1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "tableRow",
+          "location": {
+            "line": 87,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 87,
+                "column": 1
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 87,
+                    "column": 3
+                  },
+                  "text": "rest (optional)"
+                }
+              ]
+            },
+            {
+              "type": "tableCell",
+              "location": {
+                "line": 87,
+                "column": 19
+              },
+              "blocks": [
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 87,
+                    "column": 21
+                  },
+                  "text": "RR intervals, UINT16 little-endian, unit 1/1024 s, present if flag bit 4 is 1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 89,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 89,
+            "column": 1
+          },
+          "text": "Flag bits 1 and 2 describe skin contact: bit 2 says whether the sensor supports contact detection, bit 1 says whether contact is detected."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 91,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "export interface HeartRateMeasurement {\n  bpm: number;\n  contactDetected: boolean | null; // null when the sensor does not report contact\n  energyExpendedKj?: number;\n  rrIntervalsMs: number[];\n}\n\nexport function parseHeartRate(bytes: number[]): HeartRateMeasurement {\n  const data = Uint8Array.from(bytes);\n  const view = new DataView(data.buffer);\n  const flags = data[0];\n  let offset = 1;\n\n  const is16Bit = (flags & 0x01) !== 0;\n  const bpm = is16Bit ? view.getUint16(offset, true) : view.getUint8(offset);\n  offset += is16Bit ? 2 : 1;\n\n  const contactSupported = (flags & 0x04) !== 0;\n  const contactDetected = contactSupported ? (flags & 0x02) !== 0 : null;\n\n  let energyExpendedKj: number | undefined;\n  if (flags & 0x08) {\n    energyExpendedKj = view.getUint16(offset, true);\n    offset += 2;\n  }\n\n  const rrIntervalsMs: number[] = [];\n  if (flags & 0x10) {\n    for (; offset + 1 < data.length; offset += 2) {\n      rrIntervalsMs.push(Math.round((view.getUint16(offset, true) / 1024) * 1000));\n    }\n  }\n\n  return { bpm, contactDetected, energyExpendedKj, rrIntervalsMs };\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 129,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 1
+          },
+          "text": "The "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 129,
+            "column": 5
+          },
+          "text": "true"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 11
+          },
+          "text": " argument to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 129,
+            "column": 24
+          },
+          "text": "getUint16"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 35
+          },
+          "text": " means little-endian, as the Bluetooth specification requires. Code that shifts the first byte left ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 129,
+            "column": 136
+          },
+          "text": "byte1 << 8 | byte2"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 129,
+            "column": 156
+          },
+          "text": ") reads 16-bit values backwards."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 131,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 131,
+            "column": 1
+          },
+          "text": "A quick sanity test:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 133,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "parseHeartRate([0x16, 0x48, 0x00, 0x04]);\n// flags 0x16: 8-bit value, contact supported and detected, RR present\n// => { bpm: 72, contactDetected: true, rrIntervalsMs: [1000] }"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 139,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 139,
+            "column": 4
+          },
+          "text": "Connect to the sensor"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 141,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 141,
+            "column": 1
+          },
+          "text": "The following module scans for devices that advertise the Heart Rate Service, connects to the first one, and streams parsed readings to a callback."
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 143,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { BluetoothLowEnergy } from '@capgo/capacitor-bluetooth-low-energy';\nimport type { PluginListenerHandle } from '@capacitor/core';\nimport { parseHeartRate, type HeartRateMeasurement } from './heart-rate-parser';\n\nconst HEART_RATE_SERVICE = '180D';\nconst HEART_RATE_MEASUREMENT = '2A37';\nconst BODY_SENSOR_LOCATION = '2A38';\nconst BATTERY_SERVICE = '180F';\nconst BATTERY_LEVEL = '2A19';\n\n// iOS reports short UUIDs (\"2A37\"), Android reports the full 128-bit form\nconst isUuid = (value: string, short: string) =>\n  value.toUpperCase() === short || value.toUpperCase().startsWith(`0000${short}-`);\n\nlet listeners: PluginListenerHandle[] = [];\nlet connectedId: string | null = null;\n\nexport async function startHeartRate(onReading: (m: HeartRateMeasurement) => void) {\n  await BluetoothLowEnergy.initialize({ mode: 'central' });\n\n  const { available } = await BluetoothLowEnergy.isAvailable();\n  if (!available) throw new Error('This device has no Bluetooth LE');\n\n  const perms = await BluetoothLowEnergy.requestPermissions();\n  if (perms.bluetooth !== 'granted') throw new Error('Bluetooth permission denied');\n\n  const { enabled } = await BluetoothLowEnergy.isEnabled();\n  if (!enabled) {\n    await BluetoothLowEnergy.openBluetoothSettings();\n    throw new Error('Bluetooth is off. Turn it on and tap Connect again.');\n  }\n\n  listeners.push(\n    await BluetoothLowEnergy.addListener('characteristicChanged', (event) => {\n      if (isUuid(event.characteristic, HEART_RATE_MEASUREMENT)) {\n        onReading(parseHeartRate(event.value));\n      }\n    }),\n    await BluetoothLowEnergy.addListener('deviceDisconnected', ({ deviceId }) => {\n      if (deviceId === connectedId) void reconnect(deviceId);\n    }),\n  );\n\n  try {\n    const device = await scanForSensor(10_000);\n    try {\n      await connectTo(device.deviceId);\n    } catch (error) {\n      // connect() may have succeeded before a later step failed: release the half-open link\n      await BluetoothLowEnergy.disconnect({ deviceId: device.deviceId }).catch(() => undefined);\n      throw error;\n    }\n  } catch (error) {\n    // Don't leave listeners behind, or each retry would handle every event again\n    await Promise.all(listeners.map((l) => l.remove()));\n    listeners = [];\n    throw error;\n  }\n}\n\nfunction scanForSensor(timeoutMs: number) {\n  return new Promise<{ deviceId: string; name: string | null }>((resolve, reject) => {\n    let handle: PluginListenerHandle | undefined;\n    let settled = false;\n\n    const finish = (error: Error | null, device?: { deviceId: string; name: string | null }) => {\n      if (settled) return;\n      settled = true;\n      clearTimeout(timer);\n      void handle?.remove();\n      void BluetoothLowEnergy.stopScan().catch(() => undefined);\n      if (error) reject(error);\n      else resolve(device!);\n    };\n\n    const timer = setTimeout(\n      () => finish(new Error('No heart rate sensor found. Is the strap worn and moist?')),\n      timeoutMs,\n    );\n\n    BluetoothLowEnergy.addListener('deviceScanned', ({ device }) => finish(null, device))\n      .then((h) => {\n        handle = h;\n        if (settled) {\n          void h.remove();\n          return;\n        }\n        return BluetoothLowEnergy.startScan({ services: [HEART_RATE_SERVICE] });\n      })\n      .catch((error) => finish(error instanceof Error ? error : new Error(String(error))));\n  });\n}\n\nasync function connectTo(deviceId: string) {\n  await BluetoothLowEnergy.connect({ deviceId });\n  await BluetoothLowEnergy.discoverServices({ deviceId });\n  await BluetoothLowEnergy.startCharacteristicNotifications({\n    deviceId,\n    service: HEART_RATE_SERVICE,\n    characteristic: HEART_RATE_MEASUREMENT,\n  });\n  connectedId = deviceId;\n  localStorage.setItem('hr-sensor', deviceId);\n}\n\nasync function reconnect(deviceId: string, attempt = 0) {\n  // stopHeartRate() clears connectedId, which ends any pending retry chain\n  if (attempt > 5 || connectedId !== deviceId) return;\n  try {\n    await connectTo(deviceId);\n  } catch {\n    setTimeout(() => void reconnect(deviceId, attempt + 1), 2000 * (attempt + 1));\n  }\n}\n\nexport async function stopHeartRate() {\n  if (connectedId) {\n    await BluetoothLowEnergy.stopCharacteristicNotifications({\n      deviceId: connectedId,\n      service: HEART_RATE_SERVICE,\n      characteristic: HEART_RATE_MEASUREMENT,\n    }).catch(() => undefined);\n    const id = connectedId;\n    connectedId = null; // prevents the disconnect listener from reconnecting\n    await BluetoothLowEnergy.disconnect({ deviceId: id });\n  }\n  await Promise.all(listeners.map((l) => l.remove()));\n  listeners = [];\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 275,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 275,
+            "column": 1
+          },
+          "text": "Why it is written this way:"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 277,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 277,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 277,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 277,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 277,
+                        "column": 5
+                      },
+                      "text": "Filter the scan by service."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 277,
+                    "column": 34
+                  },
+                  "text": " "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 277,
+                    "column": 35
+                  },
+                  "text": "startScan({ services: ['180D'] })"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 277,
+                    "column": 70
+                  },
+                  "text": " only returns heart rate sensors, so you do not match on device names, which differ between models and firmware versions."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 278,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 278,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 278,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 278,
+                        "column": 5
+                      },
+                      "text": "Register listeners before subscribing"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 278,
+                    "column": 44
+                  },
+                  "text": ", otherwise the first notifications can arrive before your handler exists."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 279,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 279,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 279,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 279,
+                        "column": 5
+                      },
+                      "text": "Stop scanning once connected."
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 279,
+                    "column": 36
+                  },
+                  "text": " Scanning drains battery and slows connections on some Android phones."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 280,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 280,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 280,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 280,
+                        "column": 5
+                      },
+                      "text": "Device IDs differ per platform"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 280,
+                    "column": 37
+                  },
+                  "text": ": a MAC address on Android, a per-app UUID on iOS. Store whatever you get and reuse it on the same device only."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 282,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 282,
+            "column": 4
+          },
+          "text": "Read sensor location and battery"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 284,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "const LOCATIONS = ['Other', 'Chest', 'Wrist', 'Finger', 'Hand', 'Ear lobe', 'Foot'];\n\nexport async function readSensorInfo(deviceId: string) {\n  const location = await BluetoothLowEnergy.readCharacteristic({\n    deviceId,\n    service: HEART_RATE_SERVICE,\n    characteristic: BODY_SENSOR_LOCATION,\n  }).catch(() => null);\n\n  const battery = await BluetoothLowEnergy.readCharacteristic({\n    deviceId,\n    service: BATTERY_SERVICE,\n    characteristic: BATTERY_LEVEL,\n  }).catch(() => null);\n\n  return {\n    location: location ? LOCATIONS[location.value[0]] ?? 'Unknown' : 'Unknown',\n    batteryPercent: battery ? battery.value[0] : null,\n  };\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 307,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 307,
+            "column": 1
+          },
+          "text": "Both are optional in the spec, so wrap the reads and handle missing values."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 309,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 309,
+            "column": 4
+          },
+          "text": "Build the screen"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 311,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 311,
+            "column": 1
+          },
+          "text": "A minimal UI with a connect button, the live BPM, and a contact warning:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 313,
+        "column": 1
+      },
+      "lang": "html",
+      "meta": null,
+      "text": "<main>\n  <h1>Heart rate</h1>\n  <p id=\"bpm\" aria-live=\"polite\">--</p>\n  <p id=\"status\"></p>\n  <button id=\"connect\" type=\"button\">Connect sensor</button>\n</main>"
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 322,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { startHeartRate } from './heart-rate';\n\nconst bpmEl = document.getElementById('bpm')!;\nconst statusEl = document.getElementById('status')!;\n\ndocument.getElementById('connect')!.addEventListener('click', async () => {\n  statusEl.textContent = 'Searching...';\n  try {\n    await startHeartRate((m) => {\n      bpmEl.textContent = m.contactDetected === false ? '--' : `${m.bpm} bpm`;\n      statusEl.textContent = m.contactDetected === false ? 'Check strap contact' : 'Connected';\n    });\n  } catch (e) {\n    statusEl.textContent = (e as Error).message;\n  }\n});"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 341,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 341,
+            "column": 1
+          },
+          "text": "Start the scan from a button tap, not on page load. Both iOS and Android show permission prompts the first time, and users accept them more often when they understand why."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 343,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 343,
+            "column": 1
+          },
+          "text": "Run it on a device:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 345,
+        "column": 1
+      },
+      "lang": "bash",
+      "meta": null,
+      "text": "bun run build\nbunx cap run android\nbunx cap run ios"
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 351,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 351,
+            "column": 4
+          },
+          "text": "Use RR intervals for HRV"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 353,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 353,
+            "column": 1
+          },
+          "text": "RR intervals are the time between beats. They let you compute heart rate variability, which apps use for recovery and stress scores. RMSSD over a rolling window is the common metric:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 355,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "export function rmssd(rr: number[]): number | null {\n  if (rr.length < 2) return null;\n  let sum = 0;\n  for (let i = 1; i < rr.length; i++) sum += (rr[i] - rr[i - 1]) ** 2;\n  return Math.sqrt(sum / (rr.length - 1));\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 364,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 364,
+            "column": 1
+          },
+          "text": "Collect at least a minute of intervals at rest, and drop outliers (for example intervals that differ by more than 20 percent from the previous one) caused by movement artifacts."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 366,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 366,
+            "column": 4
+          },
+          "text": "Save readings to Apple Health or Health Connect"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 368,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 368,
+            "column": 1
+          },
+          "text": "To make readings available to other apps, write them with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 368,
+            "column": 59
+          },
+          "url": "/plugins/capacitor-health/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 368,
+                "column": 60
+              },
+              "text": "@capgo/capacitor-health"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 368,
+            "column": 114
+          },
+          "text": ". Average over a short window rather than writing every notification:"
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "location": {
+        "line": 370,
+        "column": 1
+      },
+      "lang": "typescript",
+      "meta": null,
+      "text": "import { Health } from '@capgo/capacitor-health';\n\nawait Health.requestAuthorization({ write: ['heartRate'] });\n\nexport async function saveAverage(bpm: number, start: Date, end: Date) {\n  await Health.saveSample({\n    dataType: 'heartRate',\n    value: bpm,\n    unit: 'bpm',\n    startDate: start.toISOString(),\n    endDate: end.toISOString(),\n  });\n}"
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 386,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 386,
+            "column": 1
+          },
+          "text": "HealthKit needs the HealthKit capability and usage strings on iOS. Health Connect needs permissions declared in the manifest and a privacy policy screen on Android. Our "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 386,
+            "column": 170
+          },
+          "url": "/blog/google-fit-to-health-connect-migration-in-capacitor/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 386,
+                "column": 171
+              },
+              "text": "Google Fit to Health Connect migration guide"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 386,
+            "column": 276
+          },
+          "text": " covers that setup."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 388,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 388,
+            "column": 4
+          },
+          "text": "Keep the monitor running during workouts"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "location": {
+        "line": 390,
+        "column": 1
+      },
+      "ordered": false,
+      "start": null,
+      "spread": false,
+      "blocks": [
+        {
+          "type": "listItem",
+          "location": {
+            "line": 390,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 390,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 390,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 390,
+                        "column": 5
+                      },
+                      "text": "iOS"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 390,
+                    "column": 10
+                  },
+                  "text": ": with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 390,
+                    "column": 17
+                  },
+                  "text": "bluetooth-central"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 390,
+                    "column": 36
+                  },
+                  "text": " in "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 390,
+                    "column": 40
+                  },
+                  "text": "UIBackgroundModes"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 390,
+                    "column": 59
+                  },
+                  "text": ", notifications keep arriving when the app is in the background and the screen is locked. iOS may still end the connection under memory pressure, so keep the reconnect logic."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "listItem",
+          "location": {
+            "line": 391,
+            "column": 1
+          },
+          "spread": false,
+          "checked": null,
+          "blocks": [
+            {
+              "type": "paragraph",
+              "location": {
+                "line": 391,
+                "column": 3
+              },
+              "blocks": [
+                {
+                  "type": "strong",
+                  "location": {
+                    "line": 391,
+                    "column": 3
+                  },
+                  "blocks": [
+                    {
+                      "type": "text",
+                      "location": {
+                        "line": 391,
+                        "column": 5
+                      },
+                      "text": "Android"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 391,
+                    "column": 14
+                  },
+                  "text": ": a connected GATT session keeps delivering notifications while your process lives. For workouts longer than a few minutes with the screen off, Android can freeze or kill the app. The simple fix is to keep the screen on during an active session with "
+                },
+                {
+                  "type": "link",
+                  "location": {
+                    "line": 391,
+                    "column": 264
+                  },
+                  "url": "/plugins/capacitor-keep-awake/",
+                  "title": null,
+                  "blocks": [
+                    {
+                      "type": "inlineCode",
+                      "location": {
+                        "line": 391,
+                        "column": 265
+                      },
+                      "text": "@capgo/capacitor-keep-awake"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 391,
+                    "column": 327
+                  },
+                  "text": " ("
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 391,
+                    "column": 329
+                  },
+                  "text": "KeepAwake.keepAwake()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 391,
+                    "column": 352
+                  },
+                  "text": " and "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 391,
+                    "column": 357
+                  },
+                  "text": "KeepAwake.allowSleep()"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 391,
+                    "column": 381
+                  },
+                  "text": "). For true background recording, add your own foreground service with "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 391,
+                    "column": 452
+                  },
+                  "text": "android:foregroundServiceType=\"connectedDevice\""
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 391,
+                    "column": 501
+                  },
+                  "text": " and the "
+                },
+                {
+                  "type": "inlineCode",
+                  "location": {
+                    "line": 391,
+                    "column": 510
+                  },
+                  "text": "FOREGROUND_SERVICE_CONNECTED_DEVICE"
+                },
+                {
+                  "type": "text",
+                  "location": {
+                    "line": 391,
+                    "column": 547
+                  },
+                  "text": " permission."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 393,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 393,
+            "column": 4
+          },
+          "text": "Troubleshooting"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 395,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 395,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 395,
+                "column": 3
+              },
+              "text": "No devices found"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 395,
+            "column": 21
+          },
+          "text": ": the strap is not worn or the electrodes are dry. Many straps also allow only one connection, so disconnect them from a watch, a bike computer or another app first."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 397,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 397,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "inlineCode",
+              "location": {
+                "line": 397,
+                "column": 3
+              },
+              "text": "requestPermissions"
+            },
+            {
+              "type": "text",
+              "location": {
+                "line": 397,
+                "column": 23
+              },
+              "text": " returns denied on Android 11 or lower"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 397,
+            "column": 63
+          },
+          "text": ": BLE scanning on those versions needs location permission and location services on. Check "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 397,
+            "column": 154
+          },
+          "text": "isLocationEnabled()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 397,
+            "column": 175
+          },
+          "text": " and call "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 397,
+            "column": 185
+          },
+          "text": "openLocationSettings()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 397,
+            "column": 209
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 399,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 399,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 399,
+                "column": 3
+              },
+              "text": "Scanning finds nothing on Android 12+ but works on 11"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 399,
+            "column": 58
+          },
+          "text": ": the user denied \"Nearby devices\". Send them to "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 399,
+            "column": 107
+          },
+          "text": "openAppSettings()"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 399,
+            "column": 126
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 401,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 401,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 401,
+                "column": 3
+              },
+              "text": "Heart rate is always 0"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 401,
+            "column": 27
+          },
+          "text": ": no skin contact. Check "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 401,
+            "column": 52
+          },
+          "text": "contactDetected"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 401,
+            "column": 69
+          },
+          "text": "."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 403,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 403,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 403,
+                "column": 3
+              },
+              "text": "Values above 255 bpm or random numbers"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 403,
+            "column": 43
+          },
+          "text": ": you are ignoring flag bit 0 or reading 16-bit values big-endian. Use the parser above."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 405,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 405,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 405,
+                "column": 3
+              },
+              "text": "Notifications stop after the phone locks on Android"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 405,
+            "column": 56
+          },
+          "text": ": battery optimization. Keep the screen awake during sessions or use a foreground service."
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 407,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "strong",
+          "location": {
+            "line": 407,
+            "column": 1
+          },
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 407,
+                "column": 3
+              },
+              "text": "The app is missing on some devices in Google Play"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 407,
+            "column": 54
+          },
+          "text": ": the plugin's "
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 407,
+            "column": 69
+          },
+          "text": "uses-feature"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 407,
+            "column": 83
+          },
+          "text": " for BLE is required by default. Override it as shown in the Android configuration section."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "location": {
+        "line": 409,
+        "column": 1
+      },
+      "depth": 2,
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 409,
+            "column": 4
+          },
+          "text": "Next steps"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "location": {
+        "line": 411,
+        "column": 1
+      },
+      "blocks": [
+        {
+          "type": "text",
+          "location": {
+            "line": 411,
+            "column": 1
+          },
+          "text": "The same pattern works for other standard GATT profiles: Cycling Speed and Cadence ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 411,
+            "column": 85
+          },
+          "text": "0x1816"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 411,
+            "column": 93
+          },
+          "text": "), Running Speed and Cadence ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 411,
+            "column": 123
+          },
+          "text": "0x1814"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 411,
+            "column": 131
+          },
+          "text": "), and Cycling Power ("
+        },
+        {
+          "type": "inlineCode",
+          "location": {
+            "line": 411,
+            "column": 153
+          },
+          "text": "0x1818"
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 411,
+            "column": 161
+          },
+          "text": "). Only the parser changes. See the "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 411,
+            "column": 197
+          },
+          "url": "/docs/plugins/bluetooth-low-energy/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 411,
+                "column": 198
+              },
+              "text": "Bluetooth Low Energy plugin docs"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 411,
+            "column": 268
+          },
+          "text": " for writes, MTU requests and peripheral mode. Once the native app is in the stores, parsing fixes and UI changes are JavaScript, so you can ship them with "
+        },
+        {
+          "type": "link",
+          "location": {
+            "line": 411,
+            "column": 424
+          },
+          "url": "/live-update/",
+          "title": null,
+          "blocks": [
+            {
+              "type": "text",
+              "location": {
+                "line": 411,
+                "column": 425
+              },
+              "text": "Capgo live updates"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "location": {
+            "line": 411,
+            "column": 459
+          },
+          "text": " instead of waiting for review."
+        }
+      ]
+    }
+  ]
+}
