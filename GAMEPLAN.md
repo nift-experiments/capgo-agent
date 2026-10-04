@@ -36,7 +36,7 @@ The 5 October instructions in docs/GOLDEN-MIGRATION-INSTRUCTIONS.md supersede th
 
 ## Phase 8 — restart `capgo-agent` from the same golden reference
 
-- [ ] Implement, validate against the immutable production build, save evidence, update handover and commit.
+- [x] Implement, validate against the immutable production build, save evidence, update handover and commit.
 
 ## Phase 9 — reconstruct visual system for `capgo-agent`
 

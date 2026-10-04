@@ -1,0 +1,623 @@
+
+
+<script type="module">var n=document.getElementById("menu-toggle"),r=document.getElementById("mobile-menu"),o=document.getElementById("products-toggle"),c=document.getElementById("products-submenu"),l=document.getElementById("products-chevron"),d=document.getElementById("solutions-toggle"),g=document.getElementById("solutions-submenu"),m=document.getElementById("solutions-chevron"),s=document.getElementById("header-auth-live"),v="capgo_paid_user",a;function h(){try{return document.cookie.split(";").some(e=>e.trim()===`${v}=1`)}catch{return!1}}function b(e){!s||a===e||(s.textContent=e?"Console link available":"Login and register links available",a=e)}function i(){try{const e=h();document.querySelectorAll("[data-guest-auth-link]").forEach(t=>{e?t.setAttribute("hidden",""):t.removeAttribute("hidden")}),document.querySelectorAll("[data-console-auth-link]").forEach(t=>{e?t.removeAttribute("hidden"):t.setAttribute("hidden","")}),b(e)}catch{}}n?.addEventListener("click",()=>{const e=!r?.classList.toggle("hidden");n.setAttribute("aria-expanded",String(e))});var u=window.matchMedia("(min-width: 768px)");function p(){u.matches&&(r?.classList.add("hidden"),n?.setAttribute("aria-expanded","false"))}u.addEventListener("change",p);o?.addEventListener("click",()=>{const e=!c?.classList.toggle("hidden");o.setAttribute("aria-expanded",String(e)),l?.classList.toggle("rotate-180",e)});d?.addEventListener("click",()=>{const e=!g?.classList.toggle("hidden");d.setAttribute("aria-expanded",String(e)),m?.classList.toggle("rotate-180",e)});i();window.addEventListener("focus",i);document.addEventListener("visibilitychange",()=>{document.hidden||i()});</script>
+      <main id="main-content">
+        
+  <div class="product-hero flex w-full flex-col items-center">
+    <div class="relative w-full max-w-7xl px-8 sm:px-10 lg:px-12">
+      <div class="relative z-0 mx-auto pb-12">
+        <div class="relative max-w-(--breakpoint-sm)">
+          <div class="mt-4 flex flex-row flex-wrap items-center gap-3">
+            <a href="/blog/category/tutorial/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Tutorial
+                </a><a href="/blog/category/capacitor/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Capacitor
+                </a><a href="/blog/category/development/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Development
+                </a>
+            <time datetime="2026-10-01T03:59:51.000Z" class="text-sm text-white">
+              October 01, 2026
+            </time>
+          </div>
+          <h1 class="font-display mt-8 text-left text-4xl font-medium text-white sm:text-4xl sm:leading-tight">
+            How to Use Custom SQLite Extensions in Capacitor
+          </h1>
+          <p class="mt-4 text-gray-400 sm:text-lg">Load custom SQLite extensions in a Capacitor app: iOS and Android limits, a C extension that builds for both, and how to register it per connection.</p>
+          <div class="flex flex-col gap-y-4 mt-6 md:hidden">
+  <p class="text-sm text-gray-400">Article credits</p>
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+          
+          <img width="36" height="36" loading="lazy" decoding="async" alt="" aria-hidden="true" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+          <div class="flex min-w-0 flex-col">
+            <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+            <p class="text-sm text-gray-400">Writer</p>
+          </div>
+        
+        </a><div class="group flex items-center space-x-3">
+          <img width="36" height="36" loading="lazy" decoding="async" alt="" aria-hidden="true" src="/valeria-avatar.jpg" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+          <div class="flex min-w-0 flex-col">
+            <p class="text-sm font-medium whitespace-nowrap text-gray-400">Valeria</p>
+            <p class="text-sm text-gray-400">Reviewer</p>
+          </div>
+        </div><div class="group flex items-center space-x-3">
+          <img width="36" height="36" loading="lazy" decoding="async" alt="" aria-hidden="true" src="/jordan-avatar.jpg" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+          <div class="flex min-w-0 flex-col">
+            <p class="text-sm font-medium whitespace-nowrap text-gray-400">Jordan</p>
+            <p class="text-sm text-gray-400">Editor</p>
+          </div>
+        </div>
+</div>
+        </div>
+      </div>
+    </div>
+    <div class="relative w-full max-w-7xl overflow-clip px-8 sm:px-10 lg:px-12">
+      <div class="max-w-grid-width relative z-auto mx-auto grid grid-cols-3">
+        <div class="relative col-span-3 md:col-span-2">
+          <img width="1536" height="1024" id="blogImage" loading="eager" decoding="async" alt="How to Use Custom SQLite Extensions in Capacitor" src="/capacitor-guide.webp" class="rounded border border-white/5 object-cover">
+          <article class="prose prose-invert blog mt-8 min-w-full">
+            <p>You can use custom SQLite extensions in a Capacitor app, but only as native code compiled into the app: on iOS you link the extension statically and call its init function on every connection, and on Android you bundle a SQLite build that supports loading extensions and ship the extension as a native library per CPU architecture. This guide explains why the platforms differ, gives you a working extension in C, and shows the exact native changes for <code>@capgo/capacitor-fast-sql</code> on Capacitor 8.</p>
+<p>Before you write C, check that you actually need it. Many “extensions” are already built in.</p>
+<h2 id="what-a-sqlite-extension-is">What a SQLite extension is</h2>
+<p>An extension is native code that registers new things with a SQLite connection: scalar functions (<code>haversine_km(...)</code>), aggregate functions, collations, virtual tables, and FTS5 tokenizers. Every extension exposes one entry point:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="c"><code><span class="line"><span style="color:#F97583">int</span><span style="color:#E1E4E8"> sqlite3_</span><span style="color:#F97583">&lt;</span><span style="color:#E1E4E8">name</span><span style="color:#F97583">&gt;</span><span style="color:#B392F0">_init</span><span style="color:#E1E4E8">(sqlite3 </span><span style="color:#F97583">*</span><span style="color:#FFAB70">db</span><span style="color:#E1E4E8">, </span><span style="color:#F97583">char</span><span style="color:#F97583"> **</span><span style="color:#FFAB70">pzErrMsg</span><span style="color:#E1E4E8">, </span><span style="color:#F97583">const</span><span style="color:#E1E4E8"> sqlite3_api_routines </span><span style="color:#F97583">*</span><span style="color:#FFAB70">pApi</span><span style="color:#E1E4E8">);</span></span></code></pre>
+<p>SQLite calls it once per connection. Anything you register exists only on that connection.</p>
+<p>Typical reasons to write one in a mobile app:</p>
+<ul>
+<li>a custom FTS5 tokenizer for a language the built-in <code>unicode61</code> tokenizer handles poorly,</li>
+<li>a math or geo function you need in <code>WHERE</code> and <code>ORDER BY</code> (distance sorting, scoring),</li>
+<li>a collation that sorts names the way your users expect,</li>
+<li>a vector search extension for on-device retrieval.</li>
+</ul>
+<h2 id="check-what-is-already-built-in">Check what is already built in</h2>
+<p>Run these through your plugin on the oldest iOS and Android versions you support:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="typescript"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> { FastSQL } </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> '@capgo/capacitor-fast-sql'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> db</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> FastSQL.</span><span style="color:#B392F0">connect</span><span style="color:#E1E4E8">({ database: </span><span style="color:#9ECBFF">'probe'</span><span style="color:#E1E4E8"> });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#E1E4E8"> [{ </span><span style="color:#79B8FF">v</span><span style="color:#E1E4E8"> }] </span><span style="color:#F97583">=</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> db.</span><span style="color:#B392F0">query</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'SELECT sqlite_version() AS v'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> options</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> db.</span><span style="color:#B392F0">query</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'PRAGMA compile_options'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> functions</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> db.</span><span style="color:#B392F0">query</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'SELECT name FROM pragma_function_list ORDER BY name'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">console.</span><span style="color:#B392F0">log</span><span style="color:#E1E4E8">(v, options.</span><span style="color:#B392F0">map</span><span style="color:#E1E4E8">((</span><span style="color:#FFAB70">r</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> r.compile_options));</span></span></code></pre>
+<p>Things you often do not need an extension for:</p>
+<table>
+<thead>
+<tr>
+<th>Need</th>
+<th>Built-in feature</th>
+<th>Check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JSON in columns</td>
+<td>JSON functions (<code>json_extract</code>, <code>-&gt;&gt;</code>)</td>
+<td>Built in since SQLite 3.38. Older Android system SQLite may lack them</td>
+</tr>
+<tr>
+<td>Full-text search</td>
+<td>FTS4, FTS5</td>
+<td><code>ENABLE_FTS4</code> / <code>ENABLE_FTS5</code> in <code>compile_options</code></td>
+</tr>
+<tr>
+<td>Spatial bounding boxes</td>
+<td>R*Tree</td>
+<td><code>ENABLE_RTREE</code></td>
+</tr>
+<tr>
+<td><code>sin</code>, <code>cos</code>, <code>sqrt</code>, <code>pow</code></td>
+<td>Math functions</td>
+<td><code>ENABLE_MATH_FUNCTIONS</code>, SQLite 3.35+</td>
+</tr>
+</tbody>
+</table>
+<p>If the feature is there on every target, stop here. The web build of Fast SQL uses the official SQLite Wasm, which includes JSON, FTS5 and math functions.</p>
+<h2 id="why-ios-and-android-work-differently">Why iOS and Android work differently</h2>
+<p><strong>iOS.</strong> The system <code>libsqlite3</code> is built with <code>SQLITE_OMIT_LOAD_EXTENSION</code>, so <code>load_extension()</code> does not exist. App Store rules also forbid downloading and executing new code (guideline 2.5.2), so loading a <code>.dylib</code> at runtime is off the table anyway. The extension has to be compiled into the app binary. Many tutorials then call <code>sqlite3_auto_extension()</code> at launch. Do not rely on it: in the iOS SDK that ships with Xcode, <code>sqlite3.h</code> declares it with <code>API_DEPRECATED("Process-global auto extensions are not supported on Apple platforms", ...)</code>. The dependable approach is to call your init function on each connection handle right after it opens.</p>
+<p><strong>Android.</strong> The SQLite inside the Android framework (<code>android.database.sqlite</code>) has no API to load extensions. You need a SQLite build bundled with your app that does. <a href="https://github.com/requery/sqlite-android">requery/sqlite-android</a> is a drop-in replacement for the framework classes, ships a current SQLite (with FTS5 and JSON), and supports loadable extensions through <code>SQLiteCustomExtension</code>. Your extension becomes a <code>.so</code> file per ABI inside the APK.</p>
+<p><strong>Web.</strong> The stock SQLite Wasm build cannot load native code. You would need a custom Wasm build of SQLite with your extension compiled in.</p>
+<h3 id="what-the-plugins-support-today">What the plugins support today</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>iOS</th>
+<th>Android</th>
+<th>Web</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>@capgo/capacitor-fast-sql</code> 8.2</td>
+<td>No hook, patch needed</td>
+<td>Uses framework SQLite, patch needed</td>
+<td>Stock SQLite Wasm</td>
+</tr>
+<tr>
+<td><code>@capacitor-community/sqlite</code> 8.1</td>
+<td><code>loadExtension()</code> is declared in the JS API but not implemented natively</td>
+<td>Same</td>
+<td>Not implemented</td>
+</tr>
+</tbody>
+</table>
+<p>So, for now, adding an extension means a small native patch. It is a contained change, and Bun can keep it applied across installs.</p>
+<h2 id="step-1-write-the-extension">Step 1: write the extension</h2>
+<p>A distance function is a good example: useful, self-contained, and easy to verify. Save it as <code>geo.c</code>:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="c"><code><span class="line"><span style="color:#F97583">#include</span><span style="color:#9ECBFF"> &lt;math.h&gt;</span></span>
+<span class="line"><span style="color:#F97583">#include</span><span style="color:#9ECBFF"> &lt;stddef.h&gt;</span></span>
+<span class="line"><span style="color:#F97583">#include</span><span style="color:#9ECBFF"> "sqlite3ext.h"</span></span>
+<span class="line"><span style="color:#E1E4E8">SQLITE_EXTENSION_INIT1</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">static</span><span style="color:#F97583"> void</span><span style="color:#B392F0"> haversine_km</span><span style="color:#E1E4E8">(sqlite3_context </span><span style="color:#F97583">*</span><span style="color:#FFAB70">ctx</span><span style="color:#E1E4E8">, </span><span style="color:#F97583">int</span><span style="color:#FFAB70"> argc</span><span style="color:#E1E4E8">, sqlite3_value </span><span style="color:#F97583">**</span><span style="color:#FFAB70">argv</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#E1E4E8">  (</span><span style="color:#F97583">void</span><span style="color:#E1E4E8">)argc;</span></span>
+<span class="line"><span style="color:#F97583">  for</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">int</span><span style="color:#E1E4E8"> i </span><span style="color:#F97583">=</span><span style="color:#79B8FF"> 0</span><span style="color:#E1E4E8">; i </span><span style="color:#F97583">&lt;</span><span style="color:#79B8FF"> 4</span><span style="color:#E1E4E8">; i</span><span style="color:#F97583">++</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">    if</span><span style="color:#E1E4E8"> (</span><span style="color:#B392F0">sqlite3_value_type</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">argv</span><span style="color:#E1E4E8">[i]) </span><span style="color:#F97583">==</span><span style="color:#E1E4E8"> SQLITE_NULL) {</span></span>
+<span class="line"><span style="color:#B392F0">      sqlite3_result_null</span><span style="color:#E1E4E8">(ctx);</span></span>
+<span class="line"><span style="color:#F97583">      return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E1E4E8">    }</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#F97583"> double</span><span style="color:#E1E4E8"> earth_radius_km </span><span style="color:#F97583">=</span><span style="color:#79B8FF"> 6371.0088</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#F97583"> double</span><span style="color:#E1E4E8"> to_rad </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> M_PI </span><span style="color:#F97583">/</span><span style="color:#79B8FF"> 180.0</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">  double</span><span style="color:#E1E4E8"> lat1 </span><span style="color:#F97583">=</span><span style="color:#B392F0"> sqlite3_value_double</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">argv</span><span style="color:#E1E4E8">[</span><span style="color:#79B8FF">0</span><span style="color:#E1E4E8">]) </span><span style="color:#F97583">*</span><span style="color:#E1E4E8"> to_rad;</span></span>
+<span class="line"><span style="color:#F97583">  double</span><span style="color:#E1E4E8"> lon1 </span><span style="color:#F97583">=</span><span style="color:#B392F0"> sqlite3_value_double</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">argv</span><span style="color:#E1E4E8">[</span><span style="color:#79B8FF">1</span><span style="color:#E1E4E8">]) </span><span style="color:#F97583">*</span><span style="color:#E1E4E8"> to_rad;</span></span>
+<span class="line"><span style="color:#F97583">  double</span><span style="color:#E1E4E8"> lat2 </span><span style="color:#F97583">=</span><span style="color:#B392F0"> sqlite3_value_double</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">argv</span><span style="color:#E1E4E8">[</span><span style="color:#79B8FF">2</span><span style="color:#E1E4E8">]) </span><span style="color:#F97583">*</span><span style="color:#E1E4E8"> to_rad;</span></span>
+<span class="line"><span style="color:#F97583">  double</span><span style="color:#E1E4E8"> lon2 </span><span style="color:#F97583">=</span><span style="color:#B392F0"> sqlite3_value_double</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">argv</span><span style="color:#E1E4E8">[</span><span style="color:#79B8FF">3</span><span style="color:#E1E4E8">]) </span><span style="color:#F97583">*</span><span style="color:#E1E4E8"> to_rad;</span></span>
+<span class="line"><span style="color:#F97583">  double</span><span style="color:#E1E4E8"> dlat </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> lat2 </span><span style="color:#F97583">-</span><span style="color:#E1E4E8"> lat1;</span></span>
+<span class="line"><span style="color:#F97583">  double</span><span style="color:#E1E4E8"> dlon </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> lon2 </span><span style="color:#F97583">-</span><span style="color:#E1E4E8"> lon1;</span></span>
+<span class="line"><span style="color:#F97583">  double</span><span style="color:#E1E4E8"> a </span><span style="color:#F97583">=</span><span style="color:#B392F0"> sin</span><span style="color:#E1E4E8">(dlat </span><span style="color:#F97583">/</span><span style="color:#79B8FF"> 2</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">*</span><span style="color:#B392F0"> sin</span><span style="color:#E1E4E8">(dlat </span><span style="color:#F97583">/</span><span style="color:#79B8FF"> 2</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">+</span></span>
+<span class="line"><span style="color:#B392F0">             cos</span><span style="color:#E1E4E8">(lat1) </span><span style="color:#F97583">*</span><span style="color:#B392F0"> cos</span><span style="color:#E1E4E8">(lat2) </span><span style="color:#F97583">*</span><span style="color:#B392F0"> sin</span><span style="color:#E1E4E8">(dlon </span><span style="color:#F97583">/</span><span style="color:#79B8FF"> 2</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">*</span><span style="color:#B392F0"> sin</span><span style="color:#E1E4E8">(dlon </span><span style="color:#F97583">/</span><span style="color:#79B8FF"> 2</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#B392F0">  sqlite3_result_double</span><span style="color:#E1E4E8">(ctx, </span><span style="color:#79B8FF">2</span><span style="color:#F97583"> *</span><span style="color:#E1E4E8"> earth_radius_km </span><span style="color:#F97583">*</span><span style="color:#B392F0"> asin</span><span style="color:#E1E4E8">(</span><span style="color:#B392F0">sqrt</span><span style="color:#E1E4E8">(a)));</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">int</span><span style="color:#B392F0"> sqlite3_geo_init</span><span style="color:#E1E4E8">(sqlite3 </span><span style="color:#F97583">*</span><span style="color:#FFAB70">db</span><span style="color:#E1E4E8">, </span><span style="color:#F97583">char</span><span style="color:#F97583"> **</span><span style="color:#FFAB70">pzErrMsg</span><span style="color:#E1E4E8">, </span><span style="color:#F97583">const</span><span style="color:#E1E4E8"> sqlite3_api_routines </span><span style="color:#F97583">*</span><span style="color:#FFAB70">pApi</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#B392F0">  SQLITE_EXTENSION_INIT2</span><span style="color:#E1E4E8">(pApi);</span></span>
+<span class="line"><span style="color:#E1E4E8">  (</span><span style="color:#F97583">void</span><span style="color:#E1E4E8">)pzErrMsg;</span></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#B392F0"> sqlite3_create_function_v2</span><span style="color:#E1E4E8">(</span></span>
+<span class="line"><span style="color:#E1E4E8">      db, </span><span style="color:#9ECBFF">"haversine_km"</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">4</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">      SQLITE_UTF8 </span><span style="color:#F97583">|</span><span style="color:#E1E4E8"> SQLITE_DETERMINISTIC </span><span style="color:#F97583">|</span><span style="color:#E1E4E8"> SQLITE_INNOCUOUS,</span></span>
+<span class="line"><span style="color:#79B8FF">      NULL</span><span style="color:#E1E4E8">, haversine_km, </span><span style="color:#79B8FF">NULL</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">NULL</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">NULL</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>The same file builds both ways:</p>
+<ul>
+<li><strong>As a loadable extension</strong> (Android): <code>SQLITE_EXTENSION_INIT1/2</code> route every SQLite call through the <code>pApi</code> pointer SQLite passes in, so the <code>.so</code> does not link against SQLite.</li>
+<li><strong>Statically, with <code>-DSQLITE_CORE</code></strong> (iOS): the macros become no-ops and calls go straight to the SQLite library the app links.</li>
+</ul>
+<p><code>SQLITE_DETERMINISTIC</code> lets SQLite use the function in indexes on expressions. <code>SQLITE_INNOCUOUS</code> marks it safe to use in views and triggers.</p>
+<p>I compiled this file both ways on macOS: statically with <code>-DSQLITE_CORE</code> and called <code>sqlite3_geo_init(db, NULL, NULL)</code> on a system SQLite connection, and as a loadable library through <code>load_extension</code>. Both return about 343.6 km for Paris to London.</p>
+<h2 id="step-2-ios-compile-into-the-app-and-register-per-connection">Step 2: iOS, compile into the app and register per connection</h2>
+<h3 id="add-the-source-to-the-app-target">Add the source to the app target</h3>
+<ol>
+<li>In Xcode, drag <code>geo.c</code> into the <code>App</code> group and tick the <code>App</code> target.</li>
+<li>Xcode offers to create a bridging header. Accept, or create <code>App/App-Bridging-Header.h</code> and set it under <strong>Build Settings &gt; Swift Compiler - General &gt; Objective-C Bridging Header</strong>.</li>
+<li>In <strong>Build Phases &gt; Compile Sources</strong>, double-click <code>geo.c</code> and add the per-file flag <code>-DSQLITE_CORE</code>.</li>
+</ol>
+<p>The iOS SDK ships both <code>sqlite3.h</code> and <code>sqlite3ext.h</code>, so no extra headers are needed.</p>
+<p><code>App-Bridging-Header.h</code>:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="c"><code><span class="line"><span style="color:#F97583">#include</span><span style="color:#9ECBFF"> &lt;sqlite3.h&gt;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">int</span><span style="color:#B392F0"> sqlite3_geo_init</span><span style="color:#E1E4E8">(sqlite3 </span><span style="color:#F97583">*</span><span style="color:#FFAB70">db</span><span style="color:#E1E4E8">, </span><span style="color:#F97583">char</span><span style="color:#F97583"> **</span><span style="color:#FFAB70">pzErrMsg</span><span style="color:#E1E4E8">, </span><span style="color:#F97583">const</span><span style="color:#E1E4E8"> sqlite3_api_routines </span><span style="color:#F97583">*</span><span style="color:#FFAB70">pApi</span><span style="color:#E1E4E8">);</span></span></code></pre>
+<h3 id="patch-fast-sql-to-expose-an-open-hook">Patch Fast SQL to expose an open hook</h3>
+<p>The plugin opens connections inside its own module, so it needs a hook your app can set. Bun can patch a dependency and re-apply the patch on every install:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">bun</span><span style="color:#9ECBFF"> patch</span><span style="color:#9ECBFF"> @capgo/capacitor-fast-sql</span></span></code></pre>
+<p>Edit <code>node_modules/@capgo/capacitor-fast-sql/ios/Sources/CapgoCapacitorFastSqlPlugin/SQLDatabase.swift</code>. Add a public hook at the top level of the file:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="swift"><code><span class="line"><span style="color:#F97583">public</span><span style="color:#F97583"> enum</span><span style="color:#B392F0"> FastSqlExtensions</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#6A737D">    /// Called with every new connection handle right after it opens.</span></span>
+<span class="line"><span style="color:#6A737D">    /// Return SQLITE_OK (0) on success.</span></span>
+<span class="line"><span style="color:#F97583">    public</span><span style="color:#F97583"> static</span><span style="color:#F97583"> var</span><span style="color:#E1E4E8"> onOpen: ((</span><span style="color:#79B8FF">OpaquePointer</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">-&gt;</span><span style="color:#79B8FF"> Int32</span><span style="color:#E1E4E8">)</span><span style="color:#F97583">?</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>Then in <code>init(...)</code>, after the encryption block and before <code>try applyPerformanceOptions(...)</code>, call it:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="swift"><code><span class="line"><span style="color:#F97583">if</span><span style="color:#F97583"> let</span><span style="color:#E1E4E8"> hook </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> FastSqlExtensions.onOpen {</span></span>
+<span class="line"><span style="color:#F97583">    let</span><span style="color:#E1E4E8"> rc </span><span style="color:#F97583">=</span><span style="color:#79B8FF"> hook</span><span style="color:#E1E4E8">(db)</span></span>
+<span class="line"><span style="color:#F97583">    if</span><span style="color:#E1E4E8"> rc </span><span style="color:#F97583">!=</span><span style="color:#E1E4E8"> SQLITE_OK {</span></span>
+<span class="line"><span style="color:#F97583">        throw</span><span style="color:#E1E4E8"> SQLError.</span><span style="color:#79B8FF">openFailed</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">message</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">"Extension init failed with code </span><span style="color:#9ECBFF">\(rc)</span><span style="color:#9ECBFF">"</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">    }</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>Save the patch:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">bun</span><span style="color:#9ECBFF"> patch</span><span style="color:#79B8FF"> --commit</span><span style="color:#9ECBFF"> node_modules/@capgo/capacitor-fast-sql</span></span></code></pre>
+<p>Bun writes a file under <code>patches/</code> and records it in <code>package.json</code> under <code>patchedDependencies</code>. Commit both. Our guide on <a href="/blog/how-to-patch-a-capacitor-plugin/">how to patch a Capacitor plugin</a> covers this workflow in more detail.</p>
+<h3 id="register-the-extension-at-launch">Register the extension at launch</h3>
+<p>In <code>ios/App/App/AppDelegate.swift</code>, import the plugin module and set the hook in <code>application(_:didFinishLaunchingWithOptions:)</code>:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="swift"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#B392F0"> UIKit</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#B392F0"> Capacitor</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#B392F0"> CapgoCapacitorFastSql</span><span style="color:#6A737D"> // CocoaPods module name. With SPM: import CapgoCapacitorFastSqlPlugin</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">// Inside the existing AppDelegate class:</span></span>
+<span class="line"><span style="color:#F97583">func</span><span style="color:#B392F0"> application</span><span style="color:#E1E4E8">(</span><span style="color:#B392F0">_</span><span style="color:#E1E4E8"> application: UIApplication,</span></span>
+<span class="line"><span style="color:#B392F0">                 didFinishLaunchingWithOptions</span><span style="color:#E1E4E8"> launchOptions: [UIApplication.LaunchOptionsKey: </span><span style="color:#79B8FF">Any</span><span style="color:#E1E4E8">]</span><span style="color:#F97583">?</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">-&gt;</span><span style="color:#79B8FF"> Bool</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">    FastSqlExtensions.onOpen </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> { db </span><span style="color:#F97583">in</span></span>
+<span class="line"><span style="color:#79B8FF">        sqlite3_geo_init</span><span style="color:#E1E4E8">(db, </span><span style="color:#79B8FF">nil</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">nil</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">    }</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#79B8FF"> true</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>Because the hook runs inside the plugin’s open path, every connection gets the function, including ones opened after a WebView reload. Setting it in <code>didFinishLaunching</code> guarantees it is in place before JavaScript can call <code>connect()</code>.</p>
+<p><strong>SQLCipher builds.</strong> If you use the plugin’s SQLCipher subspec, the connection belongs to SQLCipher’s SQLite, while your <code>-DSQLITE_CORE</code> file may link against the system library’s symbols. Test this combination explicitly before shipping, or keep extension-dependent data in an unencrypted database.</p>
+<h2 id="step-3-android-bundle-a-sqlite-that-can-load-extensions">Step 3: Android, bundle a SQLite that can load extensions</h2>
+<h3 id="compile-the-extension-for-each-abi">Compile the extension for each ABI</h3>
+<p>You need the Android NDK (install it from Android Studio’s SDK Manager) and <code>sqlite3ext.h</code> plus <code>sqlite3.h</code> from the <a href="https://sqlite.org/download.html">SQLite amalgamation</a> next to <code>geo.c</code>.</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#F97583">export</span><span style="color:#E1E4E8"> NDK</span><span style="color:#F97583">=</span><span style="color:#E1E4E8">$HOME/Library/Android/sdk/ndk/</span><span style="color:#F97583">&lt;</span><span style="color:#E1E4E8">version</span><span style="color:#F97583">&gt;</span></span>
+<span class="line"><span style="color:#F97583">export</span><span style="color:#E1E4E8"> TOOLCHAIN</span><span style="color:#F97583">=</span><span style="color:#E1E4E8">$NDK/toolchains/llvm/prebuilt/darwin-x86_64   </span><span style="color:#6A737D"># linux-x86_64 on Linux</span></span>
+<span class="line"><span style="color:#F97583">export</span><span style="color:#E1E4E8"> API</span><span style="color:#F97583">=</span><span style="color:#79B8FF">24</span><span style="color:#6A737D">   # your minSdkVersion</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">for</span><span style="color:#E1E4E8"> pair </span><span style="color:#F97583">in</span><span style="color:#E1E4E8"> \</span></span>
+<span class="line"><span style="color:#9ECBFF">  aarch64-linux-android:arm64-v8a</span><span style="color:#E1E4E8"> \</span></span>
+<span class="line"><span style="color:#9ECBFF">  armv7a-linux-androideabi:armeabi-v7a</span><span style="color:#E1E4E8"> \</span></span>
+<span class="line"><span style="color:#9ECBFF">  x86_64-linux-android:x86_64</span><span style="color:#E1E4E8"> \</span></span>
+<span class="line"><span style="color:#9ECBFF">  i686-linux-android:x86</span></span>
+<span class="line"><span style="color:#F97583">do</span></span>
+<span class="line"><span style="color:#E1E4E8">  triple</span><span style="color:#F97583">=</span><span style="color:#E1E4E8">${pair</span><span style="color:#F97583">%%:*</span><span style="color:#E1E4E8">}</span></span>
+<span class="line"><span style="color:#E1E4E8">  abi</span><span style="color:#F97583">=</span><span style="color:#E1E4E8">${pair</span><span style="color:#F97583">##*:</span><span style="color:#E1E4E8">}</span></span>
+<span class="line"><span style="color:#B392F0">  mkdir</span><span style="color:#79B8FF"> -p</span><span style="color:#9ECBFF"> android/app/src/main/jniLibs/</span><span style="color:#E1E4E8">$abi</span></span>
+<span class="line"><span style="color:#E1E4E8">  $TOOLCHAIN</span><span style="color:#9ECBFF">/bin/clang</span><span style="color:#79B8FF"> --target=</span><span style="color:#E1E4E8">$triple$API</span><span style="color:#79B8FF"> \</span></span>
+<span class="line"><span style="color:#79B8FF">    -shared</span><span style="color:#79B8FF"> -fPIC</span><span style="color:#79B8FF"> -O2</span><span style="color:#79B8FF"> \</span></span>
+<span class="line"><span style="color:#79B8FF">    -Wl,-z,max-page-size=16384</span><span style="color:#79B8FF"> \</span></span>
+<span class="line"><span style="color:#79B8FF">    -o</span><span style="color:#9ECBFF"> android/app/src/main/jniLibs/</span><span style="color:#E1E4E8">$abi</span><span style="color:#9ECBFF">/libgeo.so</span><span style="color:#79B8FF"> \</span></span>
+<span class="line"><span style="color:#9ECBFF">    geo.c</span><span style="color:#79B8FF"> -lm</span></span>
+<span class="line"><span style="color:#F97583">done</span></span></code></pre>
+<p><code>-Wl,-z,max-page-size=16384</code> aligns the library for devices with 16 KB memory pages. Google Play requires 16 KB support for apps targeting Android 15 and higher, see <a href="/blog/android-16kb-page-size-capacitor-plugins/">16 KB page size and Capacitor plugins</a>. If your app only ships to 64-bit devices, you can drop the two 32-bit ABIs.</p>
+<p>The library is named <code>libgeo.so</code>, so SQLite’s default entry point name is <code>sqlite3_geo_init</code>, which matches the C function.</p>
+<h3 id="extract-native-libraries-at-install-time">Extract native libraries at install time</h3>
+<p>Recent Android Gradle Plugin versions keep <code>.so</code> files uncompressed inside the APK instead of extracting them. SQLite loads extensions with a file path, so ask for extraction in <code>android/app/build.gradle</code>:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="groovy"><code><span class="line"><span style="color:#E1E4E8">android {</span></span>
+<span class="line"><span style="color:#E1E4E8">    packaging {</span></span>
+<span class="line"><span style="color:#E1E4E8">        jniLibs {</span></span>
+<span class="line"><span style="color:#E1E4E8">            useLegacyPackaging </span><span style="color:#F97583">=</span><span style="color:#79B8FF"> true</span></span>
+<span class="line"><span style="color:#E1E4E8">        }</span></span>
+<span class="line"><span style="color:#E1E4E8">    }</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<h3 id="add-requery-sqlite-android">Add requery sqlite-android</h3>
+<p>In <code>android/build.gradle</code> (root), add JitPack:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="groovy"><code><span class="line"><span style="color:#E1E4E8">allprojects {</span></span>
+<span class="line"><span style="color:#E1E4E8">    repositories {</span></span>
+<span class="line"><span style="color:#E1E4E8">        google()</span></span>
+<span class="line"><span style="color:#E1E4E8">        mavenCentral()</span></span>
+<span class="line"><span style="color:#E1E4E8">        maven { url </span><span style="color:#9ECBFF">'https://jitpack.io'</span><span style="color:#E1E4E8"> }</span></span>
+<span class="line"><span style="color:#E1E4E8">    }</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<h3 id="patch-fast-sql-to-use-it">Patch Fast SQL to use it</h3>
+<p>Open the same Bun patch session (<code>bun patch @capgo/capacitor-fast-sql</code>) and edit two files.</p>
+<p><code>node_modules/@capgo/capacitor-fast-sql/android/build.gradle</code>, in <code>dependencies</code>:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="groovy"><code><span class="line"><span style="color:#E1E4E8">implementation </span><span style="color:#9ECBFF">'com.github.requery:sqlite-android:3.49.0'</span></span></code></pre>
+<p>Use the latest version that JitPack shows as built for the repository.</p>
+<p><code>node_modules/@capgo/capacitor-fast-sql/android/src/main/java/app/capgo/capacitor/fastsql/SQLDatabase.java</code>: swap the framework imports for requery’s and open through a configuration that carries the extensions.</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="java"><code><span class="line"><span style="color:#6A737D">// Replace:</span></span>
+<span class="line"><span style="color:#6A737D">// import android.database.sqlite.SQLiteDatabase;</span></span>
+<span class="line"><span style="color:#6A737D">// import android.database.sqlite.SQLiteStatement;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> io.requery.android.database.sqlite.SQLiteCustomExtension;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> io.requery.android.database.sqlite.SQLiteDatabase;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> io.requery.android.database.sqlite.SQLiteDatabaseConfiguration;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> io.requery.android.database.sqlite.SQLiteStatement;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">public</span><span style="color:#F97583"> class</span><span style="color:#B392F0"> SQLDatabase</span><span style="color:#F97583"> implements</span><span style="color:#B392F0"> DatabaseConnection</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    /** Set from MainActivity before the first connection opens. */</span></span>
+<span class="line"><span style="color:#F97583">    public</span><span style="color:#F97583"> static</span><span style="color:#F97583"> final</span><span style="color:#E1E4E8"> java.util.List&lt;</span><span style="color:#F97583">SQLiteCustomExtension</span><span style="color:#E1E4E8">&gt; extensions </span><span style="color:#F97583">=</span></span>
+<span class="line"><span style="color:#F97583">        new</span><span style="color:#E1E4E8"> java.util.concurrent.CopyOnWriteArrayList&lt;&gt;();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    private</span><span style="color:#E1E4E8"> SQLiteDatabase db;</span></span>
+<span class="line"><span style="color:#F97583">    private</span><span style="color:#F97583"> volatile</span><span style="color:#F97583"> boolean</span><span style="color:#E1E4E8"> inTransaction </span><span style="color:#F97583">=</span><span style="color:#79B8FF"> false</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    public</span><span style="color:#B392F0"> SQLDatabase</span><span style="color:#E1E4E8">(String </span><span style="color:#FFAB70">path</span><span style="color:#E1E4E8">, </span><span style="color:#F97583">boolean</span><span style="color:#FFAB70"> walMode</span><span style="color:#E1E4E8">, </span><span style="color:#F97583">boolean</span><span style="color:#FFAB70"> performancePresets</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">throws</span><span style="color:#E1E4E8"> Exception {</span></span>
+<span class="line"><span style="color:#E1E4E8">        SQLiteDatabaseConfiguration config </span><span style="color:#F97583">=</span><span style="color:#F97583"> new</span><span style="color:#B392F0"> SQLiteDatabaseConfiguration</span><span style="color:#E1E4E8">(</span></span>
+<span class="line"><span style="color:#E1E4E8">            path, SQLiteDatabase.CREATE_IF_NECESSARY);</span></span>
+<span class="line"><span style="color:#E1E4E8">        config.customExtensions.</span><span style="color:#B392F0">addAll</span><span style="color:#E1E4E8">(extensions);</span></span>
+<span class="line"><span style="color:#79B8FF">        this</span><span style="color:#E1E4E8">.db </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> SQLiteDatabase.</span><span style="color:#B392F0">openDatabase</span><span style="color:#E1E4E8">(config, </span><span style="color:#79B8FF">null</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">null</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#E1E4E8">        SQLPerformanceConfig.</span><span style="color:#B392F0">apply</span><span style="color:#E1E4E8">(db</span><span style="color:#F97583">::</span><span style="color:#E1E4E8">execSQL, walMode, performancePresets);</span></span>
+<span class="line"><span style="color:#E1E4E8">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    // ... the rest of the class stays as it is</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>requery’s classes mirror the framework API (<code>rawQuery</code>, <code>compileStatement</code>, <code>execSQL</code>, transactions), so the rest of the file compiles unchanged. <code>android.database.Cursor</code> stays as it is. Commit the patch with <code>bun patch --commit node_modules/@capgo/capacitor-fast-sql</code>.</p>
+<p>This changes the unencrypted path only. Encrypted connections use SQLCipher’s own classes, which this patch does not touch.</p>
+<h3 id="register-the-extension-in-mainactivity">Register the extension in MainActivity</h3>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="java"><code><span class="line"><span style="color:#F97583">package</span><span style="color:#E1E4E8"> com.example.app;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> android.os.Bundle;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> app.capgo.capacitor.fastsql.SQLDatabase;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> com.getcapacitor.BridgeActivity;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> io.requery.android.database.sqlite.SQLiteCustomExtension;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">public</span><span style="color:#F97583"> class</span><span style="color:#B392F0"> MainActivity</span><span style="color:#F97583"> extends</span><span style="color:#B392F0"> BridgeActivity</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">    @</span><span style="color:#F97583">Override</span></span>
+<span class="line"><span style="color:#F97583">    public</span><span style="color:#F97583"> void</span><span style="color:#B392F0"> onCreate</span><span style="color:#E1E4E8">(Bundle </span><span style="color:#FFAB70">savedInstanceState</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#E1E4E8">        String path </span><span style="color:#F97583">=</span><span style="color:#B392F0"> getApplicationInfo</span><span style="color:#E1E4E8">().nativeLibraryDir </span><span style="color:#F97583">+</span><span style="color:#9ECBFF"> "/libgeo.so"</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E1E4E8">        SQLDatabase.extensions.</span><span style="color:#B392F0">add</span><span style="color:#E1E4E8">(</span><span style="color:#F97583">new</span><span style="color:#B392F0"> SQLiteCustomExtension</span><span style="color:#E1E4E8">(path, </span><span style="color:#9ECBFF">"sqlite3_geo_init"</span><span style="color:#E1E4E8">));</span></span>
+<span class="line"><span style="color:#79B8FF">        super</span><span style="color:#E1E4E8">.</span><span style="color:#B392F0">onCreate</span><span style="color:#E1E4E8">(savedInstanceState);</span></span>
+<span class="line"><span style="color:#E1E4E8">    }</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>Register before <code>super.onCreate</code> so the list is filled before the WebView can run any JavaScript.</p>
+<h3 id="android-without-c-java-functions">Android without C: Java functions</h3>
+<p>If all you need is a scalar function, requery can register one written in Java, no NDK required. Inside the patched <code>SQLDatabase</code> constructor, after opening:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="java"><code><span class="line"><span style="color:#E1E4E8">db.</span><span style="color:#B392F0">addFunction</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">"haversine_km"</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">4</span><span style="color:#E1E4E8">, (args, result) </span><span style="color:#F97583">-&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#F97583">    double</span><span style="color:#E1E4E8"> r </span><span style="color:#F97583">=</span><span style="color:#79B8FF"> 6371.0088</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">    double</span><span style="color:#E1E4E8"> lat1 </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> Math.</span><span style="color:#B392F0">toRadians</span><span style="color:#E1E4E8">(args.</span><span style="color:#B392F0">getDouble</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">0</span><span style="color:#E1E4E8">));</span></span>
+<span class="line"><span style="color:#F97583">    double</span><span style="color:#E1E4E8"> lat2 </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> Math.</span><span style="color:#B392F0">toRadians</span><span style="color:#E1E4E8">(args.</span><span style="color:#B392F0">getDouble</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">2</span><span style="color:#E1E4E8">));</span></span>
+<span class="line"><span style="color:#F97583">    double</span><span style="color:#E1E4E8"> dlat </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> lat2 </span><span style="color:#F97583">-</span><span style="color:#E1E4E8"> lat1;</span></span>
+<span class="line"><span style="color:#F97583">    double</span><span style="color:#E1E4E8"> dlon </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> Math.</span><span style="color:#B392F0">toRadians</span><span style="color:#E1E4E8">(args.</span><span style="color:#B392F0">getDouble</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">3</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">-</span><span style="color:#E1E4E8"> args.</span><span style="color:#B392F0">getDouble</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">1</span><span style="color:#E1E4E8">));</span></span>
+<span class="line"><span style="color:#F97583">    double</span><span style="color:#E1E4E8"> a </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> Math.</span><span style="color:#B392F0">pow</span><span style="color:#E1E4E8">(Math.</span><span style="color:#B392F0">sin</span><span style="color:#E1E4E8">(dlat </span><span style="color:#F97583">/</span><span style="color:#79B8FF"> 2</span><span style="color:#E1E4E8">), </span><span style="color:#79B8FF">2</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#F97583">             +</span><span style="color:#E1E4E8"> Math.</span><span style="color:#B392F0">cos</span><span style="color:#E1E4E8">(lat1) </span><span style="color:#F97583">*</span><span style="color:#E1E4E8"> Math.</span><span style="color:#B392F0">cos</span><span style="color:#E1E4E8">(lat2) </span><span style="color:#F97583">*</span><span style="color:#E1E4E8"> Math.</span><span style="color:#B392F0">pow</span><span style="color:#E1E4E8">(Math.</span><span style="color:#B392F0">sin</span><span style="color:#E1E4E8">(dlon </span><span style="color:#F97583">/</span><span style="color:#79B8FF"> 2</span><span style="color:#E1E4E8">), </span><span style="color:#79B8FF">2</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#E1E4E8">    result.</span><span style="color:#B392F0">set</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">2</span><span style="color:#F97583"> *</span><span style="color:#E1E4E8"> r </span><span style="color:#F97583">*</span><span style="color:#E1E4E8"> Math.</span><span style="color:#B392F0">asin</span><span style="color:#E1E4E8">(Math.</span><span style="color:#B392F0">sqrt</span><span style="color:#E1E4E8">(a)));</span></span>
+<span class="line"><span style="color:#E1E4E8">});</span></span></code></pre>
+<p>This is slower than C for heavy queries because every call crosses JNI, but it is far simpler to maintain. FTS5 tokenizers and virtual tables still need C.</p>
+<h2 id="step-4-use-it-from-javascript">Step 4: use it from JavaScript</h2>
+<p>After <code>bunx cap sync</code> and a native rebuild:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="typescript"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> { FastSQL } </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> '@capgo/capacitor-fast-sql'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> db</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> FastSQL.</span><span style="color:#B392F0">connect</span><span style="color:#E1E4E8">({ database: </span><span style="color:#9ECBFF">'places'</span><span style="color:#E1E4E8"> });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">await</span><span style="color:#E1E4E8"> db.</span><span style="color:#B392F0">execute</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">`CREATE TABLE IF NOT EXISTS places (</span></span>
+<span class="line"><span style="color:#9ECBFF">  id INTEGER PRIMARY KEY,</span></span>
+<span class="line"><span style="color:#9ECBFF">  name TEXT NOT NULL,</span></span>
+<span class="line"><span style="color:#9ECBFF">  lat REAL NOT NULL,</span></span>
+<span class="line"><span style="color:#9ECBFF">  lon REAL NOT NULL</span></span>
+<span class="line"><span style="color:#9ECBFF">)`</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> nearby</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> db.</span><span style="color:#B392F0">query</span><span style="color:#E1E4E8">(</span></span>
+<span class="line"><span style="color:#9ECBFF">  `SELECT id, name, haversine_km(?, ?, lat, lon) AS km</span></span>
+<span class="line"><span style="color:#9ECBFF">   FROM places</span></span>
+<span class="line"><span style="color:#9ECBFF">   WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?</span></span>
+<span class="line"><span style="color:#9ECBFF">   ORDER BY km</span></span>
+<span class="line"><span style="color:#9ECBFF">   LIMIT 20`</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">  [userLat, userLon, userLat </span><span style="color:#F97583">-</span><span style="color:#79B8FF"> 0.5</span><span style="color:#E1E4E8">, userLat </span><span style="color:#F97583">+</span><span style="color:#79B8FF"> 0.5</span><span style="color:#E1E4E8">, userLon </span><span style="color:#F97583">-</span><span style="color:#79B8FF"> 0.7</span><span style="color:#E1E4E8">, userLon </span><span style="color:#F97583">+</span><span style="color:#79B8FF"> 0.7</span><span style="color:#E1E4E8">],</span></span>
+<span class="line"><span style="color:#E1E4E8">);</span></span></code></pre>
+<p>The <code>BETWEEN</code> box lets SQLite use an index on <code>(lat, lon)</code> to narrow candidates before the function computes exact distances. Without it the function runs on every row.</p>
+<h3 id="a-javascript-fallback-for-the-web">A JavaScript fallback for the web</h3>
+<p>The web build cannot load your C code, so detect it and fall back:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="typescript"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> { Capacitor } </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> '@capacitor/core'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">export</span><span style="color:#F97583"> const</span><span style="color:#79B8FF"> hasGeoExtension</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> Capacitor.</span><span style="color:#B392F0">isNativePlatform</span><span style="color:#E1E4E8">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">// On the web: query the bounding box, then sort in JS with the same formula.</span></span></code></pre>
+<h2 id="custom-fts5-tokenizers">Custom FTS5 tokenizers</h2>
+<p>The same mechanism registers FTS5 tokenizers. In your init function, get the <code>fts5_api</code> pointer with the <code>SELECT fts5(?1)</code> pattern from the <a href="https://www.sqlite.org/fts5.html#extending_fts5">FTS5 documentation</a>, then call <code>xCreateTokenizer</code>. Two extra requirements:</p>
+<ul>
+<li>The SQLite library must include FTS5. requery’s build does. On iOS, check <code>PRAGMA compile_options</code> for <code>ENABLE_FTS5</code>.</li>
+<li>Every connection that writes to or reads from the FTS table must have the tokenizer registered, because FTS5 stores the tokenizer name in the table definition. This is why the per-connection hook matters.</li>
+</ul>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="sql"><code><span class="line"><span style="color:#F97583">CREATE</span><span style="color:#E1E4E8"> VIRTUAL </span><span style="color:#F97583">TABLE</span><span style="color:#E1E4E8"> docs </span><span style="color:#F97583">USING</span><span style="color:#E1E4E8"> fts5(title, body, tokenize </span><span style="color:#F97583">=</span><span style="color:#9ECBFF"> 'my_tokenizer'</span><span style="color:#E1E4E8">);</span></span></code></pre>
+<h2 id="shipping-and-maintaining-it">Shipping and maintaining it</h2>
+<ul>
+<li><strong>Native rebuild required.</strong> Extensions, patches and Gradle changes are native. They need a new App Store and Play Store build. <a href="/native-build/">Capgo Build</a> can build and sign both in the cloud. Since April 2026, iOS uploads must be built with Xcode 26 or later.</li>
+<li><strong>JavaScript can still move fast.</strong> SQL that calls <code>haversine_km</code> lives in your web bundle and can ship with <a href="/live-update/">live updates</a>, as long as the native build that contains the extension is already installed. Gate new SQL on a native version check if users may still run an older binary.</li>
+<li><strong>Plugin upgrades.</strong> When you update Fast SQL, Bun re-applies the patch. If the patched lines moved, the install fails loudly instead of silently dropping your hook. Re-create the patch on the new version.</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p><strong><code>no such function: haversine_km</code> on iOS.</strong> The hook was not set before <code>connect()</code>, or the database was opened before <code>didFinishLaunching</code> ran. Log inside the hook to confirm it is called.</p>
+<p><strong>Crash inside <code>sqlite3_geo_init</code> on iOS.</strong> <code>-DSQLITE_CORE</code> is missing, so the file compiled as a loadable extension that dereferences the <code>pApi</code> pointer, which is <code>nil</code> here. Add the per-file flag in Compile Sources.</p>
+<p><strong><code>no such function</code> on Android.</strong> The patched <code>SQLDatabase</code> still imports <code>android.database.sqlite.SQLiteDatabase</code>, or the extension was added to the list after the first connection. Log <code>SQLDatabase.extensions.size()</code> when connecting.</p>
+<p><strong><code>dlopen failed: library "…/libgeo.so" not found</code>.</strong> The library is missing for the device ABI (most phones are <code>arm64-v8a</code>), or native libraries were not extracted. Check <code>useLegacyPackaging</code> and inspect the APK with Android Studio’s APK Analyzer.</p>
+<p><strong><code>undefined symbol: sqlite3_geo_init</code>.</strong> The entry point name passed to <code>SQLiteCustomExtension</code> does not match the C function, or the function was declared <code>static</code>.</p>
+<p><strong>Play Console warns about 16 KB alignment.</strong> Rebuild the <code>.so</code> files with <code>-Wl,-z,max-page-size=16384</code> and a recent NDK, and update requery to a version built with 16 KB alignment.</p>
+<p><strong>The function works on Android but not in the iOS simulator.</strong> Make sure <code>geo.c</code> is a member of the <code>App</code> target, not only present in the file tree.</p>
+<h2 id="summary">Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>How the extension gets in</th>
+<th>Where it is registered</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>iOS</td>
+<td>Compiled into the app with <code>-DSQLITE_CORE</code></td>
+<td>Plugin hook that calls <code>sqlite3_geo_init</code> on every new connection</td>
+</tr>
+<tr>
+<td>Android</td>
+<td><code>.so</code> per ABI in <code>jniLibs</code>, loaded by requery sqlite-android</td>
+<td><code>SQLiteCustomExtension</code> list read when each connection opens</td>
+</tr>
+<tr>
+<td>Web</td>
+<td>Not supported by stock SQLite Wasm</td>
+<td>JavaScript fallback</td>
+</tr>
+</tbody>
+</table>
+<p>Start by checking the built-in features. If you still need an extension, write it once in C, keep the native patches small, and test on the oldest devices you support. For the general plugin setup, see <a href="/blog/how-to-use-sqlite-in-capacitor-apps/">How to use SQLite in a Capacitor app</a>.</p>
+
+          </article>
+        </div>
+        <div class="right-0 hidden px-10 md:block">
+          <div class="flex flex-col gap-y-4 relative pb-5">
+  <p class="text-sm text-gray-400">Article credits</p>
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+          
+          <img width="36" height="36" loading="lazy" decoding="async" alt="" aria-hidden="true" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+          <div class="flex min-w-0 flex-col">
+            <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+            <p class="text-sm text-gray-400">Writer</p>
+          </div>
+        
+        </a><div class="group flex items-center space-x-3">
+          <img width="36" height="36" loading="lazy" decoding="async" alt="" aria-hidden="true" src="/valeria-avatar.jpg" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+          <div class="flex min-w-0 flex-col">
+            <p class="text-sm font-medium whitespace-nowrap text-gray-400">Valeria</p>
+            <p class="text-sm text-gray-400">Reviewer</p>
+          </div>
+        </div><div class="group flex items-center space-x-3">
+          <img width="36" height="36" loading="lazy" decoding="async" alt="" aria-hidden="true" src="/jordan-avatar.jpg" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+          <div class="flex min-w-0 flex-col">
+            <p class="text-sm font-medium whitespace-nowrap text-gray-400">Jordan</p>
+            <p class="text-sm text-gray-400">Editor</p>
+          </div>
+        </div>
+</div>
+          <div id="staticToc" class="sticky top-16 pt-4 pb-8">
+                <div>
+                  <p class="-ml-0.5 flex items-center gap-1.5 text-sm text-gray-400">
+                    <svg width="24" height="24" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" class="lucide lucide-align-left h-4 w-4">
+                      <line x1="21" x2="3" y1="6" y2="6"></line>
+                      <line x1="15" x2="3" y1="12" y2="12"></line>
+                      <line x1="17" x2="3" y1="18" y2="18"></line>
+                    </svg>
+                    Table of Contents
+                  </p>
+                  <div class="mt-4 grid gap-4 border-l border-gray-600">
+                    <a id="what-a-sqlite-extension-is-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#what-a-sqlite-extension-is">
+                        What a SQLite extension is
+                      </a><a id="check-what-is-already-built-in-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#check-what-is-already-built-in">
+                        Check what is already built in
+                      </a><a id="why-ios-and-android-work-differently-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#why-ios-and-android-work-differently">
+                        Why iOS and Android work differently
+                      </a><a id="what-the-plugins-support-today-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-the-plugins-support-today">
+                        What the plugins support today
+                      </a><a id="step-1-write-the-extension-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#step-1-write-the-extension">
+                        Step 1: write the extension
+                      </a><a id="step-2-ios-compile-into-the-app-and-register-per-connection-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#step-2-ios-compile-into-the-app-and-register-per-connection">
+                        Step 2: iOS, compile into the app and register per connection
+                      </a><a id="add-the-source-to-the-app-target-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#add-the-source-to-the-app-target">
+                        Add the source to the app target
+                      </a><a id="patch-fast-sql-to-expose-an-open-hook-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#patch-fast-sql-to-expose-an-open-hook">
+                        Patch Fast SQL to expose an open hook
+                      </a><a id="register-the-extension-at-launch-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#register-the-extension-at-launch">
+                        Register the extension at launch
+                      </a><a id="step-3-android-bundle-a-sqlite-that-can-load-extensions-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#step-3-android-bundle-a-sqlite-that-can-load-extensions">
+                        Step 3: Android, bundle a SQLite that can load extensions
+                      </a><a id="compile-the-extension-for-each-abi-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#compile-the-extension-for-each-abi">
+                        Compile the extension for each ABI
+                      </a><a id="extract-native-libraries-at-install-time-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#extract-native-libraries-at-install-time">
+                        Extract native libraries at install time
+                      </a><a id="add-requery-sqlite-android-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#add-requery-sqlite-android">
+                        Add requery sqlite-android
+                      </a><a id="patch-fast-sql-to-use-it-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#patch-fast-sql-to-use-it">
+                        Patch Fast SQL to use it
+                      </a><a id="register-the-extension-in-mainactivity-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#register-the-extension-in-mainactivity">
+                        Register the extension in MainActivity
+                      </a><a id="android-without-c-java-functions-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#android-without-c-java-functions">
+                        Android without C: Java functions
+                      </a><a id="step-4-use-it-from-javascript-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#step-4-use-it-from-javascript">
+                        Step 4: use it from JavaScript
+                      </a><a id="a-javascript-fallback-for-the-web-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#a-javascript-fallback-for-the-web">
+                        A JavaScript fallback for the web
+                      </a><a id="custom-fts5-tokenizers-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#custom-fts5-tokenizers">
+                        Custom FTS5 tokenizers
+                      </a><a id="shipping-and-maintaining-it-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#shipping-and-maintaining-it">
+                        Shipping and maintaining it
+                      </a><a id="troubleshooting-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#troubleshooting">
+                        Troubleshooting
+                      </a><a id="summary-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#summary">
+                        Summary
+                      </a>
+                  </div>
+                </div>
+              </div>
+        </div>
+      </div>
+      <div>
+  <div class="relative mx-4 my-6 max-w-4xl p-4 sm:mx-auto sm:my-10 sm:p-8 md:my-14 md:p-12">
+    <!-- Border design -->
+    <div class="absolute inset-0 rounded-[20px] border border-gray-700 sm:rounded-[40px]"></div>
+
+    <div class="relative">
+      <span class="mb-4 text-3xl leading-tight font-normal text-white sm:mb-6 sm:text-4xl md:text-[44px]">
+        Live updates for Capacitor apps
+      </span>
+
+      <p class="mb-6 max-w-3xl text-lg leading-relaxed font-normal text-gray-300 sm:mb-8 sm:text-xl md:mb-12">
+        When a web-layer bug is live, ship the fix through Capgo instead of waiting days for app store approval. Users get the update in the background while native changes stay in the normal review path.
+      </p>
+
+      <div class="flex flex-col items-start gap-3">
+        <p class="font-inter inline-flex items-center text-sm gap-1.5 text-gray-400 justify-start">
+  <span>human support from Martin</span>
+  <img src="/avatars/martin-96.webp" alt="" width="20" height="20" class="h-5 w-5 rounded-full object-cover ring-2 ring-white/15" loading="lazy" decoding="async" aria-hidden="true">
+</p>
+        <a href="/register/" class="inline-flex w-full items-center justify-center rounded-lg bg-black px-6 py-3 text-lg text-white transition-colors duration-200 hover:bg-gray-800 sm:w-auto sm:px-10 sm:py-4 sm:text-xl">
+          Get Started Now
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="mx-auto max-w-xl text-center">
+        <p class="text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">Latest from our Blog</p>
+        <p class="mt-4 text-base leading-7 font-normal text-gray-400 lg:mt-6 lg:text-lg lg:leading-8">
+          Capgo gives you the best insights you need to create a truly professional mobile app.
+        </p>
+      </div>
+      <div class="mt-8 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+            <a href="/blog/2-way-communication-in-capacitor-apps/" aria-label="2-Way Communication in Capacitor Apps" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/2-way-communication-in-capacitor-apps.webp" alt="2-Way Communication in Capacitor Apps" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 26, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      2-Way Communication in Capacitor Apps
+    </p>
+  </div>
+</a><a href="/blog/5-common-ota-update-mistakes-to-avoid/" aria-label="5 Common OTA Update Mistakes to Avoid" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-common-ota-update-mistakes-to-avoid.webp" alt="5 Common OTA Update Mistakes to Avoid" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Security
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 13, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Common OTA Update Mistakes to Avoid
+    </p>
+  </div>
+</a><a href="/blog/5-security-best-practices-for-mobile-app-live-updates/" aria-label="5 Security Best Practices for Mobile App Live Updates" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-security-best-practices-for-mobile-app-live-updates.webp" alt="5 Security Best Practices for Mobile App Live Updates" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      January 14, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Security Best Practices for Mobile App Live Updates
+    </p>
+  </div>
+</a>
+          </div>
+      <div class="my-12 text-center">
+        <a href="/blog/" class="group inline-flex items-center text-sm font-semibold text-white transition-all duration-200 hover:text-gray-200 hover:underline">
+          See all from our blog
+          <svg class="ml-1 h-5 w-5 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="7" y1="17" x2="17" y2="7"></line>
+            <polyline points="7 7 17 7 17 17"></polyline>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+      </main>
+      

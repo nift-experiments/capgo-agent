@@ -1,0 +1,900 @@
+
+
+<script type="module">var n=document.getElementById("menu-toggle"),r=document.getElementById("mobile-menu"),o=document.getElementById("products-toggle"),c=document.getElementById("products-submenu"),l=document.getElementById("products-chevron"),d=document.getElementById("solutions-toggle"),g=document.getElementById("solutions-submenu"),m=document.getElementById("solutions-chevron"),s=document.getElementById("header-auth-live"),v="capgo_paid_user",a;function h(){try{return document.cookie.split(";").some(e=>e.trim()===`${v}=1`)}catch{return!1}}function b(e){!s||a===e||(s.textContent=e?"Console link available":"Login and register links available",a=e)}function i(){try{const e=h();document.querySelectorAll("[data-guest-auth-link]").forEach(t=>{e?t.setAttribute("hidden",""):t.removeAttribute("hidden")}),document.querySelectorAll("[data-console-auth-link]").forEach(t=>{e?t.removeAttribute("hidden"):t.setAttribute("hidden","")}),b(e)}catch{}}n?.addEventListener("click",()=>{const e=!r?.classList.toggle("hidden");n.setAttribute("aria-expanded",String(e))});var u=window.matchMedia("(min-width: 768px)");function p(){u.matches&&(r?.classList.add("hidden"),n?.setAttribute("aria-expanded","false"))}u.addEventListener("change",p);o?.addEventListener("click",()=>{const e=!c?.classList.toggle("hidden");o.setAttribute("aria-expanded",String(e)),l?.classList.toggle("rotate-180",e)});d?.addEventListener("click",()=>{const e=!g?.classList.toggle("hidden");d.setAttribute("aria-expanded",String(e)),m?.classList.toggle("rotate-180",e)});i();window.addEventListener("focus",i);document.addEventListener("visibilitychange",()=>{document.hidden||i()});</script>
+      <main id="main-content">
+        
+  <div class="product-hero flex w-full flex-col items-center">
+    <div class="relative w-full max-w-7xl px-8 sm:px-10 lg:px-12">
+      <div class="relative z-0 mx-auto pb-12">
+        <div class="relative max-w-(--breakpoint-sm)">
+          <div class="mt-4 flex flex-row flex-wrap items-center gap-3">
+            <a href="/blog/category/mobile/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Mobile
+                </a><a href="/blog/category/security/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Security
+                </a><a href="/blog/category/guides/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Guides
+                </a>
+            <time datetime="2026-08-25T01:16:42.000Z" class="text-sm text-white">
+              August 25, 2026
+            </time>
+          </div>
+          <h1 class="font-display mt-8 text-left text-4xl font-medium text-white sm:text-4xl sm:leading-tight">
+            A Practical Web Hook Example: Secure Implementation Guide
+          </h1>
+          <p class="mt-4 text-gray-400 sm:text-lg">Find a complete web hook example with code for Node.js, Python, and Go. Learn to securely verify signatures, prevent replay attacks, and debug your endpoints.</p>
+          <div class="flex flex-col gap-y-4 mt-6 md:hidden">
+  
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+    <img width="36" height="36" loading="lazy" decoding="async" alt="Martin Donadieu" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+    <div class="flex flex-col">
+      <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+      <p class="text-sm text-gray-400">Content Marketer</p>
+    </div>
+  </a>
+</div>
+        </div>
+      </div>
+    </div>
+    <div class="relative w-full max-w-7xl overflow-clip px-8 sm:px-10 lg:px-12">
+      <div class="max-w-grid-width relative z-auto mx-auto grid grid-cols-3">
+        <div class="relative col-span-3 md:col-span-2">
+          <img width="1536" height="1024" id="blogImage" loading="eager" decoding="async" alt="A Practical Web Hook Example: Secure Implementation Guide" src="/blog-images/web-hook-example.webp" class="rounded border border-white/5 object-cover">
+          <article class="prose prose-invert blog mt-8 min-w-full">
+            <p>You’ve got a service that needs to react when something happens somewhere else. A payment clears. A customer record changes. A repo gets a push. You could poll an API every minute and waste cycles asking “anything new?” over and over, or you can let the source system call you when the event happens.</p>
+<p>That’s where most web hook example articles stop. They show a route, print the JSON body, return <code>200</code>, and call it done. That version works right up until someone sends a forged request, replays a valid one, or your handler breaks because the framework parsed the body before signature verification.</p>
+<p>This guide takes the path you’ll use in production. The examples are small enough to copy, but they include the parts that matter: raw body handling, HMAC verification, timestamp checks, fast acknowledgment, and practical debugging.</p>
+<p><a id="what-are-webhooks-and-why-use-them"></a></p>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ul>
+<li><a href="#what-are-webhooks-and-why-use-them">What Are Webhooks and Why Use Them</a>
+<ul>
+<li><a href="#the-mental-model-that-helps">The mental model that helps</a></li>
+<li><a href="#what-works-and-what-fails-in-production">What works and what fails in production</a></li>
+</ul>
+</li>
+<li><a href="#anatomy-of-a-webhook-http-request">Anatomy of a Webhook HTTP Request</a>
+<ul>
+<li><a href="#a-simple-raw-request">A simple raw request</a></li>
+<li><a href="#why-the-body-shape-matters">Why the body shape matters</a></li>
+</ul>
+</li>
+<li><a href="#how-to-securely-verify-webhook-signatures">How to Securely Verify Webhook Signatures</a>
+<ul>
+<li><a href="#the-verification-flow">The verification flow</a></li>
+<li><a href="#what-to-watch-for-in-real-code">What to watch for in real code</a></li>
+<li><a href="#a-generic-verification-example">A generic verification example</a></li>
+</ul>
+</li>
+<li><a href="#protecting-against-replay-attacks">Protecting Against Replay Attacks</a>
+<ul>
+<li><a href="#the-minimum-check-that-actually-matters">The minimum check that actually matters</a></li>
+<li><a href="#what-to-choose-for-the-tolerance-window">What to choose for the tolerance window</a></li>
+<li><a href="#replay-defense-is-not-just-a-timestamp-check">Replay defense is not just a timestamp check</a></li>
+</ul>
+</li>
+<li><a href="#building-a-webhook-receiver-in-nodejs">Building a Webhook Receiver in Node.js</a>
+<ul>
+<li><a href="#a-production-minded-express-example">A production-minded Express example</a></li>
+<li><a href="#why-this-structure-holds-up">Why this structure holds up</a></li>
+<li><a href="#what-id-change-for-a-live-system">What I’d change for a live system</a></li>
+</ul>
+</li>
+<li><a href="#building-a-webhook-receiver-in-python">Building a Webhook Receiver in Python</a>
+<ul>
+<li><a href="#a-flask-example-with-signature-and-timestamp-checks">A Flask example with signature and timestamp checks</a></li>
+<li><a href="#flask-specific-details-that-matter">Flask-specific details that matter</a></li>
+<li><a href="#where-teams-usually-get-stuck">Where teams usually get stuck</a></li>
+</ul>
+</li>
+<li><a href="#building-a-webhook-receiver-in-go">Building a Webhook Receiver in Go</a>
+<ul>
+<li><a href="#a-standard-library-example">A standard library example</a></li>
+<li><a href="#why-go-feels-solid-here">Why Go feels solid here</a></li>
+<li><a href="#operational-notes">Operational notes</a></li>
+</ul>
+</li>
+<li><a href="#essential-debugging-techniques">Essential Debugging Techniques</a>
+<ul>
+<li><a href="#a-practical-debugging-toolkit">A practical debugging toolkit</a></li>
+<li><a href="#logging-that-actually-helps">Logging that actually helps</a></li>
+<li><a href="#reproduce-failures-with-the-original-inputs">Reproduce failures with the original inputs</a></li>
+</ul>
+</li>
+<li><a href="#a-checklist-for-production-ready-webhooks">A Checklist for Production-Ready Webhooks</a>
+<ul>
+<li><a href="#security-and-correctness-checks">Security and correctness checks</a></li>
+<li><a href="#reliability-checks">Reliability checks</a></li>
+<li><a href="#observability-checks">Observability checks</a></li>
+</ul>
+</li>
+<li><a href="#frequently-asked-questions-about-webhooks">Frequently Asked Questions About Webhooks</a>
+<ul>
+<li><a href="#what-status-code-should-i-return">What status code should I return?</a></li>
+<li><a href="#should-i-process-the-webhook-synchronously">Should I process the webhook synchronously?</a></li>
+<li><a href="#how-should-i-handle-retries">How should I handle retries?</a></li>
+<li><a href="#what-if-events-arrive-out-of-order">What if events arrive out of order?</a></li>
+<li><a href="#how-do-i-deal-with-webhook-version-changes">How do I deal with webhook version changes?</a></li>
+</ul>
+</li>
+</ul>
+<h2 id="what-are-webhooks-and-why-use-them">What Are Webhooks and Why Use Them</h2>
+<p>Your billing provider marks an invoice as paid at 02:13. If your app learns about it at 02:14, the customer gets access right away. If your app learns about it on the next polling cycle, they wait, support gets a ticket, and your logs fill with avoidable noise. Webhooks solve that timing problem by sending an HTTP callback when the event happens.</p>
+<p>In practical terms, a webhook is an event-driven POST from one system to another. The provider detects a change, such as <code>invoice.paid</code>, <code>order.created</code>, or <code>push</code>, and sends the event data to a URL you control. That removes the constant “anything new yet?” loop that polling creates and cuts a lot of wasted requests.</p>
+<p>This pattern shows up in real systems because it maps cleanly to business events. Stripe posts payment outcomes. GitHub posts repository activity. Shopify posts order updates. The shape is simple, but production behavior is not. A webhook that updates money, access, or inventory deserves the same care as any public API endpoint, especially once retries, duplicates, and untrusted traffic enter the picture.</p>
+<p><a id="the-mental-model-that-helps"></a></p>
+<h3 id="the-mental-model-that-helps">The mental model that helps</h3>
+<p>A useful way to frame a webhook flow is as four parts working together:</p>
+<ul>
+<li><strong>Source system</strong>. The service that detects the event.</li>
+<li><strong>Destination endpoint</strong>. Your HTTP route that receives it.</li>
+<li><strong>Event</strong>. The named change that occurred, like <code>invoice.paid</code> or <code>push</code>.</li>
+<li><strong>Payload</strong>. The request body with the details your code needs.</li>
+</ul>
+<p>The provider sends facts about something that already happened. Your job is to verify the sender, confirm the request is fresh, and apply the change once. That last part matters more than many basic tutorials admit. In production, duplicate delivery is normal behavior, not a corner case.</p>
+<blockquote>
+<p><strong>Practical rule:</strong> Use webhooks for event-driven updates. Use polling for scheduled reads, backfills, or providers that do not offer outbound events.</p>
+</blockquote>
+<p>For teams building broader <a href="https://blog.supatool.io/article/automated-data-integration">workflow automation and data integration</a>, webhooks usually become the event layer that keeps systems in sync without unnecessary request traffic. If you work on integration-heavy services, Capgo’s <a href="https://capgo.app/blog/category/development/">backend development articles</a> are useful context because core problems show up around retries, queues, observability, and failure handling.</p>
+<p><a id="what-works-and-what-fails-in-production"></a></p>
+<h3 id="what-works-and-what-fails-in-production">What works and what fails in production</h3>
+<p>The setups that hold up well are usually boring by design. Subscribe only to the events you need. Keep endpoints scoped by provider or event family. Store event IDs so duplicate deliveries do not repeat side effects. Return a fast 2xx response once the request is validated and queued, then do slower business logic asynchronously.</p>
+<p>The fragile version is easy to recognize. One generic endpoint handles everything. Signature checks get skipped during early testing and never come back. The handler writes directly to critical tables before checking whether the event is authentic or stale. That works in a demo and fails under retry storms, provider outages, or an attacker replaying old requests.</p>
+<p>That trade-off defines the rest of this guide. The “hello world” version of a webhook receiver is small. The production-ready version adds signature verification, replay defense, duplicate handling, and debugging hooks from the start.</p>
+<p><a id="anatomy-of-a-webhook-http-request"></a></p>
+<h2 id="anatomy-of-a-webhook-http-request">Anatomy of a Webhook HTTP Request</h2>
+<p>Before writing code, it helps to look at the request as raw HTTP instead of as a framework object. A typical webhook is just an HTTP POST to a public endpoint with headers and a JSON body.</p>
+<p><a id="a-simple-raw-request"></a></p>
+<h3 id="a-simple-raw-request">A simple raw request</h3>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="http"><code><span class="line"><span style="color:#F97583">POST</span><span style="color:#E1E4E8"> /webhooks/orders </span><span style="color:#F97583">HTTP</span><span style="color:#E1E4E8">/</span><span style="color:#79B8FF">1.1</span></span>
+<span class="line"><span style="color:#85E89D">Host</span><span style="color:#F97583">:</span><span style="color:#9ECBFF"> your-app.example</span></span>
+<span class="line"><span style="color:#85E89D">Content-Type</span><span style="color:#F97583">:</span><span style="color:#9ECBFF"> application/json</span></span>
+<span class="line"><span style="color:#85E89D">User-Agent</span><span style="color:#F97583">:</span><span style="color:#9ECBFF"> Provider-Webhooks/1.0</span></span>
+<span class="line"><span style="color:#85E89D">X-Webhook-Signature</span><span style="color:#F97583">:</span><span style="color:#9ECBFF"> sha256=abc123example</span></span>
+<span class="line"><span style="color:#85E89D">X-Webhook-Timestamp</span><span style="color:#F97583">:</span><span style="color:#9ECBFF"> 1712345678</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">{</span></span>
+<span class="line"><span style="color:#79B8FF">  "event"</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">"order.created"</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#79B8FF">  "id"</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">"evt_123"</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#79B8FF">  "data"</span><span style="color:#E1E4E8">: {</span></span>
+<span class="line"><span style="color:#79B8FF">    "order_id"</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">"ord_456"</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#79B8FF">    "status"</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">"created"</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>The important parts are straightforward:</p>
+<ul>
+<li><strong>Method</strong>. In practice, webhook deliveries are usually POST requests.</li>
+<li><strong>Content-Type</strong>. Most modern providers send JSON.</li>
+<li><strong>User-Agent</strong>. Helpful for debugging, but never enough for trust.</li>
+<li><strong>Signature header</strong>. Carries the provider’s authenticity check.</li>
+<li><strong>Timestamp header</strong>. Used to reject stale or replayed requests.</li>
+</ul>
+<p><a id="why-the-body-shape-matters"></a></p>
+<h3 id="why-the-body-shape-matters">Why the body shape matters</h3>
+<p>Your code usually doesn’t care about every field. It cares about the event type, the event identifier, and the business object inside <code>data</code>. That’s why good handlers parse only what they need and log the rest for troubleshooting.</p>
+<p>OpenAPI now models this pattern directly. OpenAPI 3.1.0 added first-class webhook support with a top-level <code>webhooks</code> object, where each webhook is described like a Path Item but is triggered by the provider. The canonical example uses a <code>newPet</code> webhook with a <code>post</code> operation, a JSON request body, and a <code>200</code> response to indicate receipt, as shown in the <a href="https://learn.openapis.org/examples/v3.1/webhook-example.html">OpenAPI webhook example</a>.</p>
+<p>If you’re documenting your own receiver or provider contracts, strong examples help more than abstract schema prose. I like using references like <a href="https://sheetmergy.com/blog/api-documentation-template-example">SheetMergy’s API doc examples</a> because they make it obvious how request examples, field descriptions, and expected responses fit together.</p>
+<blockquote>
+<p>A webhook is simple at the transport layer. Most failures come from mismatched assumptions about headers, body encoding, or signing rules.</p>
+</blockquote>
+<p><a id="how-to-securely-verify-webhook-signatures"></a></p>
+<h2 id="how-to-securely-verify-webhook-signatures">How to Securely Verify Webhook Signatures</h2>
+<p>A signed webhook answers one question: did this payload come from someone who knows the shared secret?</p>
+<p>That’s different from asking whether the request is recent or whether you’ve already processed it. Signature verification is the first gate, not the last.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/a643a238-e71a-434f-b7f4-c82c1381831c/web-hook-example-signature-verification.jpg" alt="An infographic illustrating the six-step process for verifying webhook signatures to ensure request authenticity and security."></p>
+<p><a id="the-verification-flow"></a></p>
+<h3 id="the-verification-flow">The verification flow</h3>
+<p>The usual HMAC flow looks like this:</p>
+<ol>
+<li>Read the signature from the provider’s header.</li>
+<li>Read the <strong>raw request body</strong> exactly as received.</li>
+<li>Load your webhook secret from secure config.</li>
+<li>Recompute the expected HMAC using the same algorithm.</li>
+<li>Compare the received signature and computed signature with a timing-safe comparison.</li>
+<li>Reject the request if they don’t match.</li>
+</ol>
+<p>That raw-body step is where a lot of otherwise good implementations fail. If your framework parses JSON first, reformats whitespace, or changes encoding details before hashing, your computed signature won’t match the provider’s.</p>
+<p><a id="what-to-watch-for-in-real-code"></a></p>
+<h3 id="what-to-watch-for-in-real-code">What to watch for in real code</h3>
+<p>These are the mistakes I see most often:</p>
+<ul>
+<li><strong>Hashing parsed JSON</strong>. Don’t do <code>JSON.stringify(req.body)</code> and expect it to match.</li>
+<li><strong>Using normal string equality</strong>. Use a timing-safe comparison.</li>
+<li><strong>Hardcoding secrets</strong>. Keep them in environment variables or a secrets manager.</li>
+<li><strong>Trusting headers alone</strong>. A signature header is only meaningful if you verify it.</li>
+</ul>
+<p>For teams tightening secret handling across services, Capgo’s guide on <a href="https://capgo.app/blog/api-key-security-for-app-store-compliance/">API key security for app store compliance</a> is relevant because the same discipline applies here. Secret rotation, scoped access, and avoiding leaks in logs all matter for webhook receivers too.</p>
+<p><a id="a-generic-verification-example"></a></p>
+<h3 id="a-generic-verification-example">A generic verification example</h3>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="js"><code><span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> crypto</span><span style="color:#F97583"> =</span><span style="color:#B392F0"> require</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'crypto'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">function</span><span style="color:#B392F0"> verifySignature</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">rawBody</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">receivedSignature</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">secret</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> expected</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> crypto</span></span>
+<span class="line"><span style="color:#E1E4E8">    .</span><span style="color:#B392F0">createHmac</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'sha256'</span><span style="color:#E1E4E8">, secret)</span></span>
+<span class="line"><span style="color:#E1E4E8">    .</span><span style="color:#B392F0">update</span><span style="color:#E1E4E8">(rawBody)</span></span>
+<span class="line"><span style="color:#E1E4E8">    .</span><span style="color:#B392F0">digest</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'hex'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> a</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> Buffer.</span><span style="color:#B392F0">from</span><span style="color:#E1E4E8">(receivedSignature, </span><span style="color:#9ECBFF">'utf8'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> b</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> Buffer.</span><span style="color:#B392F0">from</span><span style="color:#E1E4E8">(expected, </span><span style="color:#9ECBFF">'utf8'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (a.</span><span style="color:#79B8FF">length</span><span style="color:#F97583"> !==</span><span style="color:#E1E4E8"> b.</span><span style="color:#79B8FF">length</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">return</span><span style="color:#79B8FF"> false</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8"> crypto.</span><span style="color:#B392F0">timingSafeEqual</span><span style="color:#E1E4E8">(a, b);</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>This is intentionally generic. Real providers often prefix signatures, combine timestamps into the signed content, or encode the digest differently. The rule stays the same. Follow the provider’s exact signing format, and always verify against the raw payload.</p>
+<p><a id="protecting-against-replay-attacks"></a></p>
+<h2 id="protecting-against-replay-attacks">Protecting Against Replay Attacks</h2>
+<p>A signed webhook can still be dangerous if it arrives hours later and your handler treats it as new. That happens more often than teams expect. Proxies log traffic, request payloads leak into the wrong place, or a provider retries after a network failure and your endpoint processes the same event twice.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/dc4fcd22-26a9-4daf-a31e-5b78d10f230c/web-hook-example-replay-prevention.jpg" alt="A checklist illustrating five key security measures to effectively prevent replay attacks in web applications."></p>
+<p>Signature verification answers one question: did the sender create this payload with the shared secret? Replay protection answers a different one: should this request still be accepted right now? Production receivers need both.</p>
+<p><a id="the-minimum-check-that-actually-matters"></a></p>
+<h3 id="the-minimum-check-that-actually-matters">The minimum check that actually matters</h3>
+<p>A practical replay defense starts with a signed timestamp. The provider includes a timestamp in headers or in the signed message, and your receiver rejects requests that fall outside a small tolerance window.</p>
+<p>That flow should look like this:</p>
+<ul>
+<li><strong>Read the timestamp from the provider-defined location</strong>. Do not guess the header name.</li>
+<li><strong>Parse it as an integer or RFC-formatted date</strong>, based on the provider’s spec.</li>
+<li><strong>Compare it to your server clock</strong>.</li>
+<li><strong>Reject requests that are too old or too far in the future</strong>.</li>
+<li><strong>Verify the timestamp as part of the signature scheme</strong> when the provider supports it.</li>
+</ul>
+<p>That last point matters. If the timestamp is not covered by the signature, an attacker can swap in a fresh timestamp and replay the original body. I always check the provider’s exact signing format before I trust the timestamp logic.</p>
+<p><a id="what-to-choose-for-the-tolerance-window"></a></p>
+<h3 id="what-to-choose-for-the-tolerance-window">What to choose for the tolerance window</h3>
+<p>Five minutes is a common default. It is short enough to shrink the attack window, but long enough to survive small clock drift and normal network delay.</p>
+<p>There is a trade-off here. A 30-second window sounds safer, but it breaks more often in real systems, especially when retries, queueing, or regional latency get involved. A 30-minute window is easier to operate, but it gives an attacker much more time if a signed request is exposed. Start with a few minutes, sync your servers with NTP, then tighten only if the provider’s delivery pattern supports it.</p>
+<p><a id="replay-defense-is-not-just-a-timestamp-check"></a></p>
+<h3 id="replay-defense-is-not-just-a-timestamp-check">Replay defense is not just a timestamp check</h3>
+<p>Timestamp validation blocks stale requests. It does not stop duplicate processing inside the valid window. If the same signed event is delivered twice within that window, your application still needs to recognize it.</p>
+<p>Use a second layer:</p>
+<ul>
+<li><strong>Track event IDs or delivery IDs</strong> in a short-lived store such as Redis.</li>
+<li><strong>Treat handlers as idempotent</strong> so repeated deliveries do not create duplicate orders, emails, or billing actions.</li>
+<li><strong>Log rejected stale requests</strong> with reason codes, but never log secrets or full sensitive payloads.</li>
+<li><strong>Return a fast response</strong> after validation and queue heavy work elsewhere.</li>
+</ul>
+<p>Teams that already think about expiry windows and revocation will recognize the pattern. Capgo’s guide to <a href="https://capgo.app/blog/token-revocation-in-capacitor-apps-guide/">token revocation patterns in Capacitor apps</a> covers the same operational idea. A credential or request that was valid once should not stay trusted forever.</p>
+<blockquote>
+<p>Signed and stale is still unsafe.</p>
+</blockquote>
+<p><a id="building-a-webhook-receiver-in-nodejs"></a></p>
+<h2 id="building-a-webhook-receiver-in-nodejs">Building a Webhook Receiver in Node.js</h2>
+<p>Node with Express is still the quickest way to get a serious receiver online, but there’s one trap that matters more than any other. You need access to the raw body before Express turns it into an object.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/3ade461e-1392-4218-8057-e48de28fc0a6/web-hook-example-node-js.jpg" alt="A laptop on a wooden desk displaying Node.js receiver code in a VS Code editor environment."></p>
+<p><a id="a-production-minded-express-example"></a></p>
+<h3 id="a-production-minded-express-example">A production-minded Express example</h3>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="js"><code><span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> express</span><span style="color:#F97583"> =</span><span style="color:#B392F0"> require</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'express'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> crypto</span><span style="color:#F97583"> =</span><span style="color:#B392F0"> require</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'crypto'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> app</span><span style="color:#F97583"> =</span><span style="color:#B392F0"> express</span><span style="color:#E1E4E8">();</span></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> PORT</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> process.env.</span><span style="color:#79B8FF">PORT</span><span style="color:#F97583"> ||</span><span style="color:#79B8FF"> 3000</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> WEBHOOK_SECRET</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> process.env.</span><span style="color:#79B8FF">WEBHOOK_SECRET</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">// Capture raw body for signature verification</span></span>
+<span class="line"><span style="color:#E1E4E8">app.</span><span style="color:#B392F0">use</span><span style="color:#E1E4E8">(</span></span>
+<span class="line"><span style="color:#E1E4E8">  express.</span><span style="color:#B392F0">json</span><span style="color:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#B392F0">    verify</span><span style="color:#E1E4E8">: (</span><span style="color:#FFAB70">req</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">res</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">buf</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">      req.rawBody </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> buf;</span></span>
+<span class="line"><span style="color:#E1E4E8">    },</span></span>
+<span class="line"><span style="color:#E1E4E8">  })</span></span>
+<span class="line"><span style="color:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">function</span><span style="color:#B392F0"> safeEqual</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">a</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">b</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> aBuf</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> Buffer.</span><span style="color:#B392F0">from</span><span style="color:#E1E4E8">(a, </span><span style="color:#9ECBFF">'utf8'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> bBuf</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> Buffer.</span><span style="color:#B392F0">from</span><span style="color:#E1E4E8">(b, </span><span style="color:#9ECBFF">'utf8'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (aBuf.</span><span style="color:#79B8FF">length</span><span style="color:#F97583"> !==</span><span style="color:#E1E4E8"> bBuf.</span><span style="color:#79B8FF">length</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">return</span><span style="color:#79B8FF"> false</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8"> crypto.</span><span style="color:#B392F0">timingSafeEqual</span><span style="color:#E1E4E8">(aBuf, bBuf);</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">function</span><span style="color:#B392F0"> verifySignature</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">rawBody</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">secret</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">receivedSignature</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> expected</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> crypto</span></span>
+<span class="line"><span style="color:#E1E4E8">    .</span><span style="color:#B392F0">createHmac</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'sha256'</span><span style="color:#E1E4E8">, secret)</span></span>
+<span class="line"><span style="color:#E1E4E8">    .</span><span style="color:#B392F0">update</span><span style="color:#E1E4E8">(rawBody)</span></span>
+<span class="line"><span style="color:#E1E4E8">    .</span><span style="color:#B392F0">digest</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'hex'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#B392F0"> safeEqual</span><span style="color:#E1E4E8">(expected, receivedSignature);</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">function</span><span style="color:#B392F0"> isFresh</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">timestampHeader</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">toleranceSeconds</span><span style="color:#F97583"> =</span><span style="color:#79B8FF"> 300</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> timestamp</span><span style="color:#F97583"> =</span><span style="color:#B392F0"> Number</span><span style="color:#E1E4E8">(timestampHeader);</span></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">Number.</span><span style="color:#B392F0">isFinite</span><span style="color:#E1E4E8">(timestamp)) </span><span style="color:#F97583">return</span><span style="color:#79B8FF"> false</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> now</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> Math.</span><span style="color:#B392F0">floor</span><span style="color:#E1E4E8">(Date.</span><span style="color:#B392F0">now</span><span style="color:#E1E4E8">() </span><span style="color:#F97583">/</span><span style="color:#79B8FF"> 1000</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8"> Math.</span><span style="color:#B392F0">abs</span><span style="color:#E1E4E8">(now </span><span style="color:#F97583">-</span><span style="color:#E1E4E8"> timestamp) </span><span style="color:#F97583">&lt;=</span><span style="color:#E1E4E8"> toleranceSeconds;</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">app.</span><span style="color:#B392F0">post</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'/webhooks/example'</span><span style="color:#E1E4E8">, </span><span style="color:#F97583">async</span><span style="color:#E1E4E8"> (</span><span style="color:#FFAB70">req</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">res</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> signature</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> req.</span><span style="color:#B392F0">get</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'x-webhook-signature'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> timestamp</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> req.</span><span style="color:#B392F0">get</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'x-webhook-timestamp'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#79B8FF">WEBHOOK_SECRET</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8"> res.</span><span style="color:#B392F0">status</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">500</span><span style="color:#E1E4E8">).</span><span style="color:#B392F0">send</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'Webhook secret is not configured'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">signature </span><span style="color:#F97583">||</span><span style="color:#F97583"> !</span><span style="color:#E1E4E8">timestamp) {</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8"> res.</span><span style="color:#B392F0">status</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">400</span><span style="color:#E1E4E8">).</span><span style="color:#B392F0">send</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'Missing required security headers'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#B392F0">isFresh</span><span style="color:#E1E4E8">(timestamp)) {</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8"> res.</span><span style="color:#B392F0">status</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">401</span><span style="color:#E1E4E8">).</span><span style="color:#B392F0">send</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'Stale webhook'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> valid</span><span style="color:#F97583"> =</span><span style="color:#B392F0"> verifySignature</span><span style="color:#E1E4E8">(req.rawBody, </span><span style="color:#79B8FF">WEBHOOK_SECRET</span><span style="color:#E1E4E8">, signature);</span></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">valid) {</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8"> res.</span><span style="color:#B392F0">status</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">401</span><span style="color:#E1E4E8">).</span><span style="color:#B392F0">send</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'Invalid signature'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">  // Acknowledge quickly</span></span>
+<span class="line"><span style="color:#E1E4E8">  res.</span><span style="color:#B392F0">status</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">200</span><span style="color:#E1E4E8">).</span><span style="color:#B392F0">send</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'OK'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">  // Process after acknowledgement</span></span>
+<span class="line"><span style="color:#F97583">  try</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#F97583">    const</span><span style="color:#79B8FF"> event</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> req.body;</span></span>
+<span class="line"><span style="color:#E1E4E8">    console.</span><span style="color:#B392F0">log</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'Accepted event:'</span><span style="color:#E1E4E8">, event.event, event.id);</span></span>
+<span class="line"><span style="color:#6A737D">    // enqueueJob(event)</span></span>
+<span class="line"><span style="color:#E1E4E8">  } </span><span style="color:#F97583">catch</span><span style="color:#E1E4E8"> (err) {</span></span>
+<span class="line"><span style="color:#E1E4E8">    console.</span><span style="color:#B392F0">error</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'Post-ack processing failed:'</span><span style="color:#E1E4E8">, err);</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"><span style="color:#E1E4E8">});</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">app.</span><span style="color:#B392F0">listen</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">PORT</span><span style="color:#E1E4E8">, () </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">  console.</span><span style="color:#B392F0">log</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">`Webhook receiver listening on ${</span><span style="color:#79B8FF">PORT</span><span style="color:#9ECBFF">}`</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#E1E4E8">});</span></span></code></pre>
+<p><a id="why-this-structure-holds-up"></a></p>
+<h3 id="why-this-structure-holds-up">Why this structure holds up</h3>
+<p>A few choices here are deliberate:</p>
+<ul>
+<li><strong>Raw body capture happens in middleware</strong>. That preserves the original bytes for hashing.</li>
+<li><strong>Timestamp is checked before business logic</strong>. No point doing work for stale traffic.</li>
+<li><strong>The route returns <code>200</code> quickly</strong>. Long-running work belongs in a queue or background task.</li>
+<li><strong>Post-ack processing is isolated</strong>. Even if downstream logic fails, the receiver path stays small.</li>
+</ul>
+<p>Secrets are the weak point in a lot of webhook implementations. Don’t keep them in source, don’t paste them into test fixtures, and don’t echo them in logs. If you need a broader process around rotation and CI handling, Capgo’s guide to <a href="https://capgo.app/blog/managing-secrets-in-cicd-pipelines/">managing secrets in CI/CD pipelines</a> covers the operational side well.</p>
+<p>A short walkthrough helps if you want to see the moving pieces in action:</p>
+<iframe width="100%" style="aspect-ratio: 16 / 9;" src="https://www.youtube.com/embed/VPpTgsJbIhc" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+<p><a id="what-id-change-for-a-live-system"></a></p>
+<h3 id="what-id-change-for-a-live-system">What I’d change for a live system</h3>
+<p>For a real provider integration, I’d add event ID deduplication in persistent storage, structured logs with request IDs, and a queue behind the acknowledgment path. I’d also avoid a single generic endpoint if multiple providers use different signature formats. Separate handlers are easier to reason about and harder to break.</p>
+<p><a id="building-a-webhook-receiver-in-python"></a></p>
+<h2 id="building-a-webhook-receiver-in-python">Building a Webhook Receiver in Python</h2>
+<p>Flask is a good fit for a clean web hook example because the request handling is explicit and Python’s standard library already gives you what you need for HMAC.</p>
+<p>The main thing to remember is the same as in Node. Verify against the raw request bytes, not the parsed JSON dict.</p>
+<p><a id="a-flask-example-with-signature-and-timestamp-checks"></a></p>
+<h3 id="a-flask-example-with-signature-and-timestamp-checks">A Flask example with signature and timestamp checks</h3>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="python"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> os</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> time</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> hmac</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> hashlib</span></span>
+<span class="line"><span style="color:#F97583">from</span><span style="color:#E1E4E8"> flask </span><span style="color:#F97583">import</span><span style="color:#E1E4E8"> Flask, request, jsonify</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">app </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> Flask(</span><span style="color:#79B8FF">__name__</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#79B8FF">WEBHOOK_SECRET</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> os.environ.get(</span><span style="color:#9ECBFF">"WEBHOOK_SECRET"</span><span style="color:#E1E4E8">, </span><span style="color:#9ECBFF">""</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">def</span><span style="color:#B392F0"> is_fresh</span><span style="color:#E1E4E8">(timestamp_header, tolerance_seconds</span><span style="color:#F97583">=</span><span style="color:#79B8FF">300</span><span style="color:#E1E4E8">):</span></span>
+<span class="line"><span style="color:#F97583">    try</span><span style="color:#E1E4E8">:</span></span>
+<span class="line"><span style="color:#E1E4E8">        timestamp </span><span style="color:#F97583">=</span><span style="color:#79B8FF"> int</span><span style="color:#E1E4E8">(timestamp_header)</span></span>
+<span class="line"><span style="color:#F97583">    except</span><span style="color:#E1E4E8"> (</span><span style="color:#79B8FF">TypeError</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">ValueError</span><span style="color:#E1E4E8">):</span></span>
+<span class="line"><span style="color:#F97583">        return</span><span style="color:#79B8FF"> False</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">    now </span><span style="color:#F97583">=</span><span style="color:#79B8FF"> int</span><span style="color:#E1E4E8">(time.time())</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#79B8FF"> abs</span><span style="color:#E1E4E8">(now </span><span style="color:#F97583">-</span><span style="color:#E1E4E8"> timestamp) </span><span style="color:#F97583">&lt;=</span><span style="color:#E1E4E8"> tolerance_seconds</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">def</span><span style="color:#B392F0"> verify_signature</span><span style="color:#E1E4E8">(raw_body, secret, received_signature):</span></span>
+<span class="line"><span style="color:#E1E4E8">    expected </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> hmac.new(</span></span>
+<span class="line"><span style="color:#E1E4E8">        secret.encode(</span><span style="color:#9ECBFF">"utf-8"</span><span style="color:#E1E4E8">),</span></span>
+<span class="line"><span style="color:#E1E4E8">        raw_body,</span></span>
+<span class="line"><span style="color:#E1E4E8">        hashlib.sha256</span></span>
+<span class="line"><span style="color:#E1E4E8">    ).hexdigest()</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8"> hmac.compare_digest(expected, received_signature)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#B392F0">@app.route</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">"/webhooks/example"</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">methods</span><span style="color:#F97583">=</span><span style="color:#E1E4E8">[</span><span style="color:#9ECBFF">"POST"</span><span style="color:#E1E4E8">])</span></span>
+<span class="line"><span style="color:#F97583">def</span><span style="color:#B392F0"> webhook</span><span style="color:#E1E4E8">():</span></span>
+<span class="line"><span style="color:#F97583">    if</span><span style="color:#F97583"> not</span><span style="color:#79B8FF"> WEBHOOK_SECRET</span><span style="color:#E1E4E8">:</span></span>
+<span class="line"><span style="color:#F97583">        return</span><span style="color:#9ECBFF"> "Webhook secret is not configured"</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">500</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">    signature </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> request.headers.get(</span><span style="color:#9ECBFF">"X-Webhook-Signature"</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">    timestamp </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> request.headers.get(</span><span style="color:#9ECBFF">"X-Webhook-Timestamp"</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    if</span><span style="color:#F97583"> not</span><span style="color:#E1E4E8"> signature </span><span style="color:#F97583">or</span><span style="color:#F97583"> not</span><span style="color:#E1E4E8"> timestamp:</span></span>
+<span class="line"><span style="color:#F97583">        return</span><span style="color:#9ECBFF"> "Missing required security headers"</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">400</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    if</span><span style="color:#F97583"> not</span><span style="color:#E1E4E8"> is_fresh(timestamp):</span></span>
+<span class="line"><span style="color:#F97583">        return</span><span style="color:#9ECBFF"> "Stale webhook"</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">401</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">    raw_body </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> request.get_data()</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    if</span><span style="color:#F97583"> not</span><span style="color:#E1E4E8"> verify_signature(raw_body, </span><span style="color:#79B8FF">WEBHOOK_SECRET</span><span style="color:#E1E4E8">, signature):</span></span>
+<span class="line"><span style="color:#F97583">        return</span><span style="color:#9ECBFF"> "Invalid signature"</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">401</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">    payload </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> request.get_json(</span><span style="color:#FFAB70">silent</span><span style="color:#F97583">=</span><span style="color:#79B8FF">True</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">or</span><span style="color:#E1E4E8"> {}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    # Acknowledge receipt</span></span>
+<span class="line"><span style="color:#E1E4E8">    response </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> jsonify({</span><span style="color:#9ECBFF">"status"</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">"ok"</span><span style="color:#E1E4E8">})</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">    # In production, queue payload here instead of heavy sync work</span></span>
+<span class="line"><span style="color:#79B8FF">    print</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">"Accepted event:"</span><span style="color:#E1E4E8">, payload.get(</span><span style="color:#9ECBFF">"event"</span><span style="color:#E1E4E8">), payload.get(</span><span style="color:#9ECBFF">"id"</span><span style="color:#E1E4E8">))</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8"> response, </span><span style="color:#79B8FF">200</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">if</span><span style="color:#79B8FF"> __name__</span><span style="color:#F97583"> ==</span><span style="color:#9ECBFF"> "__main__"</span><span style="color:#E1E4E8">:</span></span>
+<span class="line"><span style="color:#E1E4E8">    app.run(</span><span style="color:#FFAB70">port</span><span style="color:#F97583">=</span><span style="color:#79B8FF">5000</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">debug</span><span style="color:#F97583">=</span><span style="color:#79B8FF">True</span><span style="color:#E1E4E8">)</span></span></code></pre>
+<p><a id="flask-specific-details-that-matter"></a></p>
+<h3 id="flask-specific-details-that-matter">Flask-specific details that matter</h3>
+<p><code>request.get_data()</code> is the key call here. It gives you the raw bytes of the body. If you jump straight to <code>request.json</code>, you’ve already crossed the line where signature mismatches become confusing.</p>
+<p>A few implementation notes:</p>
+<ul>
+<li><strong>Use <code>hmac.compare_digest</code></strong> instead of plain equality.</li>
+<li><strong>Treat missing headers as a client failure</strong> and reject early.</li>
+<li><strong>Use <code>silent=True</code> for JSON parsing</strong> if you want to control error handling instead of letting Flask raise.</li>
+<li><strong>Keep the route thin</strong>. Enqueue work if the payload triggers anything expensive.</li>
+</ul>
+<blockquote>
+<p>Don’t debug signature mismatches by relaxing security checks. Debug them by printing exactly what bytes you hashed and exactly what format the provider expects.</p>
+</blockquote>
+<p><a id="where-teams-usually-get-stuck"></a></p>
+<h3 id="where-teams-usually-get-stuck">Where teams usually get stuck</h3>
+<p>The common failure path is testing with a hand-built JSON body, then switching to a real provider and finding the signature no longer matches. That usually means one of three things: the provider signs a timestamped envelope, the signature is encoded differently than you assumed, or middleware changed the body before verification.</p>
+<p>When that happens, stop changing the crypto code at random. Capture the raw headers and raw body, reproduce the hash in a tiny isolated script, and only then put it back into the Flask route.</p>
+<p><a id="building-a-webhook-receiver-in-go"></a></p>
+<h2 id="building-a-webhook-receiver-in-go">Building a Webhook Receiver in Go</h2>
+<p>Go is a great choice for webhook receivers because the standard library is enough. You don’t need a framework to get a small, reliable handler, and the code is easy to keep honest.</p>
+<p>The one thing to be careful with is body handling. <code>r.Body</code> is a stream. Read it once, hash the bytes you got, and then unmarshal from those same bytes.</p>
+<p><a id="a-standard-library-example"></a></p>
+<h3 id="a-standard-library-example">A standard library example</h3>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="go"><code><span class="line"><span style="color:#F97583">package</span><span style="color:#B392F0"> main</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> (</span></span>
+<span class="line"><span style="color:#9ECBFF">	"</span><span style="color:#B392F0">crypto/hmac</span><span style="color:#9ECBFF">"</span></span>
+<span class="line"><span style="color:#9ECBFF">	"</span><span style="color:#B392F0">crypto/sha256</span><span style="color:#9ECBFF">"</span></span>
+<span class="line"><span style="color:#9ECBFF">	"</span><span style="color:#B392F0">crypto/subtle</span><span style="color:#9ECBFF">"</span></span>
+<span class="line"><span style="color:#9ECBFF">	"</span><span style="color:#B392F0">encoding/hex</span><span style="color:#9ECBFF">"</span></span>
+<span class="line"><span style="color:#9ECBFF">	"</span><span style="color:#B392F0">encoding/json</span><span style="color:#9ECBFF">"</span></span>
+<span class="line"><span style="color:#9ECBFF">	"</span><span style="color:#B392F0">io</span><span style="color:#9ECBFF">"</span></span>
+<span class="line"><span style="color:#9ECBFF">	"</span><span style="color:#B392F0">log</span><span style="color:#9ECBFF">"</span></span>
+<span class="line"><span style="color:#9ECBFF">	"</span><span style="color:#B392F0">net/http</span><span style="color:#9ECBFF">"</span></span>
+<span class="line"><span style="color:#9ECBFF">	"</span><span style="color:#B392F0">os</span><span style="color:#9ECBFF">"</span></span>
+<span class="line"><span style="color:#9ECBFF">	"</span><span style="color:#B392F0">strconv</span><span style="color:#9ECBFF">"</span></span>
+<span class="line"><span style="color:#9ECBFF">	"</span><span style="color:#B392F0">time</span><span style="color:#9ECBFF">"</span></span>
+<span class="line"><span style="color:#E1E4E8">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">type</span><span style="color:#B392F0"> WebhookPayload</span><span style="color:#F97583"> struct</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">	Event </span><span style="color:#F97583">string</span><span style="color:#9ECBFF">          `json:"event"`</span></span>
+<span class="line"><span style="color:#E1E4E8">	ID    </span><span style="color:#F97583">string</span><span style="color:#9ECBFF">          `json:"id"`</span></span>
+<span class="line"><span style="color:#E1E4E8">	Data  </span><span style="color:#B392F0">json</span><span style="color:#E1E4E8">.</span><span style="color:#B392F0">RawMessage</span><span style="color:#9ECBFF"> `json:"data"`</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">func</span><span style="color:#B392F0"> isFresh</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">timestampHeader</span><span style="color:#F97583"> string</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">toleranceSeconds</span><span style="color:#F97583"> int64</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">bool</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">	ts, err </span><span style="color:#F97583">:=</span><span style="color:#E1E4E8"> strconv.</span><span style="color:#B392F0">ParseInt</span><span style="color:#E1E4E8">(timestampHeader, </span><span style="color:#79B8FF">10</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">64</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#F97583">	if</span><span style="color:#E1E4E8"> err </span><span style="color:#F97583">!=</span><span style="color:#79B8FF"> nil</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#F97583">		return</span><span style="color:#79B8FF"> false</span></span>
+<span class="line"><span style="color:#E1E4E8">	}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">	now </span><span style="color:#F97583">:=</span><span style="color:#E1E4E8"> time.</span><span style="color:#B392F0">Now</span><span style="color:#E1E4E8">().</span><span style="color:#B392F0">Unix</span><span style="color:#E1E4E8">()</span></span>
+<span class="line"><span style="color:#E1E4E8">	diff </span><span style="color:#F97583">:=</span><span style="color:#E1E4E8"> now </span><span style="color:#F97583">-</span><span style="color:#E1E4E8"> ts</span></span>
+<span class="line"><span style="color:#F97583">	if</span><span style="color:#E1E4E8"> diff </span><span style="color:#F97583">&lt;</span><span style="color:#79B8FF"> 0</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">		diff </span><span style="color:#F97583">=</span><span style="color:#F97583"> -</span><span style="color:#E1E4E8">diff</span></span>
+<span class="line"><span style="color:#E1E4E8">	}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">	return</span><span style="color:#E1E4E8"> diff </span><span style="color:#F97583">&lt;=</span><span style="color:#E1E4E8"> toleranceSeconds</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">func</span><span style="color:#B392F0"> verifySignature</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">rawBody</span><span style="color:#E1E4E8"> []</span><span style="color:#F97583">byte</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">secret</span><span style="color:#F97583"> string</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">received</span><span style="color:#F97583"> string</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">bool</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">	mac </span><span style="color:#F97583">:=</span><span style="color:#E1E4E8"> hmac.</span><span style="color:#B392F0">New</span><span style="color:#E1E4E8">(sha256.New, []</span><span style="color:#F97583">byte</span><span style="color:#E1E4E8">(secret))</span></span>
+<span class="line"><span style="color:#E1E4E8">	mac.</span><span style="color:#B392F0">Write</span><span style="color:#E1E4E8">(rawBody)</span></span>
+<span class="line"><span style="color:#E1E4E8">	expected </span><span style="color:#F97583">:=</span><span style="color:#E1E4E8"> hex.</span><span style="color:#B392F0">EncodeToString</span><span style="color:#E1E4E8">(mac.</span><span style="color:#B392F0">Sum</span><span style="color:#E1E4E8">(</span><span style="color:#79B8FF">nil</span><span style="color:#E1E4E8">))</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">	if</span><span style="color:#B392F0"> len</span><span style="color:#E1E4E8">(expected) </span><span style="color:#F97583">!=</span><span style="color:#B392F0"> len</span><span style="color:#E1E4E8">(received) {</span></span>
+<span class="line"><span style="color:#F97583">		return</span><span style="color:#79B8FF"> false</span></span>
+<span class="line"><span style="color:#E1E4E8">	}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">	return</span><span style="color:#E1E4E8"> subtle.</span><span style="color:#B392F0">ConstantTimeCompare</span><span style="color:#E1E4E8">([]</span><span style="color:#F97583">byte</span><span style="color:#E1E4E8">(expected), []</span><span style="color:#F97583">byte</span><span style="color:#E1E4E8">(received)) </span><span style="color:#F97583">==</span><span style="color:#79B8FF"> 1</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">func</span><span style="color:#B392F0"> webhookHandler</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">secret</span><span style="color:#F97583"> string</span><span style="color:#E1E4E8">) </span><span style="color:#B392F0">http</span><span style="color:#E1E4E8">.</span><span style="color:#B392F0">HandlerFunc</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#F97583">	return</span><span style="color:#F97583"> func</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">w</span><span style="color:#B392F0"> http</span><span style="color:#E1E4E8">.</span><span style="color:#B392F0">ResponseWriter</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">r</span><span style="color:#F97583"> *</span><span style="color:#B392F0">http</span><span style="color:#E1E4E8">.</span><span style="color:#B392F0">Request</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">		if</span><span style="color:#E1E4E8"> r.Method </span><span style="color:#F97583">!=</span><span style="color:#E1E4E8"> http.MethodPost {</span></span>
+<span class="line"><span style="color:#E1E4E8">			http.</span><span style="color:#B392F0">Error</span><span style="color:#E1E4E8">(w, </span><span style="color:#9ECBFF">"method not allowed"</span><span style="color:#E1E4E8">, http.StatusMethodNotAllowed)</span></span>
+<span class="line"><span style="color:#F97583">			return</span></span>
+<span class="line"><span style="color:#E1E4E8">		}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">		signature </span><span style="color:#F97583">:=</span><span style="color:#E1E4E8"> r.Header.</span><span style="color:#B392F0">Get</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">"X-Webhook-Signature"</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">		timestamp </span><span style="color:#F97583">:=</span><span style="color:#E1E4E8"> r.Header.</span><span style="color:#B392F0">Get</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">"X-Webhook-Timestamp"</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">		if</span><span style="color:#E1E4E8"> signature </span><span style="color:#F97583">==</span><span style="color:#9ECBFF"> ""</span><span style="color:#F97583"> ||</span><span style="color:#E1E4E8"> timestamp </span><span style="color:#F97583">==</span><span style="color:#9ECBFF"> ""</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">			http.</span><span style="color:#B392F0">Error</span><span style="color:#E1E4E8">(w, </span><span style="color:#9ECBFF">"missing required security headers"</span><span style="color:#E1E4E8">, http.StatusBadRequest)</span></span>
+<span class="line"><span style="color:#F97583">			return</span></span>
+<span class="line"><span style="color:#E1E4E8">		}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">		if</span><span style="color:#F97583"> !</span><span style="color:#B392F0">isFresh</span><span style="color:#E1E4E8">(timestamp, </span><span style="color:#79B8FF">300</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#E1E4E8">			http.</span><span style="color:#B392F0">Error</span><span style="color:#E1E4E8">(w, </span><span style="color:#9ECBFF">"stale webhook"</span><span style="color:#E1E4E8">, http.StatusUnauthorized)</span></span>
+<span class="line"><span style="color:#F97583">			return</span></span>
+<span class="line"><span style="color:#E1E4E8">		}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">		rawBody, err </span><span style="color:#F97583">:=</span><span style="color:#E1E4E8"> io.</span><span style="color:#B392F0">ReadAll</span><span style="color:#E1E4E8">(r.Body)</span></span>
+<span class="line"><span style="color:#F97583">		if</span><span style="color:#E1E4E8"> err </span><span style="color:#F97583">!=</span><span style="color:#79B8FF"> nil</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">			http.</span><span style="color:#B392F0">Error</span><span style="color:#E1E4E8">(w, </span><span style="color:#9ECBFF">"failed to read body"</span><span style="color:#E1E4E8">, http.StatusBadRequest)</span></span>
+<span class="line"><span style="color:#F97583">			return</span></span>
+<span class="line"><span style="color:#E1E4E8">		}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">		if</span><span style="color:#F97583"> !</span><span style="color:#B392F0">verifySignature</span><span style="color:#E1E4E8">(rawBody, secret, signature) {</span></span>
+<span class="line"><span style="color:#E1E4E8">			http.</span><span style="color:#B392F0">Error</span><span style="color:#E1E4E8">(w, </span><span style="color:#9ECBFF">"invalid signature"</span><span style="color:#E1E4E8">, http.StatusUnauthorized)</span></span>
+<span class="line"><span style="color:#F97583">			return</span></span>
+<span class="line"><span style="color:#E1E4E8">		}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">		var</span><span style="color:#E1E4E8"> payload </span><span style="color:#B392F0">WebhookPayload</span></span>
+<span class="line"><span style="color:#F97583">		if</span><span style="color:#E1E4E8"> err </span><span style="color:#F97583">:=</span><span style="color:#E1E4E8"> json.</span><span style="color:#B392F0">Unmarshal</span><span style="color:#E1E4E8">(rawBody, </span><span style="color:#F97583">&amp;</span><span style="color:#E1E4E8">payload); err </span><span style="color:#F97583">!=</span><span style="color:#79B8FF"> nil</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">			http.</span><span style="color:#B392F0">Error</span><span style="color:#E1E4E8">(w, </span><span style="color:#9ECBFF">"invalid json"</span><span style="color:#E1E4E8">, http.StatusBadRequest)</span></span>
+<span class="line"><span style="color:#F97583">			return</span></span>
+<span class="line"><span style="color:#E1E4E8">		}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">		w.</span><span style="color:#B392F0">WriteHeader</span><span style="color:#E1E4E8">(http.StatusOK)</span></span>
+<span class="line"><span style="color:#E1E4E8">		w.</span><span style="color:#B392F0">Write</span><span style="color:#E1E4E8">([]</span><span style="color:#F97583">byte</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">"OK"</span><span style="color:#E1E4E8">))</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">		log.</span><span style="color:#B392F0">Printf</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">"accepted event=</span><span style="color:#79B8FF">%s</span><span style="color:#9ECBFF"> id=</span><span style="color:#79B8FF">%s</span><span style="color:#9ECBFF">"</span><span style="color:#E1E4E8">, payload.Event, payload.ID)</span></span>
+<span class="line"><span style="color:#E1E4E8">	}</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">func</span><span style="color:#B392F0"> main</span><span style="color:#E1E4E8">() {</span></span>
+<span class="line"><span style="color:#E1E4E8">	secret </span><span style="color:#F97583">:=</span><span style="color:#E1E4E8"> os.</span><span style="color:#B392F0">Getenv</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">"WEBHOOK_SECRET"</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#F97583">	if</span><span style="color:#E1E4E8"> secret </span><span style="color:#F97583">==</span><span style="color:#9ECBFF"> ""</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">		log.</span><span style="color:#B392F0">Fatal</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">"WEBHOOK_SECRET is not set"</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">	}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">	http.</span><span style="color:#B392F0">HandleFunc</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">"/webhooks/example"</span><span style="color:#E1E4E8">, </span><span style="color:#B392F0">webhookHandler</span><span style="color:#E1E4E8">(secret))</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">	log.</span><span style="color:#B392F0">Println</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">"listening on :8080"</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">	log.</span><span style="color:#B392F0">Fatal</span><span style="color:#E1E4E8">(http.</span><span style="color:#B392F0">ListenAndServe</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">":8080"</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">nil</span><span style="color:#E1E4E8">))</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p><a id="why-go-feels-solid-here"></a></p>
+<h3 id="why-go-feels-solid-here">Why Go feels solid here</h3>
+<p>A few benefits stand out:</p>
+<ul>
+<li><strong>The handler is explicit</strong>. No hidden middleware magic.</li>
+<li><strong>Typing helps at the edges</strong>. Header parsing, timestamp conversion, and JSON decoding all fail clearly.</li>
+<li><strong>The standard crypto packages are enough</strong>. No extra dependency for basic HMAC verification.</li>
+</ul>
+<p><a id="operational-notes"></a></p>
+<h3 id="operational-notes">Operational notes</h3>
+<p>If webhook volume grows, Go’s concurrency model gives you room to fan out background work without changing your HTTP entry point. Even then, keep the receiver narrow. Accept, validate, acknowledge, then hand off.</p>
+<p>The strongest Go webhook handlers I’ve seen stay boring. They don’t mix transport verification with business logic, and they don’t do database-heavy work before the response goes back.</p>
+<p><a id="essential-debugging-techniques"></a></p>
+<h2 id="essential-debugging-techniques">Essential Debugging Techniques</h2>
+<p>A webhook bug usually shows up as a support message, not a stack trace. The provider says they delivered the event. Your endpoint says nothing reached the app, or signature verification failed on a request that looks valid at first glance. At that point, debugging is about reconstructing the exact HTTP exchange, byte for byte, and proving where it broke.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/b5e48ea1-3a3e-4ed9-990c-230e3ae2e244/web-hook-example-webhook-toolkit.jpg" alt="A list of five essential tools and techniques for debugging webhooks in a software development environment."></p>
+<p><a id="a-practical-debugging-toolkit"></a></p>
+<h3 id="a-practical-debugging-toolkit">A practical debugging toolkit</h3>
+<p>Start with the wire format.</p>
+<p>If a signature check fails, capture the raw request body exactly as received, along with the headers used for verification. In practice, the bug is often boring. A framework parsed JSON before hashing, a proxy changed encoding, or a test replay missed the original timestamp header. Logging the parsed object is not enough. You need the original bytes and the verification inputs.</p>
+<p>These tools help isolate the problem fast:</p>
+<ul>
+<li><strong>Raw request capture</strong>. Log headers, content type, content length, and the unmodified body during investigation.</li>
+<li><strong>Request inspection endpoints</strong>. Services like <code>webhook.site</code> help confirm what the sender transmitted.</li>
+<li><strong>Local tunneling</strong>. <code>ngrok</code> and similar tools let you test against a local receiver while keeping the provider in the loop.</li>
+<li><strong>Manual replay</strong>. Rebuild the request with <code>curl</code> or Postman using the same body and headers. That is the quickest way to confirm whether your code or the provider payload is the issue.</li>
+<li><strong>Provider delivery logs</strong>. The sender dashboard often includes response codes, retry history, and request identifiers you can match against your logs.</li>
+</ul>
+<p>The pattern matters. Work from the outside in. First verify the provider sent what you expected. Then verify your server received the same bytes. Then verify your code hashed the same bytes with the same secret and timestamp rules.</p>
+<p><a id="logging-that-actually-helps"></a></p>
+<h3 id="logging-that-actually-helps">Logging that actually helps</h3>
+<p>Good webhook logs should answer three questions in one search:</p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Useful log field</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Did the request arrive?</td>
+<td>route, method, received_at</td>
+</tr>
+<tr>
+<td>Why was it rejected?</td>
+<td>missing_header, stale_timestamp, signature_failed</td>
+</tr>
+<tr>
+<td>Can I correlate it later?</td>
+<td>event_id, provider_request_id</td>
+</tr>
+</tbody>
+</table>
+<p>A fourth field helps in real systems. Add a local <code>request_id</code> generated by your receiver so you can follow the request through your app, queue, and worker logs.</p>
+<p>Be selective about what you store. Never log secrets. Avoid dumping full production payloads if they include customer data, access tokens, or billing details. A safer pattern is to log metadata plus a short body hash. That still lets you compare retries and verify whether two deliveries were identical.</p>
+<p><a id="reproduce-failures-with-the-original-inputs"></a></p>
+<h3 id="reproduce-failures-with-the-original-inputs">Reproduce failures with the original inputs</h3>
+<p>This is the part basic tutorials skip. If you cannot replay the failing request exactly, you are guessing.</p>
+<p>Save a failing webhook as:</p>
+<ul>
+<li>raw body bytes</li>
+<li>all signature-related headers</li>
+<li>request timestamp</li>
+<li>content type</li>
+<li>provider request ID</li>
+</ul>
+<p>Then replay it against a staging endpoint. If the replay passes, compare what changed in transit. Common offenders include middleware that normalizes request bodies, character encoding mismatches, and load balancers that strip or rewrite headers. I have also seen failures caused by teams copying payloads from pretty-printed dashboard views instead of the actual request body. The whitespace difference alone was enough to break HMAC verification.</p>
+<p>For broader release and mobile transport troubleshooting, the same debugging discipline shows up in Capgo’s guide to <a href="https://capgo.app/blog/top-tools-for-debugging-ota-updates-in-capacitor/">tools for debugging OTA updates in Capacitor</a>. Different transport, same lesson. Capture the actual request path before changing application code.</p>
+<blockquote>
+<p>If signature verification fails, inspect the raw bytes, the exact headers used in verification, and the timestamp value before touching the cryptography code.</p>
+</blockquote>
+<p><a id="a-checklist-for-production-ready-webhooks"></a></p>
+<h2 id="a-checklist-for-production-ready-webhooks">A Checklist for Production-Ready Webhooks</h2>
+<p>A webhook handler usually looks fine in staging right up until the first retry storm, malformed payload, or signature mismatch at 2 a.m. The production bar is higher. The receiver has to reject forged requests, accept legitimate retries, and give operators enough signal to debug failures without exposing sensitive data.</p>
+<p><a id="security-and-correctness-checks"></a></p>
+<h3 id="security-and-correctness-checks">Security and correctness checks</h3>
+<ul>
+<li><strong>Verify every request signature</strong>. Endpoint URLs leak. Test URLs get shared in chat. Signature verification is the control that tells you the sender knew the shared secret.</li>
+<li><strong>Reject old requests</strong>. A valid signature on an old payload can still be replayed. Enforce a timestamp tolerance that matches the provider’s retry model.</li>
+<li><strong>Hash the raw body, not the parsed JSON</strong>. Middleware can reorder keys, normalize whitespace, or change encoding. Verification has to run against the exact bytes that arrived.</li>
+<li><strong>Keep signing secrets out of code</strong>. Environment variables are a baseline. A secrets manager is a better fit if you rotate credentials regularly or run across multiple environments.</li>
+<li><strong>Fail closed on auth errors</strong>. If the signature header is missing, malformed, or uses an unexpected scheme, reject the request and log the reason.</li>
+</ul>
+<p><a id="reliability-checks"></a></p>
+<h3 id="reliability-checks">Reliability checks</h3>
+<ul>
+<li><strong>Acknowledge fast</strong>. Providers usually treat any 2xx as success, so validate the request, persist what you need, and move slow work to a queue or worker.</li>
+<li><strong>Make handlers idempotent</strong>. The same event may arrive more than once. Key side effects off an event ID, delivery ID, or another stable provider identifier.</li>
+<li><strong>Return predictable error codes</strong>. Use <code>400</code> for malformed input, <code>401</code> or <code>403</code> for failed verification, and <code>5xx</code> only when your system is the problem. This makes provider retry behavior easier to reason about.</li>
+<li><strong>Set limits before parsing</strong>. Cap request size, content type, and header count early. This prevents a webhook endpoint from turning into a generic ingestion hole.</li>
+<li><strong>Keep the contract narrow</strong>. Accept only the fields and event types you support. Loose parsing feels convenient at first and becomes expensive during provider API changes.</li>
+</ul>
+<p><a id="observability-checks"></a></p>
+<h3 id="observability-checks">Observability checks</h3>
+<p>Good webhook operations look boring. Teams can answer three questions quickly: Did we receive it? Did we verify it? Did downstream processing succeed?</p>
+<p>Use that standard:</p>
+<ul>
+<li><strong>Track receipt, verification, and processing as separate outcomes</strong>.</li>
+<li><strong>Log request IDs, event IDs, signature status, and timestamp skew</strong>.</li>
+<li><strong>Measure queue delay, handler latency, and retry volume</strong>.</li>
+<li><strong>Keep a safe replay path for staging or redelivery workflows</strong>.</li>
+<li><strong>Alert on pattern changes</strong>, such as a spike in signature failures or duplicate deliveries.</li>
+</ul>
+<p>Capgo is a useful example of the broader operational point. It includes tooling around release delivery and observability in its update workflow, and parts of its ecosystem also touch webhook-related flows. The lesson is practical. Delivery systems need visibility from receipt through completion.</p>
+<p>If a team covers the checks above, the webhook receiver is usually in good shape for production. If any item is missing, that gap tends to show up during an incident, not during the demo.</p>
+<p><a id="frequently-asked-questions-about-webhooks"></a></p>
+<h2 id="frequently-asked-questions-about-webhooks">Frequently Asked Questions About Webhooks</h2>
+<p><a id="what-status-code-should-i-return"></a></p>
+<h3 id="what-status-code-should-i-return">What status code should I return?</h3>
+<p>Return a <strong>2xx</strong> when you’ve accepted the webhook. If validation fails, return a client or auth error that matches the failure, such as <code>400</code> for malformed input or <code>401</code> for invalid authentication data. Keep that logic consistent so provider dashboards are easier to interpret.</p>
+<p><a id="should-i-process-the-webhook-synchronously"></a></p>
+<h3 id="should-i-process-the-webhook-synchronously">Should I process the webhook synchronously?</h3>
+<p>Usually no. Validate it, acknowledge it, then push the actual work to a queue or background worker. That keeps the delivery path fast and reduces duplicate retries caused by slow downstream processing.</p>
+<p><a id="how-should-i-handle-retries"></a></p>
+<h3 id="how-should-i-handle-retries">How should I handle retries?</h3>
+<p>Assume they’ll happen. Build idempotency into your handler so receiving the same event again doesn’t duplicate side effects. Event IDs or provider delivery IDs are the usual anchors for that.</p>
+<p><a id="what-if-events-arrive-out-of-order"></a></p>
+<h3 id="what-if-events-arrive-out-of-order">What if events arrive out of order?</h3>
+<p>Design handlers to be order-tolerant when you can. If the business process requires sequence, persist enough state to detect stale transitions instead of assuming delivery order reflects event order.</p>
+<p><a id="how-do-i-deal-with-webhook-version-changes"></a></p>
+<h3 id="how-do-i-deal-with-webhook-version-changes">How do I deal with webhook version changes?</h3>
+<p>Version your handler logic deliberately. Keep provider-specific parsing isolated, avoid scattering payload assumptions through your codebase, and add tests with real captured samples before rolling out support for a new format.</p>
+<hr>
+<p>If your team ships Capacitor or Electron apps, <a href="https://capgo.app">Capgo</a> is worth knowing about for a related reason. It gives teams a controlled way to deliver signed web updates, observe rollout behavior, and recover from incidents without waiting on app store review, which fits the same engineering instinct behind solid webhook design: validate inputs, keep release paths observable, and make recovery fast.</p>
+
+          </article>
+        </div>
+        <div class="right-0 hidden px-10 md:block">
+          <div class="flex flex-col gap-y-4 relative pb-5">
+  <p class="text-sm text-gray-400">Written by</p>
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+    <img width="36" height="36" loading="lazy" decoding="async" alt="Martin Donadieu" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+    <div class="flex flex-col">
+      <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+      <p class="text-sm text-gray-400">Content Marketer</p>
+    </div>
+  </a>
+</div>
+          <div id="staticToc" class="sticky top-16 pt-4 pb-8">
+                <div>
+                  <p class="-ml-0.5 flex items-center gap-1.5 text-sm text-gray-400">
+                    <svg width="24" height="24" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" class="lucide lucide-align-left h-4 w-4">
+                      <line x1="21" x2="3" y1="6" y2="6"></line>
+                      <line x1="15" x2="3" y1="12" y2="12"></line>
+                      <line x1="17" x2="3" y1="18" y2="18"></line>
+                    </svg>
+                    Table of Contents
+                  </p>
+                  <div class="mt-4 grid gap-4 border-l border-gray-600">
+                    <a id="table-of-contents-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#table-of-contents">
+                        Table of Contents
+                      </a><a id="what-are-webhooks-and-why-use-them-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#what-are-webhooks-and-why-use-them">
+                        What Are Webhooks and Why Use Them
+                      </a><a id="the-mental-model-that-helps-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#the-mental-model-that-helps">
+                        The mental model that helps
+                      </a><a id="what-works-and-what-fails-in-production-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-works-and-what-fails-in-production">
+                        What works and what fails in production
+                      </a><a id="anatomy-of-a-webhook-http-request-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#anatomy-of-a-webhook-http-request">
+                        Anatomy of a Webhook HTTP Request
+                      </a><a id="a-simple-raw-request-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#a-simple-raw-request">
+                        A simple raw request
+                      </a><a id="why-the-body-shape-matters-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#why-the-body-shape-matters">
+                        Why the body shape matters
+                      </a><a id="how-to-securely-verify-webhook-signatures-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#how-to-securely-verify-webhook-signatures">
+                        How to Securely Verify Webhook Signatures
+                      </a><a id="the-verification-flow-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#the-verification-flow">
+                        The verification flow
+                      </a><a id="what-to-watch-for-in-real-code-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-to-watch-for-in-real-code">
+                        What to watch for in real code
+                      </a><a id="a-generic-verification-example-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#a-generic-verification-example">
+                        A generic verification example
+                      </a><a id="protecting-against-replay-attacks-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#protecting-against-replay-attacks">
+                        Protecting Against Replay Attacks
+                      </a><a id="the-minimum-check-that-actually-matters-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#the-minimum-check-that-actually-matters">
+                        The minimum check that actually matters
+                      </a><a id="what-to-choose-for-the-tolerance-window-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-to-choose-for-the-tolerance-window">
+                        What to choose for the tolerance window
+                      </a><a id="replay-defense-is-not-just-a-timestamp-check-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#replay-defense-is-not-just-a-timestamp-check">
+                        Replay defense is not just a timestamp check
+                      </a><a id="building-a-webhook-receiver-in-nodejs-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#building-a-webhook-receiver-in-nodejs">
+                        Building a Webhook Receiver in Node.js
+                      </a><a id="a-production-minded-express-example-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#a-production-minded-express-example">
+                        A production-minded Express example
+                      </a><a id="why-this-structure-holds-up-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#why-this-structure-holds-up">
+                        Why this structure holds up
+                      </a><a id="what-id-change-for-a-live-system-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-id-change-for-a-live-system">
+                        What I’d change for a live system
+                      </a><a id="building-a-webhook-receiver-in-python-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#building-a-webhook-receiver-in-python">
+                        Building a Webhook Receiver in Python
+                      </a><a id="a-flask-example-with-signature-and-timestamp-checks-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#a-flask-example-with-signature-and-timestamp-checks">
+                        A Flask example with signature and timestamp checks
+                      </a><a id="flask-specific-details-that-matter-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#flask-specific-details-that-matter">
+                        Flask-specific details that matter
+                      </a><a id="where-teams-usually-get-stuck-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#where-teams-usually-get-stuck">
+                        Where teams usually get stuck
+                      </a><a id="building-a-webhook-receiver-in-go-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#building-a-webhook-receiver-in-go">
+                        Building a Webhook Receiver in Go
+                      </a><a id="a-standard-library-example-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#a-standard-library-example">
+                        A standard library example
+                      </a><a id="why-go-feels-solid-here-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#why-go-feels-solid-here">
+                        Why Go feels solid here
+                      </a><a id="operational-notes-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#operational-notes">
+                        Operational notes
+                      </a><a id="essential-debugging-techniques-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#essential-debugging-techniques">
+                        Essential Debugging Techniques
+                      </a><a id="a-practical-debugging-toolkit-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#a-practical-debugging-toolkit">
+                        A practical debugging toolkit
+                      </a><a id="logging-that-actually-helps-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#logging-that-actually-helps">
+                        Logging that actually helps
+                      </a><a id="reproduce-failures-with-the-original-inputs-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#reproduce-failures-with-the-original-inputs">
+                        Reproduce failures with the original inputs
+                      </a><a id="a-checklist-for-production-ready-webhooks-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#a-checklist-for-production-ready-webhooks">
+                        A Checklist for Production-Ready Webhooks
+                      </a><a id="security-and-correctness-checks-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#security-and-correctness-checks">
+                        Security and correctness checks
+                      </a><a id="reliability-checks-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#reliability-checks">
+                        Reliability checks
+                      </a><a id="observability-checks-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#observability-checks">
+                        Observability checks
+                      </a><a id="frequently-asked-questions-about-webhooks-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#frequently-asked-questions-about-webhooks">
+                        Frequently Asked Questions About Webhooks
+                      </a><a id="what-status-code-should-i-return-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-status-code-should-i-return">
+                        What status code should I return?
+                      </a><a id="should-i-process-the-webhook-synchronously-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#should-i-process-the-webhook-synchronously">
+                        Should I process the webhook synchronously?
+                      </a><a id="how-should-i-handle-retries-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#how-should-i-handle-retries">
+                        How should I handle retries?
+                      </a><a id="what-if-events-arrive-out-of-order-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-if-events-arrive-out-of-order">
+                        What if events arrive out of order?
+                      </a><a id="how-do-i-deal-with-webhook-version-changes-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#how-do-i-deal-with-webhook-version-changes">
+                        How do I deal with webhook version changes?
+                      </a>
+                  </div>
+                </div>
+              </div>
+        </div>
+      </div>
+      <div>
+  <div class="relative mx-4 my-6 max-w-4xl p-4 sm:mx-auto sm:my-10 sm:p-8 md:my-14 md:p-12">
+    <!-- Border design -->
+    <div class="absolute inset-0 rounded-[20px] border border-gray-700 sm:rounded-[40px]"></div>
+
+    <div class="relative">
+      <span class="mb-4 text-3xl leading-tight font-normal text-white sm:mb-6 sm:text-4xl md:text-[44px]">
+        Live updates for Capacitor apps
+      </span>
+
+      <p class="mb-6 max-w-3xl text-lg leading-relaxed font-normal text-gray-300 sm:mb-8 sm:text-xl md:mb-12">
+        When a web-layer bug is live, ship the fix through Capgo instead of waiting days for app store approval. Users get the update in the background while native changes stay in the normal review path.
+      </p>
+
+      <div class="flex flex-col items-start gap-3">
+        <p class="font-inter inline-flex items-center text-sm gap-1.5 text-gray-400 justify-start">
+  <span>human support from Martin</span>
+  <img src="/avatars/martin-96.webp" alt="" width="20" height="20" class="h-5 w-5 rounded-full object-cover ring-2 ring-white/15" loading="lazy" decoding="async" aria-hidden="true">
+</p>
+        <a href="/register/" class="inline-flex w-full items-center justify-center rounded-lg bg-black px-6 py-3 text-lg text-white transition-colors duration-200 hover:bg-gray-800 sm:w-auto sm:px-10 sm:py-4 sm:text-xl">
+          Get Started Now
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="mx-auto max-w-xl text-center">
+        <p class="text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">Latest from our Blog</p>
+        <p class="mt-4 text-base leading-7 font-normal text-gray-400 lg:mt-6 lg:text-lg lg:leading-8">
+          Capgo gives you the best insights you need to create a truly professional mobile app.
+        </p>
+      </div>
+      <div class="mt-8 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+            <a href="/blog/2-way-communication-in-capacitor-apps/" aria-label="2-Way Communication in Capacitor Apps" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/2-way-communication-in-capacitor-apps.webp" alt="2-Way Communication in Capacitor Apps" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 26, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      2-Way Communication in Capacitor Apps
+    </p>
+  </div>
+</a><a href="/blog/5-common-ota-update-mistakes-to-avoid/" aria-label="5 Common OTA Update Mistakes to Avoid" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-common-ota-update-mistakes-to-avoid.webp" alt="5 Common OTA Update Mistakes to Avoid" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Security
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 13, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Common OTA Update Mistakes to Avoid
+    </p>
+  </div>
+</a><a href="/blog/5-security-best-practices-for-mobile-app-live-updates/" aria-label="5 Security Best Practices for Mobile App Live Updates" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-security-best-practices-for-mobile-app-live-updates.webp" alt="5 Security Best Practices for Mobile App Live Updates" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      January 14, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Security Best Practices for Mobile App Live Updates
+    </p>
+  </div>
+</a>
+          </div>
+      <div class="my-12 text-center">
+        <a href="/blog/" class="group inline-flex items-center text-sm font-semibold text-white transition-all duration-200 hover:text-gray-200 hover:underline">
+          See all from our blog
+          <svg class="ml-1 h-5 w-5 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="7" y1="17" x2="17" y2="7"></line>
+            <polyline points="7 7 17 7 17 17"></polyline>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+      </main>
+      

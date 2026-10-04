@@ -1,0 +1,629 @@
+
+
+<script type="module">var n=document.getElementById("menu-toggle"),r=document.getElementById("mobile-menu"),o=document.getElementById("products-toggle"),c=document.getElementById("products-submenu"),l=document.getElementById("products-chevron"),d=document.getElementById("solutions-toggle"),g=document.getElementById("solutions-submenu"),m=document.getElementById("solutions-chevron"),s=document.getElementById("header-auth-live"),v="capgo_paid_user",a;function h(){try{return document.cookie.split(";").some(e=>e.trim()===`${v}=1`)}catch{return!1}}function b(e){!s||a===e||(s.textContent=e?"Console link available":"Login and register links available",a=e)}function i(){try{const e=h();document.querySelectorAll("[data-guest-auth-link]").forEach(t=>{e?t.setAttribute("hidden",""):t.removeAttribute("hidden")}),document.querySelectorAll("[data-console-auth-link]").forEach(t=>{e?t.removeAttribute("hidden"):t.setAttribute("hidden","")}),b(e)}catch{}}n?.addEventListener("click",()=>{const e=!r?.classList.toggle("hidden");n.setAttribute("aria-expanded",String(e))});var u=window.matchMedia("(min-width: 768px)");function p(){u.matches&&(r?.classList.add("hidden"),n?.setAttribute("aria-expanded","false"))}u.addEventListener("change",p);o?.addEventListener("click",()=>{const e=!c?.classList.toggle("hidden");o.setAttribute("aria-expanded",String(e)),l?.classList.toggle("rotate-180",e)});d?.addEventListener("click",()=>{const e=!g?.classList.toggle("hidden");d.setAttribute("aria-expanded",String(e)),m?.classList.toggle("rotate-180",e)});i();window.addEventListener("focus",i);document.addEventListener("visibilitychange",()=>{document.hidden||i()});</script>
+      <main id="main-content">
+        
+  <div class="product-hero flex w-full flex-col items-center">
+    <div class="relative w-full max-w-7xl px-8 sm:px-10 lg:px-12">
+      <div class="relative z-0 mx-auto pb-12">
+        <div class="relative max-w-(--breakpoint-sm)">
+          <div class="mt-4 flex flex-row flex-wrap items-center gap-3">
+            <a href="/blog/category/mobile/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Mobile
+                </a><a href="/blog/category/guides/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Guides
+                </a>
+            <time datetime="2026-09-17T13:36:23.000Z" class="text-sm text-white">
+              September 17, 2026
+            </time>
+          </div>
+          <h1 class="font-display mt-8 text-left text-4xl font-medium text-white sm:text-4xl sm:leading-tight">
+            Expo Image Picker: A Complete Guide for 2026
+          </h1>
+          <p class="mt-4 text-gray-400 sm:text-lg">Master expo image picker in your React Native app. This complete guide covers installation, permissions, camera/gallery access, cropping, base64, and uploading.</p>
+          <div class="flex flex-col gap-y-4 mt-6 md:hidden">
+  
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+    <img width="36" height="36" loading="lazy" decoding="async" alt="Martin Donadieu" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+    <div class="flex flex-col">
+      <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+      <p class="text-sm text-gray-400">Content Marketer</p>
+    </div>
+  </a>
+</div>
+        </div>
+      </div>
+    </div>
+    <div class="relative w-full max-w-7xl overflow-clip px-8 sm:px-10 lg:px-12">
+      <div class="max-w-grid-width relative z-auto mx-auto grid grid-cols-3">
+        <div class="relative col-span-3 md:col-span-2">
+          <img width="1536" height="1024" id="blogImage" loading="eager" decoding="async" alt="Expo Image Picker: A Complete Guide for 2026" src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/ba308f87-6f68-4a15-a46f-3ffc02bcba9e/expo-image-picker-guide.jpg" class="rounded border border-white/5 object-cover">
+          <article class="prose prose-invert blog mt-8 min-w-full">
+            <p>You’re probably at the point where the UI is ready, the profile screen has an “Upload photo” button, and now the easy part suddenly isn’t easy. The actual image selection flow touches native permissions, OS-controlled interfaces, different return shapes than many developers expect, and a handful of build-time details that only show up after you ship a real build.</p>
+<p>That’s where Expo Image Picker fits. It’s the official Expo library for opening the system UI to choose images and videos from the device library or take a photo with the camera, as described in the <a href="https://github.com/expo/expo/tree/main/packages/expo-image-picker">Expo package repository</a>. In practice, that means you get a reliable bridge into native media input, but not a custom media experience that behaves identically on every device.</p>
+<p>This guide is written for the first implementation, not the demo. It focuses on the decisions that matter in production: managed versus bare workflow setup, permission handling that won’t surprise you later, safe result parsing, and a practical upload pattern after the user picks a file. If you’re working in a custom native setup, it also helps to understand how this differs from an <a href="https://capgo.app/blog/expo-development-client/">Expo development client workflow</a>.</p>
+<p><a id="getting-started-with-expo-image-picker"></a></p>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ul>
+<li><a href="#getting-started-with-expo-image-picker">Getting Started with Expo Image Picker</a></li>
+<li><a href="#installation-and-essential-configuration">Installation and Essential Configuration</a>
+<ul>
+<li><a href="#managed-workflow-setup">Managed workflow setup</a></li>
+<li><a href="#bare-react-native-setup-details">Bare React Native setup details</a></li>
+</ul>
+</li>
+<li><a href="#accessing-the-camera-and-media-library">Accessing the Camera and Media Library</a>
+<ul>
+<li><a href="#a-minimal-but-safe-component">A minimal but safe component</a></li>
+<li><a href="#library-and-camera-flows">Library and camera flows</a></li>
+<li><a href="#what-to-expect-from-the-system-ui">What to expect from the system UI</a></li>
+</ul>
+</li>
+<li><a href="#handling-picker-results-and-options">Handling Picker Results and Options</a>
+<ul>
+<li><a href="#reading-the-result-object-correctly">Reading the result object correctly</a></li>
+<li><a href="#options-that-change-downstream-behavior">Options that change downstream behavior</a></li>
+<li><a href="#uri-versus-base64">URI versus base64</a></li>
+<li><a href="#a-safer-result-pattern-for-real-apps">A safer result pattern for real apps</a></li>
+</ul>
+</li>
+<li><a href="#advanced-patterns-and-platform-differences">Advanced Patterns and Platform Differences</a>
+<ul>
+<li><a href="#a-practical-upload-pattern">A practical upload pattern</a></li>
+<li><a href="#where-platform-differences-actually-matter">Where platform differences actually matter</a></li>
+<li><a href="#managed-vs-bare-workflow-differences">Managed vs. bare workflow differences</a></li>
+</ul>
+</li>
+<li><a href="#troubleshooting-common-issues">Troubleshooting Common Issues</a>
+<ul>
+<li><a href="#fast-checks-for-common-failures">Fast checks for common failures</a></li>
+<li><a href="#a-short-production-checklist">A short production checklist</a></li>
+</ul>
+</li>
+</ul>
+<h2 id="getting-started-with-expo-image-picker">Getting Started with Expo Image Picker</h2>
+<p>A product manager asks for profile photos. A week later, the same feature also needs receipt uploads, camera capture for incident reports, and retries when users deny permission the first time. Image input expands fast because it touches native permissions, OS-owned UI, temporary file handling, and backend upload flows.</p>
+<p><code>expo-image-picker</code> is the Expo SDK module for that job. It opens the platform picker or camera UI and returns the selected media in a shape your React Native code can handle. The JavaScript API is small. The main challenge lies in getting the native setup, permission flow, and result handling right on both managed and bare projects.</p>
+<p>The main trade-off is straightforward. You let iOS and Android present their own media UI instead of building a custom picker. That usually gives a better result: users already understand the system screens, permission prompts behave the way the OS expects, and your team avoids maintaining a gallery implementation in JavaScript.</p>
+<p>Treat this as a native integration feature with a React interface.</p>
+<p>That mindset helps because the failure modes are rarely in the button that calls the picker. They usually come from one of three places:</p>
+<ul>
+<li><strong>Native configuration:</strong> missing plugin setup, incorrect permission strings, or a stale build after changing config</li>
+<li><strong>Runtime behavior:</strong> users can deny access, grant limited library access on iOS, or cancel the flow without selecting anything</li>
+<li><strong>Result parsing:</strong> the current API returns an <code>assets</code> array, so older examples that read <code>result.uri</code> directly fail</li>
+</ul>
+<p>Workflow choice also changes the setup path. In a managed Expo app, most of the native work lives in app config and requires a rebuild when that config changes. In a bare app, you still get the Expo module API, but you need to verify the underlying iOS and Android project settings more directly. If your team is using a custom client instead of Expo Go, this guide pairs well with Capgo’s explanation of <a href="https://capgo.app/blog/expo-development-client/">how an Expo development client changes native module testing</a>.</p>
+<p>That split matters for the rest of the guide because the happy path is only half the story. A picker implementation is solid when it works in both workflows, handles platform-specific permission quirks without surprising the user, and passes a usable file to your upload layer instead of stopping at a local preview.</p>
+<p><a id="installation-and-essential-configuration"></a></p>
+<h2 id="installation-and-essential-configuration">Installation and Essential Configuration</h2>
+<p>Installation takes one command. Getting the native configuration right is what determines whether the picker works on a real device, in a custom dev client, and in your production build.</p>
+<p><code>expo-image-picker</code> gives a React-facing API over the platform pickers for photos, videos, and camera capture. The JavaScript call is simple. The setup is not, because photo access and camera access are controlled by iOS and Android, not by React Native.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/472d305b-dc0d-4c11-bd68-7dfa290c2b4e/expo-image-picker-coding-setup.jpg" alt="A developer working on Expo image picker implementation by typing code on a laptop computer screen."></p>
+<p>Start with Expo’s version-aware installer:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="bash"><code><span class="line"><span style="color:#B392F0">npx</span><span style="color:#9ECBFF"> expo</span><span style="color:#9ECBFF"> install</span><span style="color:#9ECBFF"> expo-image-picker</span></span></code></pre>
+<p>Use <code>expo install</code> instead of <code>npm install</code> or <code>yarn add</code>. Expo matches the package version to your SDK, which avoids a common class of native compatibility problems. If you are comparing how Expo modules fit into your release process, this <a href="https://capgo.app/alternatives/expo/">Expo tooling overview</a> is a useful reference.</p>
+<p><a id="managed-workflow-setup"></a></p>
+<h3 id="managed-workflow-setup">Managed workflow setup</h3>
+<p>In the managed workflow, declare the plugin in app config so Expo can apply the native changes at build time.</p>
+<p>Example with <code>app.json</code>:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="json"><code><span class="line"><span style="color:#E1E4E8">{</span></span>
+<span class="line"><span style="color:#79B8FF">  "expo"</span><span style="color:#E1E4E8">: {</span></span>
+<span class="line"><span style="color:#79B8FF">    "plugins"</span><span style="color:#E1E4E8">: [</span><span style="color:#9ECBFF">"expo-image-picker"</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>That is the minimum setup. In practice, teams usually add permission text as well, especially on iOS where the system prompt should explain why the app needs access. Keep the wording specific to the user action. “Upload a profile photo” is better than “Needs media access.”</p>
+<p>One operational detail causes a lot of wasted time. Changing <code>plugins</code>, permission strings, or other native config requires a rebuild. Reloading JavaScript does not apply those changes. In Expo Go, you are also limited by what the client already includes. In a development build or production build, the native project reflects your config only after a new build.</p>
+<p><a id="bare-react-native-setup-details"></a></p>
+<h3 id="bare-react-native-setup-details">Bare React Native setup details</h3>
+<p>In a bare app, the package API is the same, but you need to verify more of the native project yourself. iOS usage descriptions are the first thing to check. If your flow can open the library, launch the camera, or record video with audio, your app needs the corresponding permission strings in <code>Info.plist</code> before you rebuild.</p>
+<p>A practical checklist for bare projects looks like this:</p>
+<ol>
+<li>Install <code>expo-image-picker</code> with <code>npx expo install expo-image-picker</code>.</li>
+<li>Add the plugin config if your project uses Expo config plugins.</li>
+<li>Confirm the iOS usage descriptions match the features you expose.</li>
+<li>Rebuild the iOS and Android apps after any native config change.</li>
+</ol>
+<p>Missing permission text often looks like a runtime bug because the UI code is fine and the button handler runs. The failure is lower in the stack. I usually check <code>Info.plist</code>, the app config, and whether the current build includes the latest native changes before I touch the component code.</p>
+<p>A few habits make setup more predictable:</p>
+<ul>
+<li><strong>Write permission text for the actual action:</strong> users should understand why they are seeing the prompt.</li>
+<li><strong>Configure camera and library separately:</strong> one can work while the other still fails.</li>
+<li><strong>Rebuild after native changes:</strong> hot reload and fast refresh do not update native permissions.</li>
+<li><strong>Test on device:</strong> simulator behavior can hide permission and camera issues.</li>
+</ul>
+<p>If the picker works during development but breaks in TestFlight or the Play Store build, treat that as a configuration problem first. Most of the time, it is.</p>
+<p><a id="accessing-the-camera-and-media-library"></a></p>
+<h2 id="accessing-the-camera-and-media-library">Accessing the Camera and Media Library</h2>
+<p>A user taps “Upload photo,” expects the camera or library to open, and your app has one job at that moment. Open the right system UI, handle refusal or cancellation without breaking the screen, and return a usable local file reference for preview or upload.</p>
+<p>That sounds simple until you test both managed and bare builds across iOS and Android. The JavaScript API stays compact, but the runtime behavior still depends on OS prompts, device hardware, and how your native permissions were configured earlier.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/8b5d3dd9-62f4-4cb1-9583-163b87a38aa4/expo-image-picker-flowchart.jpg" alt="Flowchart illustrating the mobile app image picker process for choosing between camera or media library sources."></p>
+<p><a id="a-minimal-but-safe-component"></a></p>
+<h3 id="a-minimal-but-safe-component">A minimal but safe component</h3>
+<p>The core flow is consistent in both Expo managed and bare workflow projects. Request the relevant permission, launch the picker, check whether the user canceled, then read the first asset from <code>result.assets</code>.</p>
+<p>A baseline component looks like this:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="tsx"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> { useState } </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'react'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> { View, Button, Image, Alert } </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'react-native'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#79B8FF"> *</span><span style="color:#F97583"> as</span><span style="color:#E1E4E8"> ImagePicker </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'expo-image-picker'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">export</span><span style="color:#F97583"> default</span><span style="color:#F97583"> function</span><span style="color:#B392F0"> PhotoInput</span><span style="color:#E1E4E8">() {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">imageUri</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">setImageUri</span><span style="color:#E1E4E8">] </span><span style="color:#F97583">=</span><span style="color:#B392F0"> useState</span><span style="color:#E1E4E8">&lt;</span><span style="color:#79B8FF">string</span><span style="color:#F97583"> |</span><span style="color:#79B8FF"> null</span><span style="color:#E1E4E8">&gt;(</span><span style="color:#79B8FF">null</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#B392F0"> pickFromLibrary</span><span style="color:#F97583"> =</span><span style="color:#F97583"> async</span><span style="color:#E1E4E8"> () </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#F97583">    const</span><span style="color:#79B8FF"> permission</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> ImagePicker.</span><span style="color:#B392F0">requestMediaLibraryPermissionsAsync</span><span style="color:#E1E4E8">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">permission.granted) {</span></span>
+<span class="line"><span style="color:#E1E4E8">      Alert.</span><span style="color:#B392F0">alert</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'Permission required'</span><span style="color:#E1E4E8">, </span><span style="color:#9ECBFF">'Please allow photo library access.'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#F97583">      return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E1E4E8">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    const</span><span style="color:#79B8FF"> result</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> ImagePicker.</span><span style="color:#B392F0">launchImageLibraryAsync</span><span style="color:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#E1E4E8">      mediaTypes: [</span><span style="color:#9ECBFF">'images'</span><span style="color:#E1E4E8">],</span></span>
+<span class="line"><span style="color:#E1E4E8">      allowsEditing: </span><span style="color:#79B8FF">true</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">      quality: </span><span style="color:#79B8FF">1</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    if</span><span style="color:#E1E4E8"> (result.canceled) </span><span style="color:#F97583">return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    const</span><span style="color:#79B8FF"> asset</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> result.assets?.[</span><span style="color:#79B8FF">0</span><span style="color:#E1E4E8">];</span></span>
+<span class="line"><span style="color:#F97583">    if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">asset?.uri) </span><span style="color:#F97583">return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#B392F0">    setImageUri</span><span style="color:#E1E4E8">(asset.uri);</span></span>
+<span class="line"><span style="color:#E1E4E8">  };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#B392F0"> takePhoto</span><span style="color:#F97583"> =</span><span style="color:#F97583"> async</span><span style="color:#E1E4E8"> () </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#F97583">    const</span><span style="color:#79B8FF"> permission</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> ImagePicker.</span><span style="color:#B392F0">requestCameraPermissionsAsync</span><span style="color:#E1E4E8">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">permission.granted) {</span></span>
+<span class="line"><span style="color:#E1E4E8">      Alert.</span><span style="color:#B392F0">alert</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'Permission required'</span><span style="color:#E1E4E8">, </span><span style="color:#9ECBFF">'Please allow camera access.'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#F97583">      return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E1E4E8">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    const</span><span style="color:#79B8FF"> result</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> ImagePicker.</span><span style="color:#B392F0">launchCameraAsync</span><span style="color:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#E1E4E8">      allowsEditing: </span><span style="color:#79B8FF">true</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">      quality: </span><span style="color:#79B8FF">1</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    if</span><span style="color:#E1E4E8"> (result.canceled) </span><span style="color:#F97583">return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    const</span><span style="color:#79B8FF"> asset</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> result.assets?.[</span><span style="color:#79B8FF">0</span><span style="color:#E1E4E8">];</span></span>
+<span class="line"><span style="color:#F97583">    if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">asset?.uri) </span><span style="color:#F97583">return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#B392F0">    setImageUri</span><span style="color:#E1E4E8">(asset.uri);</span></span>
+<span class="line"><span style="color:#E1E4E8">  };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8"> (</span></span>
+<span class="line"><span style="color:#E1E4E8">    &lt;</span><span style="color:#79B8FF">View</span><span style="color:#E1E4E8">&gt;</span></span>
+<span class="line"><span style="color:#E1E4E8">      &lt;</span><span style="color:#79B8FF">Button</span><span style="color:#B392F0"> title</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">"Choose from library"</span><span style="color:#B392F0"> onPress</span><span style="color:#F97583">=</span><span style="color:#E1E4E8">{pickFromLibrary} /&gt;</span></span>
+<span class="line"><span style="color:#E1E4E8">      &lt;</span><span style="color:#79B8FF">Button</span><span style="color:#B392F0"> title</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">"Take photo"</span><span style="color:#B392F0"> onPress</span><span style="color:#F97583">=</span><span style="color:#E1E4E8">{takePhoto} /&gt;</span></span>
+<span class="line"><span style="color:#E1E4E8">      {imageUri </span><span style="color:#F97583">?</span><span style="color:#E1E4E8"> (</span></span>
+<span class="line"><span style="color:#E1E4E8">        &lt;</span><span style="color:#79B8FF">Image</span></span>
+<span class="line"><span style="color:#B392F0">          source</span><span style="color:#F97583">=</span><span style="color:#E1E4E8">{{ uri: imageUri }}</span></span>
+<span class="line"><span style="color:#B392F0">          style</span><span style="color:#F97583">=</span><span style="color:#E1E4E8">{{ width: </span><span style="color:#79B8FF">200</span><span style="color:#E1E4E8">, height: </span><span style="color:#79B8FF">200</span><span style="color:#E1E4E8"> }}</span></span>
+<span class="line"><span style="color:#E1E4E8">        /&gt;</span></span>
+<span class="line"><span style="color:#E1E4E8">      ) </span><span style="color:#F97583">:</span><span style="color:#79B8FF"> null</span><span style="color:#E1E4E8">}</span></span>
+<span class="line"><span style="color:#E1E4E8">    &lt;/</span><span style="color:#79B8FF">View</span><span style="color:#E1E4E8">&gt;</span></span>
+<span class="line"><span style="color:#E1E4E8">  );</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>Three details matter here.</p>
+<ul>
+<li>Request library and camera permissions separately. They fail independently.</li>
+<li>Treat cancellation as a normal user action, not an error state.</li>
+<li>Read from <code>assets[0]</code>, because the picker returns an asset array rather than a top-level <code>uri</code>.</li>
+</ul>
+<p><a id="library-and-camera-flows"></a></p>
+<h3 id="library-and-camera-flows">Library and camera flows</h3>
+<p>Start with the library flow if you want the fastest path to a working feature. It is easier to test, it works in more simulator setups, and it avoids camera hardware edge cases. Add camera support once the result handling path is stable.</p>
+<p>The camera path has more ways to fail in development. iOS Simulator support is limited. Android emulators may not expose camera behavior that matches a real device. In bare projects, those gaps can send you looking at component code even though the actual issue is native config or test environment.</p>
+<p>A clean UI pattern is to ask the user for the source before calling the picker API:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="tsx"><code><span class="line"><span style="color:#F97583">const</span><span style="color:#B392F0"> showPickerOptions</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> () </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">  Alert.</span><span style="color:#B392F0">alert</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'Upload image'</span><span style="color:#E1E4E8">, </span><span style="color:#9ECBFF">'Choose a source'</span><span style="color:#E1E4E8">, [</span></span>
+<span class="line"><span style="color:#E1E4E8">    { text: </span><span style="color:#9ECBFF">'Camera'</span><span style="color:#E1E4E8">, onPress: takePhoto },</span></span>
+<span class="line"><span style="color:#E1E4E8">    { text: </span><span style="color:#9ECBFF">'Photo Library'</span><span style="color:#E1E4E8">, onPress: pickFromLibrary },</span></span>
+<span class="line"><span style="color:#E1E4E8">    { text: </span><span style="color:#9ECBFF">'Cancel'</span><span style="color:#E1E4E8">, style: </span><span style="color:#9ECBFF">'cancel'</span><span style="color:#E1E4E8"> },</span></span>
+<span class="line"><span style="color:#E1E4E8">  ]);</span></span>
+<span class="line"><span style="color:#E1E4E8">};</span></span></code></pre>
+<p>That separation keeps each function focused. It also makes it easier to add analytics, feature flags, or backend-specific rules later. For example, some teams allow library uploads for profile images but require fresh camera captures for identity verification.</p>
+<p>If your broader app also supports file access patterns outside Expo or you are comparing conventions across native stacks, this <a href="https://capgo.app/plugins/capacitor-photo-library/">Capacitor photo library reference</a> is useful context.</p>
+<p>A short demo helps when you’re showing this flow to teammates or QA:</p>
+<iframe width="100%" style="aspect-ratio: 16 / 9;" src="https://www.youtube.com/embed/0TfDaVwdwZc" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+<p><a id="what-to-expect-from-the-system-ui"></a></p>
+<h3 id="what-to-expect-from-the-system-ui">What to expect from the system UI</h3>
+<p><code>expo-image-picker</code> opens the platform picker or camera UI. Your app does not control every screen in that flow. That distinction matters because “works on my device” often means “the OS allowed the path I tested.”</p>
+<p>On iOS, users may grant limited library access instead of full access. On Android, picker behavior can vary by OS version and vendor skin. In managed workflow projects, Expo handles more of the native wiring for you. In bare workflow projects, you need to confirm that your built app includes the native permission changes you made. The JavaScript call site can be identical in both cases while the runtime outcome differs.</p>
+<p>I usually test these cases before calling the feature done:</p>
+<ul>
+<li>first permission request</li>
+<li>denied permission</li>
+<li>user cancellation</li>
+<li>successful library selection</li>
+<li>successful camera capture on a physical device</li>
+<li>immediate preview of the returned local URI</li>
+</ul>
+<p>Those cases map directly to real production behavior. They also set up the next step cleanly if you need to send the file to a server, a moderation pipeline, or a publishing endpoint such as the <a href="https://post-pulse.com/platforms/instagram/media-upload">Instagram media publishing API</a>.</p>
+<p><a id="handling-picker-results-and-options"></a></p>
+<h2 id="handling-picker-results-and-options">Handling Picker Results and Options</h2>
+<p>The picker result is the part that usually needs real production logic. The system UI returns a structured object, not just a file path, and small mistakes here lead to broken previews, empty uploads, or crashes after a user cancels.</p>
+<p><a id="reading-the-result-object-correctly"></a></p>
+<h3 id="reading-the-result-object-correctly">Reading the result object correctly</h3>
+<p>The result shape that matters in current Expo apps is <code>result.assets[0].uri</code>, not a top-level <code>result.uri</code>. That detail affects both managed and bare workflow projects because the JavaScript API is the same even though native setup differs underneath.</p>
+<p>Use a guard-first pattern:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="tsx"><code><span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> result</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> ImagePicker.</span><span style="color:#B392F0">launchImageLibraryAsync</span><span style="color:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#E1E4E8">  mediaTypes: [</span><span style="color:#9ECBFF">'images'</span><span style="color:#E1E4E8">],</span></span>
+<span class="line"><span style="color:#E1E4E8">  allowsEditing: </span><span style="color:#79B8FF">true</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">  quality: </span><span style="color:#79B8FF">1</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">});</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">if</span><span style="color:#E1E4E8"> (result.canceled) {</span></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> asset</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> result.assets?.[</span><span style="color:#79B8FF">0</span><span style="color:#E1E4E8">];</span></span>
+<span class="line"><span style="color:#F97583">if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">asset) {</span></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#E1E4E8"> { </span><span style="color:#79B8FF">uri</span><span style="color:#E1E4E8"> } </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> asset;</span></span>
+<span class="line"><span style="color:#B392F0">setImageUri</span><span style="color:#E1E4E8">(uri);</span></span></code></pre>
+<p>This handles the two failure cases I see most often. A canceled picker does not give you an asset to read, and code that assumes <code>result.assets[0]</code> always exists will fail at runtime.</p>
+<p>Once you have the URI, rendering a preview is straightforward:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="tsx"><code><span class="line"><span style="color:#E1E4E8">&lt;</span><span style="color:#79B8FF">Image</span><span style="color:#B392F0"> source</span><span style="color:#F97583">=</span><span style="color:#E1E4E8">{{ uri: imageUri }} </span><span style="color:#B392F0">style</span><span style="color:#F97583">=</span><span style="color:#E1E4E8">{{ width: </span><span style="color:#79B8FF">240</span><span style="color:#E1E4E8">, height: </span><span style="color:#79B8FF">240</span><span style="color:#E1E4E8"> }} /&gt;</span></span></code></pre>
+<p>If you plan to upload later, keep the whole <code>asset</code> object around, not just the URI. In practice, <code>fileName</code>, <code>mimeType</code>, <code>width</code>, <code>height</code>, and <code>fileSize</code> are often useful for validation, logging, or building a cleaner multipart request.</p>
+<p><a id="options-that-change-downstream-behavior"></a></p>
+<h3 id="options-that-change-downstream-behavior">Options that change downstream behavior</h3>
+<p>A few picker options affect more than the selection screen. They shape file size, editing behavior, and what your backend has to accept.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>What it changes</th>
+<th>Typical use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mediaTypes</code></td>
+<td>array</td>
+<td>Restricts what the user can choose</td>
+<td>Limit selection to images if your API only accepts images</td>
+</tr>
+<tr>
+<td><code>allowsEditing</code></td>
+<td>boolean</td>
+<td>Lets the OS offer crop or edit UI where supported</td>
+<td>Avatars, square covers, receipt capture</td>
+</tr>
+<tr>
+<td><code>quality</code></td>
+<td>number</td>
+<td>Compresses supported image outputs</td>
+<td>Reduce upload size for mobile networks</td>
+</tr>
+<tr>
+<td><code>base64</code></td>
+<td>boolean</td>
+<td>Adds encoded image data to the result</td>
+<td>Only for integrations that explicitly require inline image data</td>
+</tr>
+</tbody>
+</table>
+<p>A few trade-offs are easy to miss:</p>
+<ul>
+<li><strong><code>allowsEditing</code></strong> is useful when the image slot has a fixed shape or size. It is less useful if your server does its own crop pipeline and you want the original file.</li>
+<li><strong><code>quality</code></strong> affects upload time, memory pressure, and server storage. <code>quality: 1</code> is not automatically the right choice.</li>
+<li><strong><code>mediaTypes</code></strong> should match backend rules. If the server rejects videos, do not let the picker return them.</li>
+<li><strong><code>base64</code></strong> increases payload size in memory. Avoid it unless the receiving service requires it.</li>
+</ul>
+<p>That last point matters on lower-memory devices. A local file URI is usually the better handoff for preview and multipart upload. Base64 has valid uses, but it is expensive compared with passing a file reference.</p>
+<p><a id="uri-versus-base64"></a></p>
+<h3 id="uri-versus-base64">URI versus base64</h3>
+<p>For most apps, the rule is simple:</p>
+<ul>
+<li>Use <strong>URI</strong> for previews.</li>
+<li>Use <strong>URI</strong> for file uploads.</li>
+<li>Use <strong>base64</strong> only when the receiving system explicitly asks for encoded content.</li>
+</ul>
+<p>That pattern keeps picker code small and easier to test. It also lines up with how many backend media flows are built, including services that eventually publish to external platforms such as the <a href="https://post-pulse.com/platforms/instagram/media-upload">Instagram media publishing API</a>.</p>
+<p>If your team ships frequent OTA updates or moves image-heavy assets through app delivery, file size decisions here carry into the rest of the pipeline. This guide on <a href="https://capgo.app/blog/optimise-your-images-for-updates/">optimising images for app updates</a> is a useful companion to picker configuration.</p>
+<p><a id="a-safer-result-pattern-for-real-apps"></a></p>
+<h3 id="a-safer-result-pattern-for-real-apps">A safer result pattern for real apps</h3>
+<p>For demo code, storing only <code>imageUri</code> is fine. In production, store a normalized object so the next step, preview, validation, upload, or retry, does not need to reinterpret the raw picker response every time.</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="tsx"><code><span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> result</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> ImagePicker.</span><span style="color:#B392F0">launchImageLibraryAsync</span><span style="color:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#E1E4E8">  mediaTypes: [</span><span style="color:#9ECBFF">'images'</span><span style="color:#E1E4E8">],</span></span>
+<span class="line"><span style="color:#E1E4E8">  allowsEditing: </span><span style="color:#79B8FF">true</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">  quality: </span><span style="color:#79B8FF">0.8</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">});</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">if</span><span style="color:#E1E4E8"> (result.canceled </span><span style="color:#F97583">||</span><span style="color:#F97583"> !</span><span style="color:#E1E4E8">result.assets?.</span><span style="color:#79B8FF">length</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> asset</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> result.assets[</span><span style="color:#79B8FF">0</span><span style="color:#E1E4E8">];</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#B392F0">setSelectedImage</span><span style="color:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#E1E4E8">  uri: asset.uri,</span></span>
+<span class="line"><span style="color:#E1E4E8">  fileName: asset.fileName </span><span style="color:#F97583">??</span><span style="color:#9ECBFF"> 'upload.jpg'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">  mimeType: asset.mimeType </span><span style="color:#F97583">??</span><span style="color:#9ECBFF"> 'image/jpeg'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">  width: asset.width,</span></span>
+<span class="line"><span style="color:#E1E4E8">  height: asset.height,</span></span>
+<span class="line"><span style="color:#E1E4E8">  fileSize: asset.fileSize </span><span style="color:#F97583">??</span><span style="color:#79B8FF"> null</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">});</span></span></code></pre>
+<p>This gives you one predictable shape inside the app. It also makes managed and bare projects easier to keep aligned because the app code stays stable while you work through native differences elsewhere.</p>
+<p>One final check helps. Do not enable extra result fields just in case. Request the data you know you need, and keep the picker focused on selection rather than turning it into a general file-processing step.</p>
+<p><a id="advanced-patterns-and-platform-differences"></a></p>
+<h2 id="advanced-patterns-and-platform-differences">Advanced Patterns and Platform Differences</h2>
+<p>A picker feature usually stops being simple the moment the first selected image has to survive retries, auth headers, native permission differences, and a real upload endpoint. <code>expo-image-picker</code> handles selection well. The rest of the feature is on your app.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/b0795924-7575-414b-aefb-16885b0ccc09/expo-image-picker-server-storage.jpg" alt="An infographic titled Image Uploads: Local vs. Server Storage Considerations displaying pros and cons of server storage."></p>
+<p><a id="a-practical-upload-pattern"></a></p>
+<h3 id="a-practical-upload-pattern">A practical upload pattern</h3>
+<p>For APIs that expect a file upload, <code>FormData</code> is still the safest default. It works across common Rails, Node, Laravel, Django, and Go backends, and it keeps the picker separate from transport concerns.</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="tsx"><code><span class="line"><span style="color:#F97583">async</span><span style="color:#F97583"> function</span><span style="color:#B392F0"> uploadImage</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">imageUri</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> formData</span><span style="color:#F97583"> =</span><span style="color:#F97583"> new</span><span style="color:#B392F0"> FormData</span><span style="color:#E1E4E8">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">  formData.</span><span style="color:#B392F0">append</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'file'</span><span style="color:#E1E4E8">, {</span></span>
+<span class="line"><span style="color:#E1E4E8">    uri: imageUri,</span></span>
+<span class="line"><span style="color:#E1E4E8">    name: </span><span style="color:#9ECBFF">'upload.jpg'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    type: </span><span style="color:#9ECBFF">'image/jpeg'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">  } </span><span style="color:#F97583">as</span><span style="color:#79B8FF"> any</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> response</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#B392F0"> fetch</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'https://your-api.example.com/uploads'</span><span style="color:#E1E4E8">, {</span></span>
+<span class="line"><span style="color:#E1E4E8">    method: </span><span style="color:#9ECBFF">'POST'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    body: formData,</span></span>
+<span class="line"><span style="color:#E1E4E8">    headers: {</span></span>
+<span class="line"><span style="color:#E1E4E8">      Accept: </span><span style="color:#9ECBFF">'application/json'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    },</span></span>
+<span class="line"><span style="color:#E1E4E8">  });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">response.ok) {</span></span>
+<span class="line"><span style="color:#F97583">    throw</span><span style="color:#F97583"> new</span><span style="color:#B392F0"> Error</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'Upload failed'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8"> response.</span><span style="color:#B392F0">json</span><span style="color:#E1E4E8">();</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>That code is enough to prove the path works, but production apps usually need one more layer. Derive <code>name</code> and <code>type</code> from the selected asset when possible, attach auth outside the picker function, and keep upload state separate from picker state so a failed request does not force the user to reopen the library.</p>
+<p>A few checks prevent the common failures I see in review:</p>
+<ul>
+<li>Confirm the local <code>uri</code> exists before building the request</li>
+<li>Render a preview before upload so users catch the wrong file early</li>
+<li>Prevent repeated taps while the request is in flight</li>
+<li>Handle network failures separately from picker cancellation or permission errors</li>
+<li>Expect backend validation to reject large files, unsupported MIME types, or missing auth</li>
+</ul>
+<p>If your backend requires base64 instead of multipart, that is usually a server constraint, not a picker requirement. Multipart is cheaper on memory and easier to reason about on mobile.</p>
+<p><a id="where-platform-differences-actually-matter"></a></p>
+<h3 id="where-platform-differences-actually-matter">Where platform differences actually matter</h3>
+<p>The picker UI is native, so it inherits native behavior. That affects both what users see and what your code should assume.</p>
+<p>On iOS, editing flows and permission prompts follow Apple’s conventions. Limited Photos access can return a narrower set of assets than your test account saw on a fully granted device. On Android, picker behavior varies more by OS version and manufacturer skin, especially around albums, file names, and how camera captures are returned. Bare React Native apps feel these differences more directly because you own more of the native setup, but managed Expo apps still need code that treats the picker as platform-shaped rather than perfectly uniform.</p>
+<p>The practical rule is simple. Depend on the fields you can validate, not on identical UI or identical metadata across devices.</p>
+<p>A few examples matter in real apps:</p>
+<ul>
+<li><strong>Editing and cropping:</strong> The UI and crop behavior are not identical between iOS and Android</li>
+<li><strong>Returned metadata:</strong> <code>fileName</code>, <code>mimeType</code>, and <code>fileSize</code> can be absent or inconsistent, so add fallbacks</li>
+<li><strong>Permissions:</strong> iOS photo access can be limited to selected items, while Android behavior depends more on OS version and system picker support</li>
+<li><strong>Camera output:</strong> Captured images may come back with different naming, orientation, or compression characteristics than library assets</li>
+</ul>
+<p>If your team also works outside Expo, this <a href="https://designstack.co.uk/android-app-development-services/">DesignStack app development guide</a> gives useful Android context for media handling decisions that show up beyond a single library.</p>
+<p><a id="managed-vs-bare-workflow-differences"></a></p>
+<h3 id="managed-vs-bare-workflow-differences">Managed vs. bare workflow differences</h3>
+<p>At this point, setup choices start to matter operationally.</p>
+<p>In the managed workflow, permission strings and plugin config usually live in app config, and native changes are applied when you create a new build. That keeps the JavaScript surface area clean, but it also means a config fix is not visible until the next native build. OTA updates do not patch missing native permissions.</p>
+<p>In the bare workflow, the same feature has more moving parts. You need to verify the native iOS usage descriptions, Android manifest behavior, package installation, and rebuild timing yourself. The upside is control. The cost is that a picker issue may be caused by native configuration, not by the JavaScript call site.</p>
+<p>Teams that switch between Expo and Capacitor often underestimate how different these abstraction layers are. Capgo has a useful explanation of <a href="https://capgo.app/blog/how-capacitor-handles-platform-differences/">how Capacitor handles platform differences</a>, and it is a good comparison point if you are deciding how much native setup your team wants to own.</p>
+<p>My preference is consistent across both workflows. Keep picker code narrow, normalize the result once, upload through a dedicated API layer, and treat platform-specific behavior as something to configure and test explicitly rather than smooth over with assumptions.</p>
+<p><a id="troubleshooting-common-issues"></a></p>
+<h2 id="troubleshooting-common-issues">Troubleshooting Common Issues</h2>
+<p>Most Expo Image Picker bugs fall into a small set of categories. The fastest fix is usually to identify which layer is failing: config, permission, result handling, or rendering.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/032c9df5-5783-4f7f-9d2a-50d0c3cab4a9/expo-image-picker-troubleshooting-checklist.jpg" alt="A checklist for troubleshooting common issues when using the expo-image-picker library in mobile development projects."></p>
+<p><a id="fast-checks-for-common-failures"></a></p>
+<h3 id="fast-checks-for-common-failures">Fast checks for common failures</h3>
+<p>If the picker won’t open or permissions fail, check native setup first. In bare apps especially, missing iOS usage descriptions are a common root cause.</p>
+<p>If the app crashes after a user closes the picker, inspect your result handling. Many implementations still assume a direct URI and skip the <code>canceled</code> check.</p>
+<p>A few quick mappings help:</p>
+<ul>
+<li><strong>Permission denied errors:</strong> Verify your app config and native permission strings, then rebuild.</li>
+<li><strong><code>undefined</code> image URI:</strong> Read from <code>result.assets?.[0]?.uri</code>, not <code>result.uri</code>.</li>
+<li><strong>Nothing happens after cancel:</strong> That may be correct. Handle cancel as a no-op state.</li>
+<li><strong>Image doesn’t render:</strong> Confirm the URI was stored in state and passed into <code>&lt;Image source={{ uri }} /&gt;</code>.</li>
+<li><strong>Camera acts strangely in simulator:</strong> Test on a physical device before you chase a library bug.</li>
+</ul>
+<p><a id="a-short-production-checklist"></a></p>
+<h3 id="a-short-production-checklist">A short production checklist</h3>
+<p>Use this as a final pass before shipping:</p>
+<ul>
+<li><strong>Install with Expo tooling:</strong> Use <code>npx expo install expo-image-picker</code>.</li>
+<li><strong>Configure native pieces:</strong> Add the plugin and required permission descriptions.</li>
+<li><strong>Request permissions intentionally:</strong> Separate camera and media library flows.</li>
+<li><strong>Guard every result:</strong> Check <code>result.canceled</code> and safely read <code>assets[0]</code>.</li>
+<li><strong>Prefer URI-based uploads:</strong> Keep base64 for special cases only.</li>
+<li><strong>Test real devices:</strong> Especially for camera capture and permission prompts.</li>
+</ul>
+<hr>
+<p>If your team ships Capacitor or Electron apps alongside React Native projects, <a href="https://capgo.app">Capgo</a> is one option for delivering JavaScript, CSS, config, and asset updates without waiting on store review for every change. It’s relevant when image-related fixes live in your web layer, such as upload UI, validation rules, copy, or asset handling around the picker flow.</p>
+
+          </article>
+        </div>
+        <div class="right-0 hidden px-10 md:block">
+          <div class="flex flex-col gap-y-4 relative pb-5">
+  <p class="text-sm text-gray-400">Written by</p>
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+    <img width="36" height="36" loading="lazy" decoding="async" alt="Martin Donadieu" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+    <div class="flex flex-col">
+      <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+      <p class="text-sm text-gray-400">Content Marketer</p>
+    </div>
+  </a>
+</div>
+          <div id="staticToc" class="sticky top-16 pt-4 pb-8">
+                <div>
+                  <p class="-ml-0.5 flex items-center gap-1.5 text-sm text-gray-400">
+                    <svg width="24" height="24" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" class="lucide lucide-align-left h-4 w-4">
+                      <line x1="21" x2="3" y1="6" y2="6"></line>
+                      <line x1="15" x2="3" y1="12" y2="12"></line>
+                      <line x1="17" x2="3" y1="18" y2="18"></line>
+                    </svg>
+                    Table of Contents
+                  </p>
+                  <div class="mt-4 grid gap-4 border-l border-gray-600">
+                    <a id="table-of-contents-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#table-of-contents">
+                        Table of Contents
+                      </a><a id="getting-started-with-expo-image-picker-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#getting-started-with-expo-image-picker">
+                        Getting Started with Expo Image Picker
+                      </a><a id="installation-and-essential-configuration-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#installation-and-essential-configuration">
+                        Installation and Essential Configuration
+                      </a><a id="managed-workflow-setup-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#managed-workflow-setup">
+                        Managed workflow setup
+                      </a><a id="bare-react-native-setup-details-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#bare-react-native-setup-details">
+                        Bare React Native setup details
+                      </a><a id="accessing-the-camera-and-media-library-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#accessing-the-camera-and-media-library">
+                        Accessing the Camera and Media Library
+                      </a><a id="a-minimal-but-safe-component-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#a-minimal-but-safe-component">
+                        A minimal but safe component
+                      </a><a id="library-and-camera-flows-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#library-and-camera-flows">
+                        Library and camera flows
+                      </a><a id="what-to-expect-from-the-system-ui-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-to-expect-from-the-system-ui">
+                        What to expect from the system UI
+                      </a><a id="handling-picker-results-and-options-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#handling-picker-results-and-options">
+                        Handling Picker Results and Options
+                      </a><a id="reading-the-result-object-correctly-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#reading-the-result-object-correctly">
+                        Reading the result object correctly
+                      </a><a id="options-that-change-downstream-behavior-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#options-that-change-downstream-behavior">
+                        Options that change downstream behavior
+                      </a><a id="uri-versus-base64-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#uri-versus-base64">
+                        URI versus base64
+                      </a><a id="a-safer-result-pattern-for-real-apps-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#a-safer-result-pattern-for-real-apps">
+                        A safer result pattern for real apps
+                      </a><a id="advanced-patterns-and-platform-differences-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#advanced-patterns-and-platform-differences">
+                        Advanced Patterns and Platform Differences
+                      </a><a id="a-practical-upload-pattern-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#a-practical-upload-pattern">
+                        A practical upload pattern
+                      </a><a id="where-platform-differences-actually-matter-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#where-platform-differences-actually-matter">
+                        Where platform differences actually matter
+                      </a><a id="managed-vs-bare-workflow-differences-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#managed-vs-bare-workflow-differences">
+                        Managed vs. bare workflow differences
+                      </a><a id="troubleshooting-common-issues-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#troubleshooting-common-issues">
+                        Troubleshooting Common Issues
+                      </a><a id="fast-checks-for-common-failures-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#fast-checks-for-common-failures">
+                        Fast checks for common failures
+                      </a><a id="a-short-production-checklist-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#a-short-production-checklist">
+                        A short production checklist
+                      </a>
+                  </div>
+                </div>
+              </div>
+        </div>
+      </div>
+      <div>
+  <div class="relative mx-4 my-6 max-w-4xl p-4 sm:mx-auto sm:my-10 sm:p-8 md:my-14 md:p-12">
+    <!-- Border design -->
+    <div class="absolute inset-0 rounded-[20px] border border-gray-700 sm:rounded-[40px]"></div>
+
+    <div class="relative">
+      <span class="mb-4 text-3xl leading-tight font-normal text-white sm:mb-6 sm:text-4xl md:text-[44px]">
+        Live updates for Capacitor apps
+      </span>
+
+      <p class="mb-6 max-w-3xl text-lg leading-relaxed font-normal text-gray-300 sm:mb-8 sm:text-xl md:mb-12">
+        When a web-layer bug is live, ship the fix through Capgo instead of waiting days for app store approval. Users get the update in the background while native changes stay in the normal review path.
+      </p>
+
+      <div class="flex flex-col items-start gap-3">
+        <p class="font-inter inline-flex items-center text-sm gap-1.5 text-gray-400 justify-start">
+  <span>human support from Martin</span>
+  <img src="/avatars/martin-96.webp" alt="" width="20" height="20" class="h-5 w-5 rounded-full object-cover ring-2 ring-white/15" loading="lazy" decoding="async" aria-hidden="true">
+</p>
+        <a href="/register/" class="inline-flex w-full items-center justify-center rounded-lg bg-black px-6 py-3 text-lg text-white transition-colors duration-200 hover:bg-gray-800 sm:w-auto sm:px-10 sm:py-4 sm:text-xl">
+          Get Started Now
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="mx-auto max-w-xl text-center">
+        <p class="text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">Latest from our Blog</p>
+        <p class="mt-4 text-base leading-7 font-normal text-gray-400 lg:mt-6 lg:text-lg lg:leading-8">
+          Capgo gives you the best insights you need to create a truly professional mobile app.
+        </p>
+      </div>
+      <div class="mt-8 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+            <a href="/blog/2-way-communication-in-capacitor-apps/" aria-label="2-Way Communication in Capacitor Apps" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/2-way-communication-in-capacitor-apps.webp" alt="2-Way Communication in Capacitor Apps" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 26, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      2-Way Communication in Capacitor Apps
+    </p>
+  </div>
+</a><a href="/blog/5-common-ota-update-mistakes-to-avoid/" aria-label="5 Common OTA Update Mistakes to Avoid" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-common-ota-update-mistakes-to-avoid.webp" alt="5 Common OTA Update Mistakes to Avoid" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Security
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 13, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Common OTA Update Mistakes to Avoid
+    </p>
+  </div>
+</a><a href="/blog/5-security-best-practices-for-mobile-app-live-updates/" aria-label="5 Security Best Practices for Mobile App Live Updates" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-security-best-practices-for-mobile-app-live-updates.webp" alt="5 Security Best Practices for Mobile App Live Updates" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      January 14, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Security Best Practices for Mobile App Live Updates
+    </p>
+  </div>
+</a>
+          </div>
+      <div class="my-12 text-center">
+        <a href="/blog/" class="group inline-flex items-center text-sm font-semibold text-white transition-all duration-200 hover:text-gray-200 hover:underline">
+          See all from our blog
+          <svg class="ml-1 h-5 w-5 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="7" y1="17" x2="17" y2="7"></line>
+            <polyline points="7 7 17 7 17 17"></polyline>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+      </main>
+      

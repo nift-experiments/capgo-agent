@@ -1,3 +1,20 @@
+# Capgo Agent — golden-reference migration
+
+The current local preview renders all 1,347 routes from maintained HTML bodies and shared Nift includes. Normal builds do not compile MDX. The earlier prototype is archived in `docs/prototype` and its generated output is preserved locally under `build/archive`.
+
+This is the Phase 8 baseline, not the finished vanilla implementation: production CSS, assets and JavaScript remain intact until their behavior is reconstructed and checked against the golden reference.
+
+```sh
+npm ci --ignore-scripts
+NIFT=/path/to/nift node tools/build.mjs --all
+node runtime/server.mjs
+node tools/parity.mjs
+```
+
+Build threads default to `-1` (all available cores). Set `NIFT_BUILD_THREADS` to override. Preview: http://127.0.0.1:4173/. All 3,876 output files currently match the frozen production snapshot byte for byte.
+
+The measured first build of this baseline took **3.66 seconds**, with **148.5 MiB peak RSS**. This includes asset copying and parity verification; dependency installation is excluded. Further runtime reconstruction and final repeated benchmarks remain outstanding.
+
 # capgo-agent
 
 Agent-first Capgo recreation with a normalized Nift content model.

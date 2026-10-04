@@ -1,0 +1,561 @@
+
+
+<script type="module">var n=document.getElementById("menu-toggle"),r=document.getElementById("mobile-menu"),o=document.getElementById("products-toggle"),c=document.getElementById("products-submenu"),l=document.getElementById("products-chevron"),d=document.getElementById("solutions-toggle"),g=document.getElementById("solutions-submenu"),m=document.getElementById("solutions-chevron"),s=document.getElementById("header-auth-live"),v="capgo_paid_user",a;function h(){try{return document.cookie.split(";").some(e=>e.trim()===`${v}=1`)}catch{return!1}}function b(e){!s||a===e||(s.textContent=e?"Console link available":"Login and register links available",a=e)}function i(){try{const e=h();document.querySelectorAll("[data-guest-auth-link]").forEach(t=>{e?t.setAttribute("hidden",""):t.removeAttribute("hidden")}),document.querySelectorAll("[data-console-auth-link]").forEach(t=>{e?t.removeAttribute("hidden"):t.setAttribute("hidden","")}),b(e)}catch{}}n?.addEventListener("click",()=>{const e=!r?.classList.toggle("hidden");n.setAttribute("aria-expanded",String(e))});var u=window.matchMedia("(min-width: 768px)");function p(){u.matches&&(r?.classList.add("hidden"),n?.setAttribute("aria-expanded","false"))}u.addEventListener("change",p);o?.addEventListener("click",()=>{const e=!c?.classList.toggle("hidden");o.setAttribute("aria-expanded",String(e)),l?.classList.toggle("rotate-180",e)});d?.addEventListener("click",()=>{const e=!g?.classList.toggle("hidden");d.setAttribute("aria-expanded",String(e)),m?.classList.toggle("rotate-180",e)});i();window.addEventListener("focus",i);document.addEventListener("visibilitychange",()=>{document.hidden||i()});</script>
+      <main id="main-content">
+        
+  <div class="product-hero flex w-full flex-col items-center">
+    <div class="relative w-full max-w-7xl px-8 sm:px-10 lg:px-12">
+      <div class="relative z-0 mx-auto pb-12">
+        <div class="relative max-w-(--breakpoint-sm)">
+          <div class="mt-4 flex flex-row flex-wrap items-center gap-3">
+            <a href="/blog/category/mobile/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Mobile
+                </a><a href="/blog/category/cicd/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  CI/CD
+                </a><a href="/blog/category/capacitor/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Capacitor
+                </a>
+            <time datetime="2026-08-31T07:46:00.000Z" class="text-sm text-white">
+              August 31, 2026
+            </time>
+          </div>
+          <h1 class="font-display mt-8 text-left text-4xl font-medium text-white sm:text-4xl sm:leading-tight">
+            Environment Configuration for Modern Apps
+          </h1>
+          <p class="mt-4 text-gray-400 sm:text-lg">Master environment configuration for Capacitor and Electron apps. Compare 12-factor, runtime config, and secret management patterns</p>
+          <div class="flex flex-col gap-y-4 mt-6 md:hidden">
+  
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+    <img width="36" height="36" loading="lazy" decoding="async" alt="Martin Donadieu" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+    <div class="flex flex-col">
+      <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+      <p class="text-sm text-gray-400">Content Marketer</p>
+    </div>
+  </a>
+</div>
+        </div>
+      </div>
+    </div>
+    <div class="relative w-full max-w-7xl overflow-clip px-8 sm:px-10 lg:px-12">
+      <div class="max-w-grid-width relative z-auto mx-auto grid grid-cols-3">
+        <div class="relative col-span-3 md:col-span-2">
+          <img width="1536" height="1024" id="blogImage" loading="eager" decoding="async" alt="Environment Configuration for Modern Apps" src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/e098a551-a3f7-44ac-8040-3cc6fd2f59d2/environment-configuration-modern-apps.jpg" class="rounded border border-white/5 object-cover">
+          <article class="prose prose-invert blog mt-8 min-w-full">
+            <p>You’ve shipped the release, signed the native binary, and watched the production rollout start normally. Then support reports that users can’t complete a purchase. The crash log looks unrelated, so you spend hours tracing requests, plugin initialization, and recent JavaScript changes. The cause turns out to be a staging API URL left in a rushed production build.</p>
+<p>That failure isn’t unusual. <strong>Environment configuration</strong> is the discipline of keeping deployment-specific settings, such as API endpoints, feature flags, database credentials, and third-party keys, separate from application code. In Capacitor and Electron apps, the separation is harder because web assets are bundled inside native containers, so a configuration mistake can become part of a signed artifact rather than a value you can change on the server.</p>
+<p>The deeper problem is <strong>configuration drift</strong>, the gradual divergence between development, staging, and production. A developer updates one <code>.env</code> file, a release engineer changes a CI variable, and a mobile build preserves an older value inside its bundle. The app still compiles, but the environments no longer represent the same system. Teams that understand the <a href="https://capgo.app/blog/development-vs-production-key-differences-in-capacitor-apps/">differences between development and production in Capacitor apps</a> can avoid some obvious mistakes, but drift requires an operating model, not only a better file naming convention.</p>
+<p>The practical question is straightforward: how do you ship the same codebase to multiple environments without repeatedly rebuilding, re-signing, or submitting a native app for every configuration change?</p>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ul>
+<li><a href="#why-environment-configuration-breaks-production-apps">Why Environment Configuration Breaks Production Apps</a>
+<ul>
+<li><a href="#drift-starts-with-harmless-exceptions">Drift starts with harmless exceptions</a></li>
+<li><a href="#build-time-configuration-creates-a-release-bottleneck">Build-time configuration creates a release bottleneck</a></li>
+</ul>
+</li>
+<li><a href="#comparing-the-four-main-configuration-patterns">Comparing the Four Main Configuration Patterns</a>
+<ul>
+<li><a href="#pattern-one-12-factor-environment-variables">Pattern one, 12-Factor environment variables</a></li>
+<li><a href="#pattern-two-per-environment-builds">Pattern two, per-environment builds</a></li>
+<li><a href="#pattern-three-runtime-configuration">Pattern three, runtime configuration</a></li>
+<li><a href="#pattern-four-dedicated-secret-management">Pattern four, dedicated secret management</a></li>
+</ul>
+</li>
+<li><a href="#security-and-cicd-implications-you-cannot-ignore">Security and CI/CD Implications You Cannot Ignore</a>
+<ul>
+<li><a href="#where-pipelines-leak-configuration">Where pipelines leak configuration</a></li>
+<li><a href="#security-has-to-coexist-with-release-speed">Security has to coexist with release speed</a></li>
+</ul>
+</li>
+<li><a href="#implementing-environment-config-in-capacitor-and-electron">Implementing Environment Config in Capacitor and Electron</a>
+<ul>
+<li><a href="#define-and-validate-one-contract">Define and validate one contract</a></li>
+<li><a href="#capacitor-native-configuration">Capacitor native configuration</a></li>
+<li><a href="#electron-requires-a-process-boundary">Electron requires a process boundary</a></li>
+</ul>
+</li>
+<li><a href="#simplifying-targeted-updates-and-rollbacks-with-capgo">Simplifying Targeted Updates and Rollbacks with Capgo</a>
+<ul>
+<li><a href="#channels-make-environment-ownership-explicit">Channels make environment ownership explicit</a></li>
+</ul>
+</li>
+<li><a href="#your-environment-configuration-audit-checklist">Your Environment Configuration Audit Checklist</a></li>
+</ul>
+<p><a id="why-environment-configuration-breaks-production-apps"></a></p>
+<h2 id="why-environment-configuration-breaks-production-apps">Why Environment Configuration Breaks Production Apps</h2>
+<p>The most expensive configuration bugs rarely look like configuration bugs. A wrong API base URL can surface as an authentication failure, an empty account screen, a payment error, or a native plugin crash. By the time the incident reaches the engineer who owns the build pipeline, the original mistake may be buried under several commits and a successful store submission.</p>
+<p>Hybrid applications have a particular failure pattern. Capacitor compiles a web application and places its assets inside an iOS or Android project. Electron packages the renderer and main-process code into a desktop application. If an endpoint or feature flag is resolved during that build, the resulting value travels with the artifact. Changing it later usually means producing a new bundle, signing it again, and distributing it through the applicable channel.</p>
+<p><a id="drift-starts-with-harmless-exceptions"></a></p>
+<h3 id="drift-starts-with-harmless-exceptions">Drift starts with harmless exceptions</h3>
+<p>Configuration drift grows from reasonable shortcuts:</p>
+<ul>
+<li><strong>A local override:</strong> A developer hardcodes a test endpoint to unblock a feature and forgets to remove it.</li>
+<li><strong>A separate pipeline variable:</strong> CI uses a production value that doesn’t match the repository’s documented configuration.</li>
+<li><strong>A native-only setting:</strong> Android, iOS, and Electron receive different plugin identifiers or callback settings.</li>
+<li><strong>An undocumented flag:</strong> Operations changes a feature flag directly in a deployment system, while staging continues using the old behavior.</li>
+</ul>
+<p>Each choice can work in isolation. The trouble begins when nobody can answer which value is authoritative, which environment owns it, and when it last changed.</p>
+<blockquote>
+<p><strong>Practical rule:</strong> If a configuration value can change independently of application logic, treat it as a deployment input, not as source code.</p>
+</blockquote>
+<p>A staging environment should resemble production closely enough to expose integration problems, while still using isolated endpoints, credentials, and data. When the environments drift, staging stops being a useful rehearsal. A release can pass every test against one set of assumptions and fail immediately against another.</p>
+<p><a id="build-time-configuration-creates-a-release-bottleneck"></a></p>
+<h3 id="build-time-configuration-creates-a-release-bottleneck">Build-time configuration creates a release bottleneck</h3>
+<p>Build-time configuration remains useful. Public compile-time values, platform-specific identifiers, and settings required by native tooling often need to exist before the application is packaged. The problem is using build-time injection for values that operations may need to change after release.</p>
+<p>Suppose a production API moves to a new endpoint. With a traditional Capacitor workflow, the team changes the value, builds the web assets, synchronizes native projects, signs the application, and distributes it through the platform’s release process. Electron teams face a similar cycle when the changed value belongs inside the packaged application.</p>
+<p>That workflow is acceptable for a deliberate product release. It’s a poor response to an urgent configuration correction. The binary may be healthy, the JavaScript may be unchanged, and yet a single string forces a complete delivery cycle.</p>
+<p>The safer design separates three layers:</p>
+<ol>
+<li><strong>Application logic</strong>, which should remain identical across environments.</li>
+<li><strong>Environment configuration</strong>, which selects endpoints, flags, and non-sensitive runtime behavior.</li>
+<li><strong>Secret material</strong>, which belongs in controlled storage and should be injected only when necessary.</li>
+</ol>
+<p>That separation makes drift visible. It also gives the team a clear answer when production behaves differently: compare the configuration inputs before blaming the code.</p>
+<p><a id="comparing-the-four-main-configuration-patterns"></a></p>
+<h2 id="comparing-the-four-main-configuration-patterns">Comparing the Four Main Configuration Patterns</h2>
+<p>No single configuration pattern fits every part of a hybrid application. A backend can read process environment variables at startup, while a Capacitor renderer may have no traditional server process. Electron adds another boundary between the main process and the renderer. The right choice depends on whether a value is public, sensitive, mutable after release, or required by native build tooling.</p>
+<p><a id="pattern-one-12-factor-environment-variables"></a></p>
+<h3 id="pattern-one-12-factor-environment-variables">Pattern one, 12-Factor environment variables</h3>
+<p>The 12-Factor model treats configuration as environment-specific input rather than hardcoded application state. That works naturally for server processes, containers, and CI jobs. A service can read its values at startup and use the same artifact in multiple deployments.</p>
+<p>Client-side apps complicate the model. A value referenced by browser JavaScript must eventually be available to the client, so it shouldn’t be treated as a secret merely because it arrived through an environment variable. A public API origin or feature flag can use build-time substitution, but credentials with meaningful privileges must not be shipped into a reversible client bundle.</p>
+<p>For Capacitor and Electron, this pattern is best for <strong>build orchestration and public configuration</strong>, not for protecting secrets. It has low conceptual overhead, but runtime mutability is limited unless another delivery layer exists.</p>
+<p><a id="pattern-two-per-environment-builds"></a></p>
+<h3 id="pattern-two-per-environment-builds">Pattern two, per-environment builds</h3>
+<p>Teams often maintain development, staging, and production build profiles. Each profile selects its own endpoint, app identifier, native service files, and feature flags. The approach is easy to explain and works with platform requirements.</p>
+<p>Its weakness is artifact divergence. Three builds can contain different behavior, not only different settings, especially when conditional compilation or platform-specific scripts creep into the pipeline. Every configuration change creates another build and may trigger signing, notarization, store processing, or manual release coordination.</p>
+<p>Rollback is also tied to artifact distribution. You can revert to an older binary, but users may already have different versions installed, and the rollback path depends on the distribution channel.</p>
+<p><a id="pattern-three-runtime-configuration"></a></p>
+<h3 id="pattern-three-runtime-configuration">Pattern three, runtime configuration</h3>
+<p>Runtime configuration moves mutable values outside the native artifact. The application retrieves a configuration document on launch or reads a locally cached document that was previously delivered. This lets teams correct endpoints and flags without changing application code.</p>
+<p>The trade-off is a new startup dependency. If the remote configuration service is unavailable, the app needs a safe cache, a bounded timeout, and a known fallback policy. A fallback must never point to the wrong environment. Validate the document’s schema, authenticate its source where appropriate, and record which configuration version the app applied.</p>
+<p>For hybrid apps, this is usually the most flexible pattern for non-secret values. It does require careful offline behavior because mobile users can launch an app with no network connection.</p>
+<p><a id="pattern-four-dedicated-secret-management"></a></p>
+<h3 id="pattern-four-dedicated-secret-management">Pattern four, dedicated secret management</h3>
+<p>Platforms such as HashiCorp Vault and AWS Secrets Manager are designed to control sensitive backend material. They support access policies, audit trails, encryption, and rotation workflows. That makes them appropriate for server-side services that can authenticate to the secret store without exposing credentials to users.</p>
+<p>They don’t solve the client-secret problem. A secret delivered to a mobile or desktop client can usually be inspected by the person who owns the device. Client applications should receive only values that are safe to disclose, while privileged operations remain behind a backend.</p>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Build Complexity</th>
+<th>Store Resubmission Needed</th>
+<th>Rollback Speed</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>12-Factor variables</td>
+<td>Low for servers, moderate for hybrid builds</td>
+<td>Usually, for bundled client values</td>
+<td>Moderate</td>
+<td>Backend services and public build inputs</td>
+</tr>
+<tr>
+<td>Per-environment builds</td>
+<td>High as environments multiply</td>
+<td>Yes, when bundled values change</td>
+<td>Slow to moderate</td>
+<td>Small teams with infrequent releases</td>
+</tr>
+<tr>
+<td>Runtime configuration</td>
+<td>Moderate</td>
+<td>No for compatible web-layer changes</td>
+<td>Fast, with versioned payloads</td>
+<td>Mutable endpoints, flags, and client behavior</td>
+</tr>
+<tr>
+<td>Secret management platforms</td>
+<td>Moderate to high</td>
+<td>No for backend-only secrets</td>
+<td>Fast for server consumers</td>
+<td>Privileged backend credentials</td>
+</tr>
+</tbody>
+</table>
+<p>Teams working on a single app with occasional releases can start with per-environment builds plus strict validation. A growing team with parallel staging and production work needs a runtime layer to reduce artifact divergence. A high-cadence team should combine immutable application bundles, runtime configuration, and a secret manager for backend credentials. The <a href="https://capgo.app/blog/how-to-implement-feature-flags/">feature flag implementation guidance for Capacitor</a> fits into that runtime layer, provided flags are scoped, audited, and safe to expose to the client.</p>
+<p><a id="security-and-cicd-implications-you-cannot-ignore"></a></p>
+<h2 id="security-and-cicd-implications-you-cannot-ignore">Security and CI/CD Implications You Cannot Ignore</h2>
+<p>A configuration value isn’t automatically safe because it came from CI. The moment a value enters a client bundle, native resource, Electron archive, log file, crash report, or device backup, assume someone with access to that artifact may inspect it.</p>
+<p>Public identifiers and client-side settings are different from secrets. A mobile API key that only identifies an application may be acceptable in a bundle if the provider expects it there and restricts its use. A database credential, signing secret, privileged token, or unrestricted service credential is not safe in the same place. OWASP SAMM recommends separating duties or encrypting production secrets, preventing unprotected secrets from entering repositories, and managing their lifecycle rather than waiting for an incident.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/ffc0a63c-b59a-493e-bb23-9cab25e1ecb2/environment-configuration-security-risks.jpg" alt="A diagram illustrating three stages of security risks involving hardcoded secrets within CI/CD and deployment pipelines."></p>
+<p><a id="where-pipelines-leak-configuration"></a></p>
+<h3 id="where-pipelines-leak-configuration">Where pipelines leak configuration</h3>
+<p>CI/CD systems fail in mundane ways. A shell command prints an expanded variable, a failed build includes a secret in an exception, or a debugging step archives an environment dump. A <code>.env.production</code> file may also enter version control because a repository inherited an incomplete <code>.gitignore</code>.</p>
+<p>Use a secure store for sensitive values and keep the pipeline’s permissions narrow. The build job should receive only the values required for that target, and logs should mask them. Review generated JavaScript, native resources, Electron archives, and source maps for accidental inclusion. A checksum or signature on a remotely delivered configuration payload can help detect tampering, but it doesn’t turn a client-visible value into a secret.</p>
+<p>Teams handling analytics or other sensitive data can use a separate resource such as ELECTE’s <a href="https://www.electe.net/security-whitepaper">security whitepaper for AI analytics</a> when reviewing broader data protection responsibilities. It complements, rather than replaces, application-specific configuration controls.</p>
+<p><a id="security-has-to-coexist-with-release-speed"></a></p>
+<h3 id="security-has-to-coexist-with-release-speed">Security has to coexist with release speed</h3>
+<p>The secure pattern for a production secret is controlled storage, encryption in transit and at rest, least-privilege access, and rotation. For a mutable public endpoint, the secure pattern is different. The endpoint can be delivered through a versioned runtime document, validated before use, and restricted so that a malformed value fails closed.</p>
+<p>Don’t put privileged credentials in Capacitor or Electron code to avoid a backend round trip. Don’t rely on obfuscation, minification, or a hidden renderer variable. Those techniques make casual inspection harder, but they don’t change the trust model of a client device.</p>
+<p>A practical pipeline separates responsibilities:</p>
+<ul>
+<li><strong>Source control:</strong> Commit configuration schemas and safe examples, never live secrets.</li>
+<li><strong>Build stage:</strong> Inject only values required to produce the artifact, and prevent secret expansion in logs.</li>
+<li><strong>Delivery stage:</strong> Apply environment-specific runtime bundles through an authenticated, observable channel.</li>
+<li><strong>Rotation stage:</strong> Revoke and replace backend credentials on a defined schedule, with an incident path for immediate invalidation.</li>
+</ul>
+<p>The <a href="https://capgo.app/blog/managing-secrets-in-cicd-pipelines/">CI/CD secret management practices for Capacitor teams</a> are most useful when paired with an explicit inventory. For every variable, document whether it is public or sensitive, who owns it, which environments use it, and whether changing it requires a native rebuild.</p>
+<p><a id="implementing-environment-config-in-capacitor-and-electron"></a></p>
+<h2 id="implementing-environment-config-in-capacitor-and-electron">Implementing Environment Config in Capacitor and Electron</h2>
+<p>A maintainable setup starts with one configuration contract, not a pile of framework-specific conditionals. Keep safe environment inputs in predictable files, load them through the build system, and expose them to application code through a small typed service.</p>
+<p>A workable repository layout looks like this:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="text"><code><span class="line"><span>.env</span></span>
+<span class="line"><span>.env.staging</span></span>
+<span class="line"><span>.env.production</span></span>
+<span class="line"><span>.env.example</span></span>
+<span class="line"><span>src/config/</span></span>
+<span class="line"><span>  schema.ts</span></span>
+<span class="line"><span>  config-service.ts</span></span>
+<span class="line"><span>capacitor.config.ts</span></span>
+<span class="line"><span>electron/</span></span>
+<span class="line"><span>  main.ts</span></span>
+<span class="line"><span>  preload.ts</span></span></code></pre>
+<p>Only <code>.env.example</code> belongs in source control. The other files should be ignored, and CI should provide the values for each target. The files can contain public endpoints and feature flags, but sensitive backend credentials should remain in a dedicated secret store and never become part of the client bundle.</p>
+<p><a id="define-and-validate-one-contract"></a></p>
+<h3 id="define-and-validate-one-contract">Define and validate one contract</h3>
+<p>With Vite, client-exposed variables normally use the <code>VITE_</code> prefix. That prefix is a visibility signal, not a security boundary.</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#6A737D">// src/config/schema.ts</span></span>
+<span class="line"><span style="color:#F97583">export</span><span style="color:#F97583"> type</span><span style="color:#B392F0"> AppConfig</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#FFAB70">  apiBaseUrl</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span></span>
+<span class="line"><span style="color:#FFAB70">  enableNewCheckout</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> boolean</span></span>
+<span class="line"><span style="color:#FFAB70">  environment</span><span style="color:#F97583">:</span><span style="color:#9ECBFF"> 'development'</span><span style="color:#F97583"> |</span><span style="color:#9ECBFF"> 'staging'</span><span style="color:#F97583"> |</span><span style="color:#9ECBFF"> 'production'</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">function</span><span style="color:#B392F0"> required</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">name</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">value</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span><span style="color:#F97583"> |</span><span style="color:#79B8FF"> undefined</span><span style="color:#E1E4E8">)</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">value) {</span></span>
+<span class="line"><span style="color:#F97583">    throw</span><span style="color:#F97583"> new</span><span style="color:#B392F0"> Error</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">`Missing required configuration: ${</span><span style="color:#E1E4E8">name</span><span style="color:#9ECBFF">}`</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8"> value</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">export</span><span style="color:#F97583"> function</span><span style="color:#B392F0"> loadConfig</span><span style="color:#E1E4E8">()</span><span style="color:#F97583">:</span><span style="color:#B392F0"> AppConfig</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> environment</span><span style="color:#F97583"> =</span><span style="color:#B392F0"> required</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'VITE_APP_ENV'</span><span style="color:#E1E4E8">, </span><span style="color:#F97583">import</span><span style="color:#E1E4E8">.</span><span style="color:#79B8FF">meta</span><span style="color:#E1E4E8">.env.</span><span style="color:#79B8FF">VITE_APP_ENV</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">[</span><span style="color:#9ECBFF">'development'</span><span style="color:#E1E4E8">, </span><span style="color:#9ECBFF">'staging'</span><span style="color:#E1E4E8">, </span><span style="color:#9ECBFF">'production'</span><span style="color:#E1E4E8">].</span><span style="color:#B392F0">includes</span><span style="color:#E1E4E8">(environment)) {</span></span>
+<span class="line"><span style="color:#F97583">    throw</span><span style="color:#F97583"> new</span><span style="color:#B392F0"> Error</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">`Unsupported environment: ${</span><span style="color:#E1E4E8">environment</span><span style="color:#9ECBFF">}`</span><span style="color:#E1E4E8">)</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">    apiBaseUrl: </span><span style="color:#B392F0">required</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'VITE_API_BASE_URL'</span><span style="color:#E1E4E8">, </span><span style="color:#F97583">import</span><span style="color:#E1E4E8">.</span><span style="color:#79B8FF">meta</span><span style="color:#E1E4E8">.env.</span><span style="color:#79B8FF">VITE_API_BASE_URL</span><span style="color:#E1E4E8">),</span></span>
+<span class="line"><span style="color:#E1E4E8">    enableNewCheckout: </span><span style="color:#F97583">import</span><span style="color:#E1E4E8">.</span><span style="color:#79B8FF">meta</span><span style="color:#E1E4E8">.env.</span><span style="color:#79B8FF">VITE_ENABLE_NEW_CHECKOUT</span><span style="color:#F97583"> ===</span><span style="color:#9ECBFF"> 'true'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    environment: environment </span><span style="color:#F97583">as</span><span style="color:#B392F0"> AppConfig</span><span style="color:#E1E4E8">[</span><span style="color:#9ECBFF">'environment'</span><span style="color:#E1E4E8">],</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>Call <code>loadConfig()</code> during application startup. A missing value should produce a clear error rather than selecting a local endpoint. That single decision prevents a large class of production misrouting bugs.</p>
+<p>For local work, Vite can select the appropriate file with its mode. A staging build can use <code>.env.staging</code>, while a production build uses <code>.env.production</code>. The CI job should set the mode explicitly instead of inheriting whatever a developer used locally.</p>
+<p><a id="capacitor-native-configuration"></a></p>
+<h3 id="capacitor-native-configuration">Capacitor native configuration</h3>
+<p>Native projects often need environment-specific identifiers, service files, or plugin settings. Keep those values in <code>capacitor.config.ts</code>, but avoid placing private credentials there.</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#6A737D">// capacitor.config.ts</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#F97583"> type</span><span style="color:#E1E4E8"> { CapacitorConfig } </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> '@capacitor/cli'</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> isProduction</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> process.env.</span><span style="color:#79B8FF">APP_ENV</span><span style="color:#F97583"> ===</span><span style="color:#9ECBFF"> 'production'</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">const</span><span style="color:#79B8FF"> config</span><span style="color:#F97583">:</span><span style="color:#B392F0"> CapacitorConfig</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">  appId: isProduction </span><span style="color:#F97583">?</span><span style="color:#9ECBFF"> 'com.example.app'</span><span style="color:#F97583"> :</span><span style="color:#9ECBFF"> 'com.example.app.staging'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">  appName: isProduction </span><span style="color:#F97583">?</span><span style="color:#9ECBFF"> 'Example'</span><span style="color:#F97583"> :</span><span style="color:#9ECBFF"> 'Example Staging'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">  webDir: </span><span style="color:#9ECBFF">'dist'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">  plugins: {</span></span>
+<span class="line"><span style="color:#E1E4E8">    PushNotifications: {</span></span>
+<span class="line"><span style="color:#E1E4E8">      presentationOptions: [</span><span style="color:#9ECBFF">'badge'</span><span style="color:#E1E4E8">, </span><span style="color:#9ECBFF">'sound'</span><span style="color:#E1E4E8">, </span><span style="color:#9ECBFF">'alert'</span><span style="color:#E1E4E8">],</span></span>
+<span class="line"><span style="color:#E1E4E8">    },</span></span>
+<span class="line"><span style="color:#E1E4E8">  },</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">export</span><span style="color:#F97583"> default</span><span style="color:#E1E4E8"> config</span></span></code></pre>
+<p>Firebase files, push notification certificates, and platform identifiers should be selected by the native build pipeline and stored with appropriate access controls. The production app should never reuse staging service credentials because both builds happen to compile.</p>
+<p>The <a href="https://capgo.app/blog/setting-up-capacitor-local-environment/">Capacitor local environment setup guide</a> can help teams standardize local modes, but the repository still needs an explicit contract and CI validation.</p>
+<p><a id="electron-requires-a-process-boundary"></a></p>
+<h3 id="electron-requires-a-process-boundary">Electron requires a process boundary</h3>
+<p>Electron’s renderer is not the same as the Node.js main process. In a hardened application, <code>process.env</code> may be available in the main process but undefined or intentionally unavailable in the renderer. Pass only the safe configuration through a preload bridge.</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#6A737D">// electron/main.ts</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> { app, BrowserWindow } </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'electron'</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> path </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'node:path'</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">function</span><span style="color:#B392F0"> createWindow</span><span style="color:#E1E4E8">() {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> window</span><span style="color:#F97583"> =</span><span style="color:#F97583"> new</span><span style="color:#B392F0"> BrowserWindow</span><span style="color:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#E1E4E8">    webPreferences: {</span></span>
+<span class="line"><span style="color:#E1E4E8">      preload: path.</span><span style="color:#B392F0">join</span><span style="color:#E1E4E8">(__dirname, </span><span style="color:#9ECBFF">'preload.js'</span><span style="color:#E1E4E8">),</span></span>
+<span class="line"><span style="color:#E1E4E8">      contextIsolation: </span><span style="color:#79B8FF">true</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">      nodeIntegration: </span><span style="color:#79B8FF">false</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    },</span></span>
+<span class="line"><span style="color:#E1E4E8">  })</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> safeConfig</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">    apiBaseUrl: process.env.</span><span style="color:#79B8FF">API_BASE_URL</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    environment: process.env.</span><span style="color:#79B8FF">APP_ENV</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">  window.webContents.</span><span style="color:#B392F0">on</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'did-finish-load'</span><span style="color:#E1E4E8">, () </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">    window.webContents.</span><span style="color:#B392F0">send</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'app-config'</span><span style="color:#E1E4E8">, safeConfig)</span></span>
+<span class="line"><span style="color:#E1E4E8">  })</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8"> window</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">app.</span><span style="color:#B392F0">whenReady</span><span style="color:#E1E4E8">().</span><span style="color:#B392F0">then</span><span style="color:#E1E4E8">(createWindow)</span></span></code></pre>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#6A737D">// electron/preload.ts</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> { contextBridge, ipcRenderer } </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'electron'</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">contextBridge.</span><span style="color:#B392F0">exposeInMainWorld</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'appConfig'</span><span style="color:#E1E4E8">, {</span></span>
+<span class="line"><span style="color:#B392F0">  get</span><span style="color:#E1E4E8">: () </span><span style="color:#F97583">=&gt;</span><span style="color:#F97583"> new</span><span style="color:#79B8FF"> Promise</span><span style="color:#E1E4E8">((</span><span style="color:#FFAB70">resolve</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">    ipcRenderer.</span><span style="color:#B392F0">once</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'app-config'</span><span style="color:#E1E4E8">, (</span><span style="color:#FFAB70">_event</span><span style="color:#E1E4E8">, </span><span style="color:#FFAB70">config</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">=&gt;</span><span style="color:#B392F0"> resolve</span><span style="color:#E1E4E8">(config))</span></span>
+<span class="line"><span style="color:#E1E4E8">  }),</span></span>
+<span class="line"><span style="color:#E1E4E8">})</span></span></code></pre>
+<p>Validate the object again in the renderer. The bridge should expose only public runtime values, never a secret store token or privileged filesystem capability.</p>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Capacitor</th>
+<th>Electron</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Main configuration boundary</td>
+<td>Native project and bundled web assets</td>
+<td>Main process, preload, and renderer</td>
+</tr>
+<tr>
+<td>Safe client values</td>
+<td>Public endpoints and flags</td>
+<td>Public endpoints and flags passed through preload</td>
+</tr>
+<tr>
+<td>Sensitive credentials</td>
+<td>Keep them out of the app bundle</td>
+<td>Keep them out of the packaged archive</td>
+</tr>
+<tr>
+<td>Common failure</td>
+<td>Stale build values after native sync</td>
+<td><code>process.env</code> unavailable in the renderer</td>
+</tr>
+<tr>
+<td>Runtime update path</td>
+<td>Signed web bundle or remote config</td>
+<td>Signed web bundle or controlled application update</td>
+</tr>
+</tbody>
+</table>
+<p>The most common implementation mistake is assuming <code>.env</code> files are automatically private. A bundler can include their values in generated JavaScript, and a packaging step can include the files themselves. Inspect the final artifact, not only the source tree.</p>
+<p><a id="simplifying-targeted-updates-and-rollbacks-with-capgo"></a></p>
+<h2 id="simplifying-targeted-updates-and-rollbacks-with-capgo">Simplifying Targeted Updates and Rollbacks with Capgo</h2>
+<p>Even a disciplined build-time setup leaves a hard operational gap. If a public endpoint changes after release, the native application may still contain the old value. Rebuilding and distributing a new binary is excessive when the required change affects only the web layer.</p>
+<p>Capgo’s live-update model addresses that gap with <strong>targeted channels</strong> for deployment tiers such as development, staging, and production. A team can publish a signed JavaScript, CSS, configuration, or asset bundle to the channel that matches the affected environment. The native shell remains installed while the app applies the compatible update on its next launch.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/b410f29e-861e-4cb2-b13f-0a44e1fa46f1/environment-configuration-app-updates.jpg" alt="A comparison chart showing traditional app configuration workflows versus instant updates and rollbacks using Capgo platform."></p>
+<p>Consider a production API endpoint that changes unexpectedly. The team can update the configuration source, build the web bundle, and publish it to the production channel instead of waiting for a native store release. The important boundary remains intact: this approach doesn’t bypass platform rules for native code, and it doesn’t make a secret safe to ship. It does reduce the time required to correct compatible web-layer configuration.</p>
+<p><a id="channels-make-environment-ownership-explicit"></a></p>
+<h3 id="channels-make-environment-ownership-explicit">Channels make environment ownership explicit</h3>
+<p>A channel should map to an environment, not to an individual developer’s preference. Development testers receive development content, staging users receive staging content, and production users receive only the bundle approved for production. CI can publish the appropriate bundle after the corresponding build and validation steps.</p>
+<p>Rollback is equally important. If the new configuration points to an unhealthy service, the release operator should be able to select the previous known-good bundle for that channel. Version history, deployment guardrails, and device-level reporting help the team determine whether the issue is widespread or limited to a rollout segment.</p>
+<p>The result is a clearer promotion path:</p>
+<ol>
+<li>Build and validate the bundle for development.</li>
+<li>Promote the same tested content to staging.</li>
+<li>Approve the production channel update.</li>
+<li>Monitor adoption and failures.</li>
+<li>Revert the channel if the configuration behaves incorrectly.</li>
+</ol>
+<p>That process reduces the temptation to create emergency native builds for every endpoint correction. The <a href="https://capgo.app/blog/how-capgo-handles-version-control-and-rollbacks/">Capgo version control and rollback workflow</a> is especially relevant for teams that need environment-specific releases without losing a traceable history.</p>
+<p><a id="your-environment-configuration-audit-checklist"></a></p>
+<h2 id="your-environment-configuration-audit-checklist">Your Environment Configuration Audit Checklist</h2>
+<p>Run this audit before every major release and after any pipeline change.</p>
+<ul>
+<li><strong>Inspect artifacts:</strong> Confirm no secrets appear in committed files, generated JavaScript, native resources, source maps, or Electron archives.</li>
+<li><strong>Separate environments:</strong> Verify development, staging, and production use distinct endpoints, identifiers, and approved keys.</li>
+<li><strong>Protect inputs:</strong> Check that every <code>.env</code> variant is ignored, while <code>.env.example</code> documents the required schema.</li>
+<li><strong>Review CI:</strong> Confirm pipelines inject values from controlled stores rather than relying on a developer’s local machine.</li>
+<li><strong>Test recovery:</strong> Verify runtime configuration fails fast when a required value is missing and that a compatible update can be rolled back without rebuilding the native shell.</li>
+</ul>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/05af5717-3728-4f7e-92ba-e7fc36e32898/environment-configuration-audit-checklist.jpg" alt="A checklist infographic titled Environment Configuration Audit Checklist featuring five steps for secure software deployment practices."></p>
+<p>The audit is complete only when someone can identify the owner, source, scope, and rollback procedure for every production configuration value.</p>
+<hr>
+<p>Capgo provides signed live updates for CapacitorJS and Electron apps, including targeted channels and versioned rollbacks for compatible JavaScript, CSS, configuration, and asset changes. If your team wants to reduce rebuild cycles while keeping environment updates controlled, visit <a href="https://capgo.app">Capgo</a> and evaluate it alongside your existing CI/CD process.</p>
+
+          </article>
+        </div>
+        <div class="right-0 hidden px-10 md:block">
+          <div class="flex flex-col gap-y-4 relative pb-5">
+  <p class="text-sm text-gray-400">Written by</p>
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+    <img width="36" height="36" loading="lazy" decoding="async" alt="Martin Donadieu" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+    <div class="flex flex-col">
+      <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+      <p class="text-sm text-gray-400">Content Marketer</p>
+    </div>
+  </a>
+</div>
+          <div id="staticToc" class="sticky top-16 pt-4 pb-8">
+                <div>
+                  <p class="-ml-0.5 flex items-center gap-1.5 text-sm text-gray-400">
+                    <svg width="24" height="24" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" class="lucide lucide-align-left h-4 w-4">
+                      <line x1="21" x2="3" y1="6" y2="6"></line>
+                      <line x1="15" x2="3" y1="12" y2="12"></line>
+                      <line x1="17" x2="3" y1="18" y2="18"></line>
+                    </svg>
+                    Table of Contents
+                  </p>
+                  <div class="mt-4 grid gap-4 border-l border-gray-600">
+                    <a id="table-of-contents-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#table-of-contents">
+                        Table of Contents
+                      </a><a id="why-environment-configuration-breaks-production-apps-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#why-environment-configuration-breaks-production-apps">
+                        Why Environment Configuration Breaks Production Apps
+                      </a><a id="drift-starts-with-harmless-exceptions-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#drift-starts-with-harmless-exceptions">
+                        Drift starts with harmless exceptions
+                      </a><a id="build-time-configuration-creates-a-release-bottleneck-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#build-time-configuration-creates-a-release-bottleneck">
+                        Build-time configuration creates a release bottleneck
+                      </a><a id="comparing-the-four-main-configuration-patterns-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#comparing-the-four-main-configuration-patterns">
+                        Comparing the Four Main Configuration Patterns
+                      </a><a id="pattern-one-12-factor-environment-variables-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#pattern-one-12-factor-environment-variables">
+                        Pattern one, 12-Factor environment variables
+                      </a><a id="pattern-two-per-environment-builds-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#pattern-two-per-environment-builds">
+                        Pattern two, per-environment builds
+                      </a><a id="pattern-three-runtime-configuration-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#pattern-three-runtime-configuration">
+                        Pattern three, runtime configuration
+                      </a><a id="pattern-four-dedicated-secret-management-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#pattern-four-dedicated-secret-management">
+                        Pattern four, dedicated secret management
+                      </a><a id="security-and-cicd-implications-you-cannot-ignore-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#security-and-cicd-implications-you-cannot-ignore">
+                        Security and CI/CD Implications You Cannot Ignore
+                      </a><a id="where-pipelines-leak-configuration-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#where-pipelines-leak-configuration">
+                        Where pipelines leak configuration
+                      </a><a id="security-has-to-coexist-with-release-speed-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#security-has-to-coexist-with-release-speed">
+                        Security has to coexist with release speed
+                      </a><a id="implementing-environment-config-in-capacitor-and-electron-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#implementing-environment-config-in-capacitor-and-electron">
+                        Implementing Environment Config in Capacitor and Electron
+                      </a><a id="define-and-validate-one-contract-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#define-and-validate-one-contract">
+                        Define and validate one contract
+                      </a><a id="capacitor-native-configuration-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#capacitor-native-configuration">
+                        Capacitor native configuration
+                      </a><a id="electron-requires-a-process-boundary-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#electron-requires-a-process-boundary">
+                        Electron requires a process boundary
+                      </a><a id="simplifying-targeted-updates-and-rollbacks-with-capgo-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#simplifying-targeted-updates-and-rollbacks-with-capgo">
+                        Simplifying Targeted Updates and Rollbacks with Capgo
+                      </a><a id="channels-make-environment-ownership-explicit-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#channels-make-environment-ownership-explicit">
+                        Channels make environment ownership explicit
+                      </a><a id="your-environment-configuration-audit-checklist-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#your-environment-configuration-audit-checklist">
+                        Your Environment Configuration Audit Checklist
+                      </a>
+                  </div>
+                </div>
+              </div>
+        </div>
+      </div>
+      <div>
+  <div class="relative mx-4 my-6 max-w-4xl p-4 sm:mx-auto sm:my-10 sm:p-8 md:my-14 md:p-12">
+    <!-- Border design -->
+    <div class="absolute inset-0 rounded-[20px] border border-gray-700 sm:rounded-[40px]"></div>
+
+    <div class="relative">
+      <span class="mb-4 text-3xl leading-tight font-normal text-white sm:mb-6 sm:text-4xl md:text-[44px]">
+        Live updates for Capacitor apps
+      </span>
+
+      <p class="mb-6 max-w-3xl text-lg leading-relaxed font-normal text-gray-300 sm:mb-8 sm:text-xl md:mb-12">
+        When a web-layer bug is live, ship the fix through Capgo instead of waiting days for app store approval. Users get the update in the background while native changes stay in the normal review path.
+      </p>
+
+      <div class="flex flex-col items-start gap-3">
+        <p class="font-inter inline-flex items-center text-sm gap-1.5 text-gray-400 justify-start">
+  <span>human support from Martin</span>
+  <img src="/avatars/martin-96.webp" alt="" width="20" height="20" class="h-5 w-5 rounded-full object-cover ring-2 ring-white/15" loading="lazy" decoding="async" aria-hidden="true">
+</p>
+        <a href="/register/" class="inline-flex w-full items-center justify-center rounded-lg bg-black px-6 py-3 text-lg text-white transition-colors duration-200 hover:bg-gray-800 sm:w-auto sm:px-10 sm:py-4 sm:text-xl">
+          Get Started Now
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="mx-auto max-w-xl text-center">
+        <p class="text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">Latest from our Blog</p>
+        <p class="mt-4 text-base leading-7 font-normal text-gray-400 lg:mt-6 lg:text-lg lg:leading-8">
+          Capgo gives you the best insights you need to create a truly professional mobile app.
+        </p>
+      </div>
+      <div class="mt-8 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+            <a href="/blog/2-way-communication-in-capacitor-apps/" aria-label="2-Way Communication in Capacitor Apps" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/2-way-communication-in-capacitor-apps.webp" alt="2-Way Communication in Capacitor Apps" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 26, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      2-Way Communication in Capacitor Apps
+    </p>
+  </div>
+</a><a href="/blog/5-common-ota-update-mistakes-to-avoid/" aria-label="5 Common OTA Update Mistakes to Avoid" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-common-ota-update-mistakes-to-avoid.webp" alt="5 Common OTA Update Mistakes to Avoid" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Security
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 13, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Common OTA Update Mistakes to Avoid
+    </p>
+  </div>
+</a><a href="/blog/5-security-best-practices-for-mobile-app-live-updates/" aria-label="5 Security Best Practices for Mobile App Live Updates" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-security-best-practices-for-mobile-app-live-updates.webp" alt="5 Security Best Practices for Mobile App Live Updates" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      January 14, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Security Best Practices for Mobile App Live Updates
+    </p>
+  </div>
+</a>
+          </div>
+      <div class="my-12 text-center">
+        <a href="/blog/" class="group inline-flex items-center text-sm font-semibold text-white transition-all duration-200 hover:text-gray-200 hover:underline">
+          See all from our blog
+          <svg class="ml-1 h-5 w-5 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="7" y1="17" x2="17" y2="7"></line>
+            <polyline points="7 7 17 7 17 17"></polyline>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+      </main>
+      

@@ -1,0 +1,426 @@
+
+
+<script type="module">var n=document.getElementById("menu-toggle"),r=document.getElementById("mobile-menu"),o=document.getElementById("products-toggle"),c=document.getElementById("products-submenu"),l=document.getElementById("products-chevron"),d=document.getElementById("solutions-toggle"),g=document.getElementById("solutions-submenu"),m=document.getElementById("solutions-chevron"),s=document.getElementById("header-auth-live"),v="capgo_paid_user",a;function h(){try{return document.cookie.split(";").some(e=>e.trim()===`${v}=1`)}catch{return!1}}function b(e){!s||a===e||(s.textContent=e?"Console link available":"Login and register links available",a=e)}function i(){try{const e=h();document.querySelectorAll("[data-guest-auth-link]").forEach(t=>{e?t.setAttribute("hidden",""):t.removeAttribute("hidden")}),document.querySelectorAll("[data-console-auth-link]").forEach(t=>{e?t.removeAttribute("hidden"):t.setAttribute("hidden","")}),b(e)}catch{}}n?.addEventListener("click",()=>{const e=!r?.classList.toggle("hidden");n.setAttribute("aria-expanded",String(e))});var u=window.matchMedia("(min-width: 768px)");function p(){u.matches&&(r?.classList.add("hidden"),n?.setAttribute("aria-expanded","false"))}u.addEventListener("change",p);o?.addEventListener("click",()=>{const e=!c?.classList.toggle("hidden");o.setAttribute("aria-expanded",String(e)),l?.classList.toggle("rotate-180",e)});d?.addEventListener("click",()=>{const e=!g?.classList.toggle("hidden");d.setAttribute("aria-expanded",String(e)),m?.classList.toggle("rotate-180",e)});i();window.addEventListener("focus",i);document.addEventListener("visibilitychange",()=>{document.hidden||i()});</script>
+      <main id="main-content">
+        
+  <div class="product-hero flex w-full flex-col items-center">
+    <div class="relative w-full max-w-7xl px-8 sm:px-10 lg:px-12">
+      <div class="relative z-0 mx-auto pb-12">
+        <div class="relative max-w-(--breakpoint-sm)">
+          <div class="mt-4 flex flex-row flex-wrap items-center gap-3">
+            <a href="/blog/category/mobile/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Mobile
+                </a><a href="/blog/category/updates/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Updates
+                </a><a href="/blog/category/capacitor/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Capacitor
+                </a>
+            <time datetime="2026-08-27T16:41:24.000Z" class="text-sm text-white">
+              August 28, 2026
+            </time>
+          </div>
+          <h1 class="font-display mt-8 text-left text-4xl font-medium text-white sm:text-4xl sm:leading-tight">
+            App Troubleshooting Playbook for CapacitorJS and Electron
+          </h1>
+          <p class="mt-4 text-gray-400 sm:text-lg">App troubleshooting playbook for CapacitorJS and Electron teams. Reproduce bugs, read logs, debug native layers, and ship hotfixes fast.</p>
+          <div class="flex flex-col gap-y-4 mt-6 md:hidden">
+  
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+    <img width="36" height="36" loading="lazy" decoding="async" alt="Martin Donadieu" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+    <div class="flex flex-col">
+      <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+      <p class="text-sm text-gray-400">Content Marketer</p>
+    </div>
+  </a>
+</div>
+        </div>
+      </div>
+    </div>
+    <div class="relative w-full max-w-7xl overflow-clip px-8 sm:px-10 lg:px-12">
+      <div class="max-w-grid-width relative z-auto mx-auto grid grid-cols-3">
+        <div class="relative col-span-3 md:col-span-2">
+          <img width="1536" height="1024" id="blogImage" loading="eager" decoding="async" alt="App Troubleshooting Playbook for CapacitorJS and Electron" src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/afd318b2-c157-4cd0-ba39-5d5d445cf694/app-troubleshooting-capacitorjs-electron.jpg" class="rounded border border-white/5 object-cover">
+          <article class="prose prose-invert blog mt-8 min-w-full">
+            <p>Thursday evening, your CapacitorJS shopping app starts showing blank dashboards for Android 14 users. iOS customers are browsing normally. Electron desktop users haven’t reported anything. The on-call engineer assumes a WebView regression, opens Android Studio, and spends hours comparing rendering behavior across devices. The eventual cause isn’t a rendering bug at all. A staging API key reached production after a CDN cache invalidation failed to reach mobile clients.</p>
+<p>That incident is familiar because mobile failures rarely respect the boundaries in your repository. A fresh JavaScript change may be innocent while a deployment, configuration value, permission state, service dependency, or network path breaks the user journey. A Microsoft incident analysis found that <strong>40% of production incidents came from code or configuration bugs, while 60% came from infrastructure, deployment, and service dependencies</strong>. The practical lesson is simple: <strong>app troubleshooting must begin with the whole failure domain, not the stack trace</strong>. (<a href="https://www.microsoft.com/en-us/research/wp-content/uploads/2022/09/3542929.3563482.pdf">Microsoft’s incident analysis</a>)</p>
+<p>This playbook follows the workflow I use after shipping CapacitorJS and Electron releases: establish exactly what the user ran, inspect production telemetry before attempting reproduction, verify non-code causes, then debug the narrowest layer that matches the symptom. The seven moves are incident scoping, layered logs, web and native debugging, networking and state checks, CI guardrails, live-update recovery, and a post-incident review that assigns prevention work.</p>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ul>
+<li><a href="#the-night-the-dashboard-went-dark">The Night the Dashboard Went Dark</a>
+<ul>
+<li><a href="#establish-the-exact-failure-surface">Establish the exact failure surface</a></li>
+<li><a href="#reproduce-by-removing-variables">Reproduce by removing variables</a></li>
+</ul>
+</li>
+<li><a href="#reading-logs-from-webview-native-and-the-os">Reading Logs from Webview, Native, and the OS</a>
+<ul>
+<li><a href="#match-each-symptom-to-its-evidence">Match each symptom to its evidence</a></li>
+<li><a href="#correlate-before-you-filter">Correlate before you filter</a></li>
+</ul>
+</li>
+<li><a href="#debugging-the-web-layer-and-the-native-layer">Debugging the Web Layer and the Native Layer</a>
+<ul>
+<li><a href="#start-with-the-webview">Start with the WebView</a></li>
+<li><a href="#move-to-native-tools-when-the-evidence-points-there">Move to native tools when the evidence points there</a></li>
+</ul>
+</li>
+<li><a href="#networking-storage-and-permissions-first-checks">Networking, Storage, and Permissions First Checks</a></li>
+<li><a href="#automated-tests-and-ci-as-early-warning-systems">Automated Tests and CI as Early Warning Systems</a>
+<ul>
+<li><a href="#test-the-shared-logic-and-the-shells">Test the shared logic and the shells</a></li>
+<li><a href="#make-failures-merge-blocking">Make failures merge-blocking</a></li>
+</ul>
+</li>
+<li><a href="#live-updates-as-an-emergency-recovery-channel">Live Updates as an Emergency Recovery Channel</a>
+<ul>
+<li><a href="#use-a-guarded-rollout">Use a guarded rollout</a></li>
+</ul>
+</li>
+<li><a href="#post-incident-analysis-that-prevents-the-next-one">Post-Incident Analysis That Prevents the Next One</a>
+<ul>
+<li><a href="#use-five-concrete-blocks">Use five concrete blocks</a></li>
+<li><a href="#assign-work-before-closing-the-incident">Assign work before closing the incident</a></li>
+</ul>
+</li>
+</ul>
+<p><a id="the-night-the-dashboard-went-dark"></a></p>
+<h2 id="the-night-the-dashboard-went-dark">The Night the Dashboard Went Dark</h2>
+<p>By Thursday evening, Android users were reporting a blank dashboard while Electron desktop users continued working normally. The first assumption was an Android 14 or WebView regression. That clue narrowed the search, but it did not identify the failure. The affected users also shared a release channel, a cached configuration path, an API environment, and a particular sequence of dashboard requests.</p>
+<p>The on-call engineer started by comparing WebView versions. The results looked plausible and led nowhere. A blank dashboard can come from a rendering exception, an empty API response, a rejected request, an invalid token, a feature flag, or a storage read that prevents session restoration. Before changing code, establish which binary, web bundle, configuration, and backend path the affected users received.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/e9f58ef9-1b69-4549-9685-8f09de959f0f/app-troubleshooting-checklist.jpg" alt="A troubleshooting checklist titled The Night the Dashboard Went Dark, outlining incident details for Android users."></p>
+<p><a id="establish-the-exact-failure-surface"></a></p>
+<h3 id="establish-the-exact-failure-surface">Establish the exact failure surface</h3>
+<p>Start with production telemetry, not a developer laptop. Google’s Android crash and ANR guidance recommends narrowing events by <strong>device, operating system, and time window</strong>, then using logcat during reproduction when the failure location remains unclear. (<a href="https://developer.android.com/games/optimize/vitals/crash">Google’s Android vitals troubleshooting guidance</a>)</p>
+<p>Capture these fields from one affected session:</p>
+<ul>
+<li><strong>Build identity:</strong> Record the native app version, build ID, web bundle hash, and release timestamp.</li>
+<li><strong>Distribution channel:</strong> Confirm whether the user received canary, beta, staged, or stable content.</li>
+<li><strong>Runtime context:</strong> Note the Android or iOS version, device model, network type, permission state, and whether the app resumed from the background.</li>
+<li><strong>Last successful action:</strong> Preserve the exact tap sequence, request, response status, and visible result.</li>
+<li><strong>Configuration snapshot:</strong> Compare the API base URL, feature flags, authentication settings, and plugin configuration with a known-good device.</li>
+</ul>
+<p>Capacitor keeps the native version separate from the web content running inside the WebView. Two users can share a store-installed binary while receiving different JavaScript bundles. They can also share a web bundle while using different native plugins. Electron requires the same check across the release manifest, main-process version, renderer bundle, and update channel. Renderer package metadata alone does not establish what the user executed.</p>
+<p><a id="reproduce-by-removing-variables"></a></p>
+<h3 id="reproduce-by-removing-variables">Reproduce by removing variables</h3>
+<p>After collecting the identifiers, classify the incident as <strong>canary-only, staged, or fully rolled out</strong>. A canary-only failure points toward a targeted bundle, flag, or channel assignment. A staged failure suggests audience or device-selection logic. A fully rolled-out failure raises the priority of shared configuration, backend behavior, and native compatibility.</p>
+<p>Diff the affected device against a known-good one. Check native plugin versions, web hash, channel, API environment, authentication state, and permission grants. Replay the user’s last action sequence locally before reaching for an emulator. If one flag controls the failure, hold the other variables steady and bisect that flag’s behavior.</p>
+<blockquote>
+<p><strong>Practical rule:</strong> Do not call a reproduction “the same bug” until the build ID, channel, web bundle, operating system, and configuration match.</p>
+</blockquote>
+<p>The Android dashboard incident turned on configuration correction. The team compared snapshots, confirmed that the native binary was valid, and verified that the WebView and dashboard code were unchanged. Production clients were requesting an environment with a staging credential because the earlier cache invalidation had not reached every mobile client. The recovery work therefore focused on correcting the configuration, setting appropriate cache invalidation headers, and verifying the CDN purge from affected regions and client paths.</p>
+<p>That sequence matters because a successful purge command does not prove that every user can fetch the corrected value. Check CDN responses, cache age, bundle or configuration hashes, and a fresh client session before declaring recovery. A native rebuild would have added rollout time without changing the artifact that caused the failure.</p>
+<p>Use the same discipline for future incidents: <strong>identify the user’s artifact, locate the failure surface, eliminate environmental differences, and then debug code</strong>. A written <a href="https://capgo.app/blog/incident-response-guide/">incident response guide for mobile teams</a> should keep those checks beside the on-call runbook, including telemetry queries, rollout ownership, purge verification, and the decision to use a live update when the native binary is not the failing component.</p>
+<p><a id="reading-logs-from-webview-native-and-the-os"></a></p>
+<h2 id="reading-logs-from-webview-native-and-the-os">Reading Logs from Webview, Native, and the OS</h2>
+<p>A CapacitorJS or Electron application produces evidence at several layers, and each layer answers a different question. The WebView can show JavaScript exceptions and failed requests, but it won’t explain every plugin failure. Native logs expose bridge and lifecycle behavior, while the operating system records memory pressure, permission denials, and process termination that application code may never observe.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/8a7ad788-3c46-419d-9a55-7219c85fd8d7/app-troubleshooting-log-levels.jpg" alt="A diagram illustrating three layers for reading logs: Webview, Native, and OS for mobile application troubleshooting."></p>
+<p><a id="match-each-symptom-to-its-evidence"></a></p>
+<h3 id="match-each-symptom-to-its-evidence">Match each symptom to its evidence</h3>
+<p>At the <strong>WebView layer</strong>, collect console errors, unhandled promise rejections, navigation events, request URLs, response status, and request timing. A silent plugin rejection is especially dangerous. The UI may continue rendering while a camera, filesystem, secure storage, or notification operation has already failed.</p>
+<p>The <strong>native layer</strong> contains Android logcat output, iOS <code>os_log</code> records, plugin bridge exceptions, activity or view-controller lifecycle events, and native crash traces. Electron adds the main-process log stream, auto-update events, window creation failures, and IPC messages. A renderer error won’t necessarily appear in the main process, and a main-process crash won’t be visible in renderer console output.</p>
+<p>The <strong>OS layer</strong> explains events outside the application’s control. Look for memory pressure, background termination, battery restrictions, denied permissions, process kills, and system-level crash reports. This layer often explains an apparent “random crash” that has no useful JavaScript stack.</p>
+<p><a id="correlate-before-you-filter"></a></p>
+<h3 id="correlate-before-you-filter">Correlate before you filter</h3>
+<p>Use a shared request or operation ID across the WebView, native bridge, backend, and central log sink. Add the ID before a user action begins, then preserve it through the network request and native callback. Correlate timestamps in a consistent format, account for device clock drift, and filter framework noise only after retaining the original event.</p>
+<p>Store the same contextual fields in every layer: app version, web bundle hash, channel, device, OS, session, and feature flag state. Centralized collection means a reproduction attempt can be compared with the user’s evidence instead of replacing it with assumptions. A practical <a href="https://capgo.app/blog/log-analysis-tools/">log analysis toolkit for mobile debugging</a> should help you search those fields without forcing engineers to gather screenshots from each device.</p>
+<p><a id="debugging-the-web-layer-and-the-native-layer"></a></p>
+<h2 id="debugging-the-web-layer-and-the-native-layer">Debugging the Web Layer and the Native Layer</h2>
+<p>Debug the layer that owns the symptom. A frozen screen that still responds to native lifecycle events usually starts in the WebView. A process termination, plugin exception, or startup failure belongs in native tooling or the Electron main process. Jumping between layers without that routing rule creates activity without narrowing the cause.</p>
+<p><a id="start-with-the-webview"></a></p>
+<h3 id="start-with-the-webview">Start with the WebView</h3>
+<p>On Android, connect a debuggable Capacitor build to Chrome and open <code>chrome://inspect</code>. Inspect the console, network panel, storage, and performance timeline. On iOS, use Safari Web Inspector with the connected device or simulator. For Electron, attach to the renderer through its DevTools port or call <code>BrowserWindow.webContents.openDevTools()</code> during investigation.</p>
+<p>Production stack traces are useful only when they map back to source. Upload and retain source maps for each web bundle, then verify that the symbolication artifact matches the exact bundle hash. Add a controlled console interceptor for critical operations, but avoid logging credentials, tokens, or personal data. Capture operation names, request IDs, response classes, and state transitions instead.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/c3dfee59-b7c5-499f-8a93-8dfd6f023cf3/app-troubleshooting-debugging-process.jpg" alt="A diagram illustrating the debugging processes for web and native layers to identify application root causes."></p>
+<p><a id="move-to-native-tools-when-the-evidence-points-there"></a></p>
+<h3 id="move-to-native-tools-when-the-evidence-points-there">Move to native tools when the evidence points there</h3>
+<p>Filter Android Studio Logcat by the application package, then reproduce with the smallest possible action sequence. <code>npx cap run android --livereload</code> shortens the iteration loop for WebView changes, but it doesn’t validate the packaged native artifact. On iOS, run from Xcode and use the Devices window for device logs. Instruments’ Time Profiler helps with sustained CPU work, while Allocations helps identify memory growth.</p>
+<p>Electron has two debugging targets. Use renderer DevTools for DOM, JavaScript, and network behavior. Use <code>--inspect</code> or <code>--inspect-brk</code> for the main process, and preserve its stderr output during startup and auto-update tests.</p>
+<blockquote>
+<p>Route by symptom. UI behavior starts in the WebView. Native termination starts in Android Studio or Xcode. Electron startup failure starts in the main process.</p>
+</blockquote>
+<p>A useful explanation of why this split matters appears in <a href="https://capgo.app/blog/how-capacitor-bridges-web-and-native-code/">Capacitor’s WebView and native bridge model</a>. The bridge is a boundary, not a single debugging surface. Treat it that way, and each log line has a better chance of answering the question you have.</p>
+<iframe width="100%" style="aspect-ratio: 16 / 9;" src="https://www.youtube.com/embed/VN3VzMx8kSA" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+<p><a id="networking-storage-and-permissions-first-checks"></a></p>
+<h2 id="networking-storage-and-permissions-first-checks">Networking, Storage, and Permissions First Checks</h2>
+<p>Teams often check the API first because network errors look technical and familiar. That habit misses failures caused by stale state, changed permission declarations, or a platform upgrade that altered sandbox behavior. The fastest check depends on the failure domain.</p>
+<table>
+<thead>
+<tr>
+<th>Failure Domain</th>
+<th>Common Symptom Pattern</th>
+<th>Fastest First Check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Networking</td>
+<td>Blank data, login loops, timeouts, failed uploads, or requests that work on one network but not another</td>
+<td>Run <code>curl</code> from the same network, inspect failed WebView requests, check CORS preflight, certificate pinning, captive portals, and proxy behavior</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>A feature worked previously, then fails after an update, restart, or operating system change</td>
+<td>Inspect storage estimates, check IndexedDB quota errors, compare encryption keys, verify Electron’s <code>userData</code> path, and test a clean sandbox</td>
+</tr>
+<tr>
+<td>Permissions</td>
+<td>Camera, files, notifications, location, or background behavior fails without a clear application exception</td>
+<td>Check iOS usage descriptions, Android <code>ACCESS_*</code> declarations, Electron’s permission handler, and cold-start permission timing</td>
+</tr>
+</tbody>
+</table>
+<p>For storage problems, <code>storage.estimate()</code> can reveal quota pressure, but it won’t diagnose every database problem. Test a manually cleaned application sandbox, then compare behavior with the existing profile. Capacitor Preferences encryption key rotation can make previously valid values unreadable, while SQLite write-ahead logging may leave a damaged state after abrupt termination. Electron applications can also appear to lose data when an operating system upgrade changes the resolved <code>userData</code> path.</p>
+<p>Permissions deserve the same attention. iOS usage descriptions must match the capability being requested. Android permission behavior can drift after SDK changes, and notification prompts can race with cold-start initialization. Electron’s permission handler may reject a request before the renderer receives a useful explanation.</p>
+<blockquote>
+<p>If a user says “it worked yesterday,” inspect storage and permissions before assuming the network changed.</p>
+</blockquote>
+<p><a id="automated-tests-and-ci-as-early-warning-systems"></a></p>
+<h2 id="automated-tests-and-ci-as-early-warning-systems">Automated Tests and CI as Early Warning Systems</h2>
+<p>CI catches regressions most cheaply when it tests the artifact users will run. A green test suite against a development server doesn’t prove that the signed Android package, iOS archive, or Electron installer can start, load its bundle, and complete a real authenticated operation.</p>
+<p><a id="test-the-shared-logic-and-the-shells"></a></p>
+<h3 id="test-the-shared-logic-and-the-shells">Test the shared logic and the shells</h3>
+<p>Use <strong>Vitest</strong> for shared web logic and <strong>Jest</strong> for Electron main-process behavior. For Capacitor plugins, test the JavaScript contract and the native implementation separately, then add integration coverage for permission denial, unavailable hardware, malformed responses, and lifecycle interruption.</p>
+<p>Playwright can exercise a built web bundle. For Electron, use Playwright Electron or an equivalent shell test against the packaged binary, not only the renderer served by a local development process. The packaged test catches missing assets, incorrect paths, signing mistakes, and startup assumptions that browser tests hide.</p>
+<p>Device coverage should reflect your actual install base. BrowserStack or Sauce Labs can exercise a deliberately selected set of device profiles, operating systems, permission states, and network conditions. The goal isn’t maximal matrix size. It’s representative failure coverage.</p>
+<p><a id="make-failures-merge-blocking"></a></p>
+<h3 id="make-failures-merge-blocking">Make failures merge-blocking</h3>
+<p>Add explicit checks for:</p>
+<ul>
+<li><strong>Bundle changes:</strong> Reject unexpected bundle-size deltas and missing source maps.</li>
+<li><strong>Native alignment:</strong> Detect plugin version drift and incompatible <code>minSdkVersion</code> settings.</li>
+<li><strong>Artifact integrity:</strong> Verify signatures, package identity, embedded assets, and release manifests.</li>
+<li><strong>Startup behavior:</strong> Boot the packaged app and complete one authenticated endpoint request.</li>
+<li><strong>Update behavior:</strong> Install an older bundle, apply the candidate update, restart, and confirm rollback behavior.</li>
+</ul>
+<p>Publish every result through one GitHub status check so a red signal blocks the merge. A build that passes unit tests but fails signed-artifact verification should be treated as failed, not “mostly green.”</p>
+<p>The <a href="https://capgo.app/blog/continuous-integration-setup/">continuous integration setup for Capacitor releases</a> is useful when wiring these checks into a repeatable pipeline. CI isn’t a substitute for production telemetry, but it narrows the number of defects that reach staging and gives on-call engineers fewer unknowns during an incident.</p>
+<p><a id="live-updates-as-an-emergency-recovery-channel"></a></p>
+<h2 id="live-updates-as-an-emergency-recovery-channel">Live Updates as an Emergency Recovery Channel</h2>
+<p>A production regression doesn’t always require a new native build. If the defect lives in JavaScript, CSS, copy, configuration, or another web asset, a live update can restore the user journey while the team prepares a proper release. That makes live-update delivery an <strong>operational recovery channel</strong>, not merely a convenience for cosmetic changes.</p>
+<p>The safety requirement is control. Separate named channels for canary, beta, and stable audiences. Keep the native app ID and compatible runtime constraints explicit, and record which bundle each audience receives. A live update can’t add a native permission, replace a native plugin, change the Electron main process, or repair a failure that occurs before the updater can initialize. Those cases still need a store or installer release.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/b02a66d8-8b0d-4d3e-bb83-395121f605d3/app-troubleshooting-emergency-recovery.jpg" alt="A flowchart showing the emergency recovery process for app production regressions using live updates for faster fixes."></p>
+<p><a id="use-a-guarded-rollout"></a></p>
+<h3 id="use-a-guarded-rollout">Use a guarded rollout</h3>
+<p>An emergency flow should look like this:</p>
+<ol>
+<li><strong>Confirm scope:</strong> Identify the affected native versions, channels, bundle hashes, and failure signals.</li>
+<li><strong>Prepare the smallest patch:</strong> Change only the web behavior required to restore the failing path.</li>
+<li><strong>Target a canary audience:</strong> Send the bundle to a controlled channel rather than every installation.</li>
+<li><strong>Watch telemetry:</strong> Check crash, load, request, and update-failure signals against the affected cohort.</li>
+<li><strong>Promote or rollback:</strong> Expand only when the signals remain healthy. Revert immediately when the patch introduces a new failure.</li>
+</ol>
+<p>Automatic rollback should use explicit crash-rate or load-failure thresholds chosen by the team. A rollback protects users only when the updater can detect failure and the prior bundle remains available. Keep version history and channel guardrails intact so support can explain what happened to a particular device.</p>
+<p>Capgo provides signed web-bundle delivery, targeted channels, per-device logs, adoption and failure metrics, version history, and automatic rollback protection for CapacitorJS and Electron applications. The practical decision rule is direct: <strong>use a live update when the fix is confined to the web bundle and the updater can start safely; schedule a native hotfix when the runtime, plugin, permission, package, or main process is involved</strong>. The <a href="https://capgo.app/blog/how-live-updates-for-capacitor-work/">Capacitor live-update flow</a> describes the boundary between those two paths.</p>
+<p><a id="post-incident-analysis-that-prevents-the-next-one"></a></p>
+<h2 id="post-incident-analysis-that-prevents-the-next-one">Post-Incident Analysis That Prevents the Next One</h2>
+<p>A retrospective earns its place when it changes the system. Write it while logs, deployment context, and operator decisions remain available. Keep the record factual, blameless, and specific enough for another engineer to identify the missing guardrail without reconstructing the entire incident.</p>
+<p><a id="use-five-concrete-blocks"></a></p>
+<h3 id="use-five-concrete-blocks">Use five concrete blocks</h3>
+<p><strong>Timeline with telemetry timestamps.</strong> Record the first failed request, affected release, alert creation, investigation steps, mitigation, and recovery. For the Android dashboard incident, the timeline might show that the blank view appeared after a configuration rollout while iOS continued receiving valid responses.</p>
+<p><strong>User-visible failure mode.</strong> Describe what customers experienced, not what the code did. “Android users saw an empty dashboard after authentication” gives responders more direction than “API key mismatch.” The first description points toward the broken journey and the signals that should have detected it.</p>
+<p><strong>Detection gap.</strong> State why the team learned late. Crash monitoring may have stayed green because the app rendered successfully, while no alert tracked authenticated request failures or empty dashboard payloads. Record the missing signal and where it should have been emitted.</p>
+<p><strong>Contributing non-code factors.</strong> List configuration drift, cache behavior, deployment timing, service dependencies, permission changes, or an Electron auto-update race. These domains deserve early checks because a production failure can occur without a defect in application code.</p>
+<p><strong>Preventive guardrail.</strong> Assign the test or control that would have caught the issue. Examples include validating production credentials during deployment, checking delivered configuration from representative clients, or adding a packaged Electron startup test. A guardrail needs an owner and a failure condition, not only a sentence in the retrospective.</p>
+<p>Notification paths belong in the same review. If mail alerts fail to reach the team, use a practical resource on <a href="https://www.mailgenius.com/how-to-stop-email-from-going-to-spam-folder-in-gmail/">how to stop email from going to spam in Gmail</a> during the notification check, then verify the alert path. Do not treat successful message creation as proof that an operator received the alert.</p>
+<p><a id="assign-work-before-closing-the-incident"></a></p>
+<h3 id="assign-work-before-closing-the-incident">Assign work before closing the incident</h3>
+<p>For every block, name one owner, one due date, and one verification method. Review the incident again within <strong>24 hours</strong>, while engineers can still challenge assumptions from the investigation. Close an item only after the new test, dashboard, configuration check, or rollout rule has run successfully.</p>
+<p>Use this final checklist:</p>
+<ul>
+<li>Did we identify the exact native build and web bundle?</li>
+<li>Did we distinguish code, configuration, deployment, infrastructure, and dependency causes?</li>
+<li>Did telemetry show the user-visible failure, not only crashes?</li>
+<li>Did we test the affected channel and a known-good channel?</li>
+<li>Did we add a guardrail that fails before production?</li>
+<li>Did we document whether a live update or native release was appropriate?</li>
+<li>Did one named owner verify the fix?</li>
+</ul>
+<p>User complaints show why the review must cover more than crashes. In a <strong>6,634-app audit</strong>, payment failures affected <strong>28.6%</strong> of apps, device compatibility <strong>28.4%</strong>, UI and UX friction <strong>25.4%</strong>, subscription trouble <strong>21.8%</strong>, and login errors <strong>17.2%</strong>, while crashes ranked seventh at <strong>10.3%</strong>. (<a href="https://brightappdata.com/blog/what-users-complain-about-most-in-mobile-apps">Bright App Data’s audit of mobile-app complaints</a>) A troubleshooting process that asks only “why did the app crash?” can miss the failures preventing payment, sign-in, or normal product use.</p>
+<p>Stability data supports the same operating model. A benchmark places the median app at <strong>99.95% crash-free sessions</strong>, with top-performing apps at <strong>99.99%</strong> and weaker apps at <strong>99.77% or lower</strong>. It also reports a median <strong>ANR rate of 2.62 per 10,000 sessions</strong>, an <strong>OOM rate of 1.12 per 10,000 sessions</strong>, and app-hang rates from <strong>64 to 103 per 10,000 sessions</strong> depending on quality tier. (<a href="https://www.alphabin.co/blog/mobile-app-testing-crash-rates">The mobile stability benchmark</a>) High stability still leaves meaningful failures. Teams need telemetry for failed requests, blank states, hangs, update errors, and other user-facing symptoms.</p>
+<p>A 2026 report says users filed <strong>6x more complaints about broken basics than requests for new features</strong>, and reports that <strong>15.4% uninstall after a single crash while more than half abandon after 2-3 crashes</strong>. (<a href="https://www.mactech.com/2026/02/26/unitq-report-app-users-file-6x-more-complaints-about-broken-basics-than-requests-for-new-features/">The 2026 report on broken app basics</a>) The response is practical: detect broadly, recover quickly, and convert every incident into a testable control.</p>
+<hr>
+<p>Use <a href="https://capgo.app">Capgo</a> to deliver signed CapacitorJS and Electron web-bundle updates through controlled channels, inspect per-device telemetry, and roll back a failed JavaScript fix without waiting for a store review. Connect it to the release pipeline, define stable and canary audiences, and test the recovery path before the next dashboard outage.</p>
+
+          </article>
+        </div>
+        <div class="right-0 hidden px-10 md:block">
+          <div class="flex flex-col gap-y-4 relative pb-5">
+  <p class="text-sm text-gray-400">Written by</p>
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+    <img width="36" height="36" loading="lazy" decoding="async" alt="Martin Donadieu" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+    <div class="flex flex-col">
+      <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+      <p class="text-sm text-gray-400">Content Marketer</p>
+    </div>
+  </a>
+</div>
+          <div id="staticToc" class="sticky top-16 pt-4 pb-8">
+                <div>
+                  <p class="-ml-0.5 flex items-center gap-1.5 text-sm text-gray-400">
+                    <svg width="24" height="24" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" class="lucide lucide-align-left h-4 w-4">
+                      <line x1="21" x2="3" y1="6" y2="6"></line>
+                      <line x1="15" x2="3" y1="12" y2="12"></line>
+                      <line x1="17" x2="3" y1="18" y2="18"></line>
+                    </svg>
+                    Table of Contents
+                  </p>
+                  <div class="mt-4 grid gap-4 border-l border-gray-600">
+                    <a id="table-of-contents-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#table-of-contents">
+                        Table of Contents
+                      </a><a id="the-night-the-dashboard-went-dark-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#the-night-the-dashboard-went-dark">
+                        The Night the Dashboard Went Dark
+                      </a><a id="establish-the-exact-failure-surface-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#establish-the-exact-failure-surface">
+                        Establish the exact failure surface
+                      </a><a id="reproduce-by-removing-variables-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#reproduce-by-removing-variables">
+                        Reproduce by removing variables
+                      </a><a id="reading-logs-from-webview-native-and-the-os-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#reading-logs-from-webview-native-and-the-os">
+                        Reading Logs from Webview, Native, and the OS
+                      </a><a id="match-each-symptom-to-its-evidence-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#match-each-symptom-to-its-evidence">
+                        Match each symptom to its evidence
+                      </a><a id="correlate-before-you-filter-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#correlate-before-you-filter">
+                        Correlate before you filter
+                      </a><a id="debugging-the-web-layer-and-the-native-layer-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#debugging-the-web-layer-and-the-native-layer">
+                        Debugging the Web Layer and the Native Layer
+                      </a><a id="start-with-the-webview-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#start-with-the-webview">
+                        Start with the WebView
+                      </a><a id="move-to-native-tools-when-the-evidence-points-there-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#move-to-native-tools-when-the-evidence-points-there">
+                        Move to native tools when the evidence points there
+                      </a><a id="networking-storage-and-permissions-first-checks-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#networking-storage-and-permissions-first-checks">
+                        Networking, Storage, and Permissions First Checks
+                      </a><a id="automated-tests-and-ci-as-early-warning-systems-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#automated-tests-and-ci-as-early-warning-systems">
+                        Automated Tests and CI as Early Warning Systems
+                      </a><a id="test-the-shared-logic-and-the-shells-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#test-the-shared-logic-and-the-shells">
+                        Test the shared logic and the shells
+                      </a><a id="make-failures-merge-blocking-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#make-failures-merge-blocking">
+                        Make failures merge-blocking
+                      </a><a id="live-updates-as-an-emergency-recovery-channel-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#live-updates-as-an-emergency-recovery-channel">
+                        Live Updates as an Emergency Recovery Channel
+                      </a><a id="use-a-guarded-rollout-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#use-a-guarded-rollout">
+                        Use a guarded rollout
+                      </a><a id="post-incident-analysis-that-prevents-the-next-one-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#post-incident-analysis-that-prevents-the-next-one">
+                        Post-Incident Analysis That Prevents the Next One
+                      </a><a id="use-five-concrete-blocks-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#use-five-concrete-blocks">
+                        Use five concrete blocks
+                      </a><a id="assign-work-before-closing-the-incident-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#assign-work-before-closing-the-incident">
+                        Assign work before closing the incident
+                      </a>
+                  </div>
+                </div>
+              </div>
+        </div>
+      </div>
+      <div>
+  <div class="relative mx-4 my-6 max-w-4xl p-4 sm:mx-auto sm:my-10 sm:p-8 md:my-14 md:p-12">
+    <!-- Border design -->
+    <div class="absolute inset-0 rounded-[20px] border border-gray-700 sm:rounded-[40px]"></div>
+
+    <div class="relative">
+      <span class="mb-4 text-3xl leading-tight font-normal text-white sm:mb-6 sm:text-4xl md:text-[44px]">
+        Live updates for Capacitor apps
+      </span>
+
+      <p class="mb-6 max-w-3xl text-lg leading-relaxed font-normal text-gray-300 sm:mb-8 sm:text-xl md:mb-12">
+        When a web-layer bug is live, ship the fix through Capgo instead of waiting days for app store approval. Users get the update in the background while native changes stay in the normal review path.
+      </p>
+
+      <div class="flex flex-col items-start gap-3">
+        <p class="font-inter inline-flex items-center text-sm gap-1.5 text-gray-400 justify-start">
+  <span>human support from Martin</span>
+  <img src="/avatars/martin-96.webp" alt="" width="20" height="20" class="h-5 w-5 rounded-full object-cover ring-2 ring-white/15" loading="lazy" decoding="async" aria-hidden="true">
+</p>
+        <a href="/register/" class="inline-flex w-full items-center justify-center rounded-lg bg-black px-6 py-3 text-lg text-white transition-colors duration-200 hover:bg-gray-800 sm:w-auto sm:px-10 sm:py-4 sm:text-xl">
+          Get Started Now
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="mx-auto max-w-xl text-center">
+        <p class="text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">Latest from our Blog</p>
+        <p class="mt-4 text-base leading-7 font-normal text-gray-400 lg:mt-6 lg:text-lg lg:leading-8">
+          Capgo gives you the best insights you need to create a truly professional mobile app.
+        </p>
+      </div>
+      <div class="mt-8 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+            <a href="/blog/2-way-communication-in-capacitor-apps/" aria-label="2-Way Communication in Capacitor Apps" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/2-way-communication-in-capacitor-apps.webp" alt="2-Way Communication in Capacitor Apps" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 26, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      2-Way Communication in Capacitor Apps
+    </p>
+  </div>
+</a><a href="/blog/5-common-ota-update-mistakes-to-avoid/" aria-label="5 Common OTA Update Mistakes to Avoid" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-common-ota-update-mistakes-to-avoid.webp" alt="5 Common OTA Update Mistakes to Avoid" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Security
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 13, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Common OTA Update Mistakes to Avoid
+    </p>
+  </div>
+</a><a href="/blog/5-security-best-practices-for-mobile-app-live-updates/" aria-label="5 Security Best Practices for Mobile App Live Updates" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-security-best-practices-for-mobile-app-live-updates.webp" alt="5 Security Best Practices for Mobile App Live Updates" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      January 14, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Security Best Practices for Mobile App Live Updates
+    </p>
+  </div>
+</a>
+          </div>
+      <div class="my-12 text-center">
+        <a href="/blog/" class="group inline-flex items-center text-sm font-semibold text-white transition-all duration-200 hover:text-gray-200 hover:underline">
+          See all from our blog
+          <svg class="ml-1 h-5 w-5 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="7" y1="17" x2="17" y2="7"></line>
+            <polyline points="7 7 17 7 17 17"></polyline>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+      </main>
+      

@@ -1,0 +1,785 @@
+
+
+<script type="module">var n=document.getElementById("menu-toggle"),r=document.getElementById("mobile-menu"),o=document.getElementById("products-toggle"),c=document.getElementById("products-submenu"),l=document.getElementById("products-chevron"),d=document.getElementById("solutions-toggle"),g=document.getElementById("solutions-submenu"),m=document.getElementById("solutions-chevron"),s=document.getElementById("header-auth-live"),v="capgo_paid_user",a;function h(){try{return document.cookie.split(";").some(e=>e.trim()===`${v}=1`)}catch{return!1}}function b(e){!s||a===e||(s.textContent=e?"Console link available":"Login and register links available",a=e)}function i(){try{const e=h();document.querySelectorAll("[data-guest-auth-link]").forEach(t=>{e?t.setAttribute("hidden",""):t.removeAttribute("hidden")}),document.querySelectorAll("[data-console-auth-link]").forEach(t=>{e?t.removeAttribute("hidden"):t.setAttribute("hidden","")}),b(e)}catch{}}n?.addEventListener("click",()=>{const e=!r?.classList.toggle("hidden");n.setAttribute("aria-expanded",String(e))});var u=window.matchMedia("(min-width: 768px)");function p(){u.matches&&(r?.classList.add("hidden"),n?.setAttribute("aria-expanded","false"))}u.addEventListener("change",p);o?.addEventListener("click",()=>{const e=!c?.classList.toggle("hidden");o.setAttribute("aria-expanded",String(e)),l?.classList.toggle("rotate-180",e)});d?.addEventListener("click",()=>{const e=!g?.classList.toggle("hidden");d.setAttribute("aria-expanded",String(e)),m?.classList.toggle("rotate-180",e)});i();window.addEventListener("focus",i);document.addEventListener("visibilitychange",()=>{document.hidden||i()});</script>
+      <main id="main-content">
+        
+  <div class="product-hero flex w-full flex-col items-center">
+    <div class="relative w-full max-w-7xl px-8 sm:px-10 lg:px-12">
+      <div class="relative z-0 mx-auto pb-12">
+        <div class="relative max-w-(--breakpoint-sm)">
+          <div class="mt-4 flex flex-row flex-wrap items-center gap-3">
+            <a href="/blog/category/mobile/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Mobile
+                </a><a href="/blog/category/guides/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Guides
+                </a>
+            <time datetime="2026-09-17T13:36:23.000Z" class="text-sm text-white">
+              September 17, 2026
+            </time>
+          </div>
+          <h1 class="font-display mt-8 text-left text-4xl font-medium text-white sm:text-4xl sm:leading-tight">
+            Master Expo Push Notification Guide 2026
+          </h1>
+          <p class="mt-4 text-gray-400 sm:text-lg">Master Expo push notification setup. This guide covers permissions, tokens, sending, handling, and production best practices for reliable delivery.</p>
+          <div class="flex flex-col gap-y-4 mt-6 md:hidden">
+  
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+    <img width="36" height="36" loading="lazy" decoding="async" alt="Martin Donadieu" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+    <div class="flex flex-col">
+      <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+      <p class="text-sm text-gray-400">Content Marketer</p>
+    </div>
+  </a>
+</div>
+        </div>
+      </div>
+    </div>
+    <div class="relative w-full max-w-7xl overflow-clip px-8 sm:px-10 lg:px-12">
+      <div class="max-w-grid-width relative z-auto mx-auto grid grid-cols-3">
+        <div class="relative col-span-3 md:col-span-2">
+          <img width="1536" height="1024" id="blogImage" loading="eager" decoding="async" alt="Master Expo Push Notification Guide 2026" src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/dae89c53-9e9e-43c0-b2e0-ac2d1e922f96/expo-push-notification-guide-2026.jpg" class="rounded border border-white/5 object-cover">
+          <article class="prose prose-invert blog mt-8 min-w-full">
+            <p>You’re probably at the point where the app works, users have signed in, and product now wants re-engagement flows that feel native. Cart reminders. Review prompts. New message alerts. Release announcements. The first instinct is often to “just wire up push,” then a week later you’re debugging why one device gets alerts, the simulator appears to register fine, and nobody can explain why taps don’t open the right screen.</p>
+<p>That’s where Expo push notifications are either pleasantly simple or surprisingly fragile.</p>
+<p>Expo gives React Native teams a practical layer over APNs and FCM, which is exactly why so many teams use it. But the gap between a demo and a production-ready implementation is real. Token lifecycle, permission timing, listener setup, payload design, and backend cleanup all matter. If you’re also shipping frequent app logic changes, the need for operational discipline gets even sharper, especially if your retention work depends on reliable messaging and release velocity. That’s the same broader concern behind <a href="https://capgo.app/blog/app-user-retention/">mobile app user retention work</a>: delivery is only useful if the user experience around it is predictable.</p>
+<p><a id="the-foundation-for-engaging-users-with-expo-push-notifications"></a></p>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ul>
+<li><a href="#the-foundation-for-engaging-users-with-expo-push-notifications">The Foundation for Engaging Users with Expo Push Notifications</a>
+<ul>
+<li><a href="#what-expo-actually-abstracts-away">What Expo actually abstracts away</a></li>
+<li><a href="#what-production-readiness-really-means">What production readiness really means</a></li>
+</ul>
+</li>
+<li><a href="#initial-project-setup-and-configuration">Initial Project Setup and Configuration</a>
+<ul>
+<li><a href="#install-the-notification-packages">Install the notification packages</a></li>
+<li><a href="#add-project-level-configuration">Add project-level configuration</a></li>
+<li><a href="#set-a-notification-handler-early">Set a notification handler early</a></li>
+<li><a href="#android-needs-channel-configuration">Android needs channel configuration</a></li>
+</ul>
+</li>
+<li><a href="#requesting-permission-and-capturing-push-tokens">Requesting Permission and Capturing Push Tokens</a>
+<ul>
+<li><a href="#the-client-function-that-should-be-your-baseline">The client function that should be your baseline</a></li>
+<li><a href="#why-deviceisdevice-isnt-optional">Why Device.isDevice isn’t optional</a></li>
+<li><a href="#ask-for-permission-at-the-right-moment">Ask for permission at the right moment</a></li>
+</ul>
+</li>
+<li><a href="#sending-notifications-from-your-server">Sending Notifications From Your Server</a>
+<ul>
+<li><a href="#what-each-payload-field-should-do">What each payload field should do</a></li>
+<li><a href="#keep-payloads-small-and-boring">Keep payloads small and boring</a></li>
+<li><a href="#useful-server-side-habits">Useful server-side habits</a></li>
+</ul>
+</li>
+<li><a href="#handling-incoming-notifications-in-your-app">Handling Incoming Notifications in Your App</a>
+<ul>
+<li><a href="#foreground-receipt-and-user-response-are-different-events">Foreground receipt and user response are different events</a></li>
+<li><a href="#read-the-data-payload-and-navigate-intentionally">Read the data payload and navigate intentionally</a></li>
+<li><a href="#foreground-behavior-should-match-user-context">Foreground behavior should match user context</a></li>
+</ul>
+</li>
+<li><a href="#production-best-practices-and-common-pitfalls">Production Best Practices and Common Pitfalls</a>
+<ul>
+<li><a href="#tokens-are-ephemeral-not-identity-records">Tokens are ephemeral, not identity records</a></li>
+<li><a href="#refresh-strategy-matters-more-than-most-tutorials-admit">Refresh strategy matters more than most tutorials admit</a></li>
+<li><a href="#security-and-compliance-dont-belong-at-the-end-of-the-sprint">Security and compliance don’t belong at the end of the sprint</a></li>
+<li><a href="#what-usually-works-and-what-usually-breaks">What usually works and what usually breaks</a></li>
+</ul>
+</li>
+</ul>
+<h2 id="the-foundation-for-engaging-users-with-expo-push-notifications">The Foundation for Engaging Users with Expo Push Notifications</h2>
+<p>An <strong>Expo push notification</strong> setup is appealing for one reason above all others. It removes a lot of native messaging complexity that teams don’t want to own on day one. Instead of building direct APNs and FCM plumbing first, you can work with Expo’s gateway and focus on product behavior, routing, permission UX, and backend message logic.</p>
+<p>That abstraction doesn’t make push “less real.” It just changes where your engineering effort goes.</p>
+<p>The service is also fast enough that performance usually isn’t the first thing to worry about. From March 14, 2023 through June 12, 2023, Expo’s push notification API showed a <strong>42 millisecond median response time</strong>, <strong>273 millisecond p99 latency</strong>, and an <strong>average daily error rate of 0.17%</strong> across <strong>tens of millions of daily messages</strong>, according to <a href="https://knock.app/push-api-benchmarks/expo">Knock’s Expo push API benchmark analysis</a>. That should reassure any team wondering whether Expo is only appropriate for prototypes.</p>
+<p><a id="what-expo-actually-abstracts-away"></a></p>
+<h3 id="what-expo-actually-abstracts-away">What Expo actually abstracts away</h3>
+<p>When teams say “Expo push,” they often mean several separate concerns bundled together:</p>
+<ul>
+<li><strong>Provider routing:</strong> Expo forwards messages to <strong>APNs</strong> for iOS and <strong>FCM</strong> for Android.</li>
+<li><strong>Token format:</strong> Your server stores and sends an Expo Push Token instead of managing platform-specific token handling first.</li>
+<li><strong>Request contract:</strong> You POST a payload to Expo’s push API rather than directly integrating native provider APIs.</li>
+</ul>
+<p>That’s helpful, but it also creates a common misunderstanding. Teams sometimes assume Expo owns every delivery problem. In practice, many failures come from app code, stale tokens, malformed payloads, or poor permission flow.</p>
+<blockquote>
+<p><strong>Practical rule:</strong> Treat Expo as a reliable transport layer, not as a substitute for sound client and backend design.</p>
+</blockquote>
+<p><a id="what-production-readiness-really-means"></a></p>
+<h3 id="what-production-readiness-really-means">What production readiness really means</h3>
+<p>A working demo proves only that one device accepted one payload once. Production readiness means something else:</p>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Demo mindset</th>
+<th>Production mindset</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Permissions</td>
+<td>Ask immediately</td>
+<td>Ask in context, after user value is clear</td>
+</tr>
+<tr>
+<td>Tokens</td>
+<td>Save once</td>
+<td>Refresh, deduplicate, expire, and reconcile</td>
+</tr>
+<tr>
+<td>Payloads</td>
+<td>Put everything in <code>data</code></td>
+<td>Keep payloads small and action-oriented</td>
+</tr>
+<tr>
+<td>App behavior</td>
+<td>Show an alert</td>
+<td>Navigate correctly and handle foreground state</td>
+</tr>
+<tr>
+<td>Operations</td>
+<td>Manual tests</td>
+<td>Receipts, cleanup, logs, and incident handling</td>
+</tr>
+</tbody>
+</table>
+<p>That’s the difference between “notifications send” and “notifications support a real product workflow.”</p>
+<p><a id="initial-project-setup-and-configuration"></a></p>
+<h2 id="initial-project-setup-and-configuration">Initial Project Setup and Configuration</h2>
+<p>A lot of Expo push pain starts before the first permission prompt. If your project configuration is sloppy, the client code can look correct while the app still behaves inconsistently across builds.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/61588b92-edfb-4964-8e60-54d8a52f1095/expo-push-notification-laptop-setup.jpg" alt="A modern laptop on a wooden desk displaying configuration code files for a project setup."></p>
+<p>Start with the right libraries installed and a development environment that matches your build path. If you’re working beyond Expo Go, it helps to align your local workflow with a <a href="https://capgo.app/blog/expo-development-client/">custom Expo development client setup</a>, because notification behavior often needs to be validated in a build that mirrors production more closely than a quick sandbox run.</p>
+<p><a id="install-the-notification-packages"></a></p>
+<h3 id="install-the-notification-packages">Install the notification packages</h3>
+<p>At minimum, you’ll usually need:</p>
+<ul>
+<li><strong><code>expo-notifications</code></strong> for permission requests, token retrieval, listeners, and notification presentation.</li>
+<li><strong><code>expo-device</code></strong> because you should guard token retrieval with <code>Device.isDevice</code>.</li>
+</ul>
+<p>Typical install commands depend on your package manager, but the key is version alignment with your Expo SDK. Don’t mix arbitrary package versions. Let Expo resolve compatible ones.</p>
+<p><a id="add-project-level-configuration"></a></p>
+<h3 id="add-project-level-configuration">Add project-level configuration</h3>
+<p>Keep your config explicit. A minimal <code>app.json</code> or <code>app.config.js</code> should reflect the fact that notifications are part of your app contract, not an afterthought.</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="json"><code><span class="line"><span style="color:#E1E4E8">{</span></span>
+<span class="line"><span style="color:#79B8FF">  "expo"</span><span style="color:#E1E4E8">: {</span></span>
+<span class="line"><span style="color:#79B8FF">    "name"</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">"MyApp"</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#79B8FF">    "slug"</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">"my-app"</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#79B8FF">    "plugins"</span><span style="color:#E1E4E8">: [</span><span style="color:#9ECBFF">"expo-notifications"</span><span style="color:#E1E4E8">],</span></span>
+<span class="line"><span style="color:#79B8FF">    "ios"</span><span style="color:#E1E4E8">: {</span></span>
+<span class="line"><span style="color:#79B8FF">      "bundleIdentifier"</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">"com.example.myapp"</span></span>
+<span class="line"><span style="color:#E1E4E8">    },</span></span>
+<span class="line"><span style="color:#79B8FF">    "android"</span><span style="color:#E1E4E8">: {</span></span>
+<span class="line"><span style="color:#79B8FF">      "package"</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">"com.example.myapp"</span></span>
+<span class="line"><span style="color:#E1E4E8">    },</span></span>
+<span class="line"><span style="color:#79B8FF">    "extra"</span><span style="color:#E1E4E8">: {</span></span>
+<span class="line"><span style="color:#79B8FF">      "eas"</span><span style="color:#E1E4E8">: {</span></span>
+<span class="line"><span style="color:#79B8FF">        "projectId"</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">"your-project-id"</span></span>
+<span class="line"><span style="color:#E1E4E8">      }</span></span>
+<span class="line"><span style="color:#E1E4E8">    }</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>A few details matter here:</p>
+<ul>
+<li><strong>Bundle identifiers and package names</strong> need to match the app you actually ship.</li>
+<li><strong>The notifications plugin</strong> ensures the native project gets the required setup during build.</li>
+<li><strong>The EAS project ID</strong> matters when your token retrieval expects the app to be associated with the correct Expo project.</li>
+</ul>
+<p><a id="set-a-notification-handler-early"></a></p>
+<h3 id="set-a-notification-handler-early">Set a notification handler early</h3>
+<p>A lot of basic tutorials wait too long to define notification behavior. Don’t. Put it near app startup so foreground behavior is predictable.</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#79B8FF"> *</span><span style="color:#F97583"> as</span><span style="color:#E1E4E8"> Notifications </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'expo-notifications'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">Notifications.</span><span style="color:#B392F0">setNotificationHandler</span><span style="color:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#B392F0">  handleNotification</span><span style="color:#E1E4E8">: </span><span style="color:#F97583">async</span><span style="color:#E1E4E8"> () </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> ({</span></span>
+<span class="line"><span style="color:#E1E4E8">    shouldShowAlert: </span><span style="color:#79B8FF">true</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    shouldPlaySound: </span><span style="color:#79B8FF">false</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    shouldSetBadge: </span><span style="color:#79B8FF">true</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">  }),</span></span>
+<span class="line"><span style="color:#E1E4E8">});</span></span></code></pre>
+<p>Teams decide whether foreground notifications should show an alert, play sound, or affect badges. The exact behavior depends on your product. A chat app and a payment app won’t make the same choices.</p>
+<blockquote>
+<p>If you don’t define foreground behavior intentionally, your team will end up debugging “missing” notifications that were actually received but never presented the way product expected.</p>
+</blockquote>
+<p><a id="android-needs-channel-configuration"></a></p>
+<h3 id="android-needs-channel-configuration">Android needs channel configuration</h3>
+<p>Android notification channels aren’t optional in practice. If you skip them, your alerts can look inconsistent or fail to match user expectations.</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> { Platform } </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'react-native'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#79B8FF"> *</span><span style="color:#F97583"> as</span><span style="color:#E1E4E8"> Notifications </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'expo-notifications'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">export</span><span style="color:#F97583"> async</span><span style="color:#F97583"> function</span><span style="color:#B392F0"> configureAndroidNotifications</span><span style="color:#E1E4E8">() {</span></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (Platform.</span><span style="color:#79B8FF">OS</span><span style="color:#F97583"> !==</span><span style="color:#9ECBFF"> 'android'</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  await</span><span style="color:#E1E4E8"> Notifications.</span><span style="color:#B392F0">setNotificationChannelAsync</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'default'</span><span style="color:#E1E4E8">, {</span></span>
+<span class="line"><span style="color:#E1E4E8">    name: </span><span style="color:#9ECBFF">'Default'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    importance: Notifications.AndroidImportance.</span><span style="color:#79B8FF">MAX</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">  });</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>Set this up during app initialization. Then keep the channel IDs stable. Changing them casually makes notification behavior harder to reason about later.</p>
+<p><a id="requesting-permission-and-capturing-push-tokens"></a></p>
+<h2 id="requesting-permission-and-capturing-push-tokens">Requesting Permission and Capturing Push Tokens</h2>
+<p>This is the part many teams copy from a snippet, then eventually regret.</p>
+<p>Permission requests need timing, platform awareness, and disciplined async handling. Token capture needs to happen only on a physical device, only after permissions are resolved, and only if you’re ready to store the result on your backend immediately.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/4e5d8e0f-75fa-4235-aaba-b384f1ac5535/expo-push-notification-token-flow.jpg" alt="A step-by-step diagram showing the process of obtaining and storing Expo push notification tokens."></p>
+<p><a id="the-client-function-that-should-be-your-baseline"></a></p>
+<h3 id="the-client-function-that-should-be-your-baseline">The client function that should be your baseline</h3>
+<p>Use a function like this as your starting point:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#79B8FF"> *</span><span style="color:#F97583"> as</span><span style="color:#E1E4E8"> Device </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'expo-device'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#79B8FF"> *</span><span style="color:#F97583"> as</span><span style="color:#E1E4E8"> Notifications </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'expo-notifications'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> Constants </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'expo-constants'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> { Platform } </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'react-native'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">type</span><span style="color:#B392F0"> RegisterResult</span><span style="color:#F97583"> =</span></span>
+<span class="line"><span style="color:#F97583">  |</span><span style="color:#E1E4E8"> { </span><span style="color:#FFAB70">ok</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> true</span><span style="color:#E1E4E8">; </span><span style="color:#FFAB70">token</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8"> }</span></span>
+<span class="line"><span style="color:#F97583">  |</span><span style="color:#E1E4E8"> { </span><span style="color:#FFAB70">ok</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> false</span><span style="color:#E1E4E8">; </span><span style="color:#FFAB70">reason</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8"> };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">export</span><span style="color:#F97583"> async</span><span style="color:#F97583"> function</span><span style="color:#B392F0"> registerForExpoPushNotificationsAsync</span><span style="color:#E1E4E8">()</span><span style="color:#F97583">:</span><span style="color:#B392F0"> Promise</span><span style="color:#E1E4E8">&lt;</span><span style="color:#B392F0">RegisterResult</span><span style="color:#E1E4E8">&gt; {</span></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">Device.isDevice) {</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8"> { ok: </span><span style="color:#79B8FF">false</span><span style="color:#E1E4E8">, reason: </span><span style="color:#9ECBFF">'Push notifications require a physical device.'</span><span style="color:#E1E4E8"> };</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (Platform.</span><span style="color:#79B8FF">OS</span><span style="color:#F97583"> ===</span><span style="color:#9ECBFF"> 'android'</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">    await</span><span style="color:#E1E4E8"> Notifications.</span><span style="color:#B392F0">setNotificationChannelAsync</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'default'</span><span style="color:#E1E4E8">, {</span></span>
+<span class="line"><span style="color:#E1E4E8">      name: </span><span style="color:#9ECBFF">'Default'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">      importance: Notifications.AndroidImportance.</span><span style="color:#79B8FF">MAX</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    });</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> permissions</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> Notifications.</span><span style="color:#B392F0">getPermissionsAsync</span><span style="color:#E1E4E8">();</span></span>
+<span class="line"><span style="color:#F97583">  let</span><span style="color:#E1E4E8"> finalStatus </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> permissions.status;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (finalStatus </span><span style="color:#F97583">!==</span><span style="color:#9ECBFF"> 'granted'</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">    const</span><span style="color:#79B8FF"> request</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> Notifications.</span><span style="color:#B392F0">requestPermissionsAsync</span><span style="color:#E1E4E8">();</span></span>
+<span class="line"><span style="color:#E1E4E8">    finalStatus </span><span style="color:#F97583">=</span><span style="color:#E1E4E8"> request.status;</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (finalStatus </span><span style="color:#F97583">!==</span><span style="color:#9ECBFF"> 'granted'</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8"> { ok: </span><span style="color:#79B8FF">false</span><span style="color:#E1E4E8">, reason: </span><span style="color:#9ECBFF">'Notification permission was not granted.'</span><span style="color:#E1E4E8"> };</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> projectId</span><span style="color:#F97583"> =</span></span>
+<span class="line"><span style="color:#E1E4E8">    Constants.expoConfig?.extra?.eas?.projectId </span><span style="color:#F97583">??</span></span>
+<span class="line"><span style="color:#E1E4E8">    Constants.easConfig?.projectId;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">projectId) {</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8"> { ok: </span><span style="color:#79B8FF">false</span><span style="color:#E1E4E8">, reason: </span><span style="color:#9ECBFF">'Missing EAS project ID configuration.'</span><span style="color:#E1E4E8"> };</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> tokenResponse</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> Notifications.</span><span style="color:#B392F0">getExpoPushTokenAsync</span><span style="color:#E1E4E8">({ projectId });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8"> { ok: </span><span style="color:#79B8FF">true</span><span style="color:#E1E4E8">, token: tokenResponse.data };</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>The order matters. You check device type first, set Android channel behavior, resolve permissions, validate project configuration, then request the Expo token.</p>
+<p><a id="why-deviceisdevice-isnt-optional"></a></p>
+<h3 id="why-deviceisdevice-isnt-optional">Why <code>Device.isDevice</code> isn’t optional</h3>
+<p>This is one of the few mistakes that creates a lot of noise while looking harmless. Expert teams only request permission conditionally when <strong><code>Device.isDevice</code> is true</strong>, and a common pitfall is skipping that guard, which leads developers to send notifications to invalid simulator tokens and blame Expo when the issue is really app configuration, as described in <a href="https://eagerworks.com/blog/app-with-auth-push-notifications-expo">Eagerworks’ Expo notification implementation notes</a>.</p>
+<p>That’s why the check sits at the top of the function. Don’t hide it behind a helper. Make it obvious.</p>
+<blockquote>
+<p>Simulator results are useful for UI testing. They are not trustworthy for validating push token registration.</p>
+</blockquote>
+<p><a id="ask-for-permission-at-the-right-moment"></a></p>
+<h3 id="ask-for-permission-at-the-right-moment">Ask for permission at the right moment</h3>
+<p>Don’t ask on the splash screen. Don’t ask before the user understands the value. The best time is usually after a user action that makes notification benefits concrete, such as enabling delivery updates, joining a conversation, or saving a watched item.</p>
+<p>A good implementation usually follows this flow:</p>
+<ol>
+<li><strong>User reaches a meaningful feature boundary.</strong></li>
+<li><strong>App explains the value of notifications in your own UI.</strong></li>
+<li><strong>App requests system permission.</strong></li>
+<li><strong>App stores the token on the backend immediately if permission is granted.</strong></li>
+</ol>
+<p>That final step is where many apps fail. They retrieve the token, log it locally, and postpone backend registration. Later, support can’t tell which device had which token at which point in time.</p>
+<p>Here’s a simple example of storing the token after registration:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#F97583">export</span><span style="color:#F97583"> async</span><span style="color:#F97583"> function</span><span style="color:#B392F0"> enablePushForCurrentUser</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">userId</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> result</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#B392F0"> registerForExpoPushNotificationsAsync</span><span style="color:#E1E4E8">();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (</span><span style="color:#F97583">!</span><span style="color:#E1E4E8">result.ok) {</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8"> result;</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  await</span><span style="color:#B392F0"> fetch</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'https://api.example.com/push-tokens'</span><span style="color:#E1E4E8">, {</span></span>
+<span class="line"><span style="color:#E1E4E8">    method: </span><span style="color:#9ECBFF">'POST'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    headers: {</span></span>
+<span class="line"><span style="color:#9ECBFF">      'Content-Type'</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">'application/json'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">      Authorization: </span><span style="color:#9ECBFF">'Bearer user-session-token'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    },</span></span>
+<span class="line"><span style="color:#E1E4E8">    body: </span><span style="color:#79B8FF">JSON</span><span style="color:#E1E4E8">.</span><span style="color:#B392F0">stringify</span><span style="color:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#E1E4E8">      userId,</span></span>
+<span class="line"><span style="color:#E1E4E8">      token: result.token,</span></span>
+<span class="line"><span style="color:#E1E4E8">      platform: Platform.</span><span style="color:#79B8FF">OS</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    }),</span></span>
+<span class="line"><span style="color:#E1E4E8">  });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8"> result;</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>Later in the workflow, this walkthrough is a helpful visual reference:</p>
+<iframe width="100%" style="aspect-ratio: 16 / 9;" src="https://www.youtube.com/embed/xYRbYG77M_o" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+<p>For teams building release-heavy apps, it also helps to think of token registration as part of the app’s operational state, not just part of onboarding. That mindset fits well with broader <a href="https://capgo.app/alternatives/expo/">Expo app delivery workflows</a>, where app behavior can change frequently and backend state needs to stay synchronized.</p>
+<p><a id="sending-notifications-from-your-server"></a></p>
+<h2 id="sending-notifications-from-your-server">Sending Notifications From Your Server</h2>
+<p>Once your backend has a valid Expo Push Token, sending a notification is straightforward. The hard part isn’t the request itself. It’s deciding what belongs in the payload and how much trust you place in client state.</p>
+<p>Here’s a minimal Node-style example using <code>fetch</code>:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#F97583">type</span><span style="color:#B392F0"> ExpoPushMessage</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#FFAB70">  to</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#FFAB70">  title</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#FFAB70">  body</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#FFAB70">  sound</span><span style="color:#F97583">?:</span><span style="color:#9ECBFF"> 'default'</span><span style="color:#F97583"> |</span><span style="color:#79B8FF"> null</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#FFAB70">  data</span><span style="color:#F97583">?:</span><span style="color:#B392F0"> Record</span><span style="color:#E1E4E8">&lt;</span><span style="color:#79B8FF">string</span><span style="color:#E1E4E8">, </span><span style="color:#79B8FF">unknown</span><span style="color:#E1E4E8">&gt;;</span></span>
+<span class="line"><span style="color:#E1E4E8">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">export</span><span style="color:#F97583"> async</span><span style="color:#F97583"> function</span><span style="color:#B392F0"> sendExpoPushNotification</span><span style="color:#E1E4E8">(</span><span style="color:#FFAB70">token</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> message</span><span style="color:#F97583">:</span><span style="color:#B392F0"> ExpoPushMessage</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">    to: token,</span></span>
+<span class="line"><span style="color:#E1E4E8">    title: </span><span style="color:#9ECBFF">'New review received'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    body: </span><span style="color:#9ECBFF">'Tap to open the order details.'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    sound: </span><span style="color:#9ECBFF">'default'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    data: {</span></span>
+<span class="line"><span style="color:#E1E4E8">      type: </span><span style="color:#9ECBFF">'new_review'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">      orderId: </span><span style="color:#9ECBFF">'ord_123'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">      screen: </span><span style="color:#9ECBFF">'OrderDetails'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    },</span></span>
+<span class="line"><span style="color:#E1E4E8">  };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> response</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#B392F0"> fetch</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'https://exp.host/--/api/v2/push/send'</span><span style="color:#E1E4E8">, {</span></span>
+<span class="line"><span style="color:#E1E4E8">    method: </span><span style="color:#9ECBFF">'POST'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    headers: {</span></span>
+<span class="line"><span style="color:#E1E4E8">      Accept: </span><span style="color:#9ECBFF">'application/json'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#9ECBFF">      'Accept-encoding'</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">'gzip, deflate'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#9ECBFF">      'Content-Type'</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">'application/json'</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#E1E4E8">    },</span></span>
+<span class="line"><span style="color:#E1E4E8">    body: </span><span style="color:#79B8FF">JSON</span><span style="color:#E1E4E8">.</span><span style="color:#B392F0">stringify</span><span style="color:#E1E4E8">(message),</span></span>
+<span class="line"><span style="color:#E1E4E8">  });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> result</span><span style="color:#F97583"> =</span><span style="color:#F97583"> await</span><span style="color:#E1E4E8"> response.</span><span style="color:#B392F0">json</span><span style="color:#E1E4E8">();</span></span>
+<span class="line"><span style="color:#F97583">  return</span><span style="color:#E1E4E8"> result;</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p><a id="what-each-payload-field-should-do"></a></p>
+<h3 id="what-each-payload-field-should-do">What each payload field should do</h3>
+<p>Don’t treat the payload as a dumping ground. Keep each field intentional.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Purpose</th>
+<th>Practical advice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>to</code></td>
+<td>Target Expo Push Token</td>
+<td>Validate that it belongs to the current device record</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>Notification heading</td>
+<td>Keep it short and human-readable</td>
+</tr>
+<tr>
+<td><code>body</code></td>
+<td>Main visible text</td>
+<td>Make the action clear</td>
+</tr>
+<tr>
+<td><code>sound</code></td>
+<td>System sound behavior</td>
+<td>Use sparingly for high-value alerts</td>
+</tr>
+<tr>
+<td><code>data</code></td>
+<td>App-specific metadata</td>
+<td>Prefer IDs and route hints over rich content</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>data</code> object is where product workflows become useful. You can pass a type and record ID, then let the app fetch the latest data when the user taps. That’s safer than embedding large or sensitive blobs directly in the payload.</p>
+<p><a id="keep-payloads-small-and-boring"></a></p>
+<h3 id="keep-payloads-small-and-boring">Keep payloads small and boring</h3>
+<p>According to <a href="https://www.courier.com/guides/expo-notifications">Courier’s guide to Expo notifications</a>, Expo Push Tokens should be treated as ephemeral, payloads that exceed size limits of roughly <strong>4 KB</strong> can be dropped, and a dependable pattern is to send small metadata payloads such as <code>{ "type": "new_review", "id": 123 }</code> rather than large JSON or inline media. That advice matches what works in real systems. Small payloads fail less often and age better when app logic changes.</p>
+<blockquote>
+<p>Send enough data to route the user. Fetch the rest after the app opens.</p>
+</blockquote>
+<p><a id="useful-server-side-habits"></a></p>
+<h3 id="useful-server-side-habits">Useful server-side habits</h3>
+<p>A basic send function is fine for testing. A production one usually adds a few more responsibilities:</p>
+<ul>
+<li><strong>Persist send attempts:</strong> Save the notification intent with user ID, token, payload type, and timestamp.</li>
+<li><strong>Separate content generation from transport:</strong> Build message copy in one layer and the Expo API request in another.</li>
+<li><strong>Handle invalidation feedback:</strong> If Expo later reports <code>DeviceNotRegistered</code>, mark that token stale and stop retrying blindly.</li>
+<li><strong>Use a webhook-friendly design:</strong> If your system already emits events, route notification triggers through the same kind of <a href="https://capgo.app/blog/web-hook-example/">backend webhook processing pattern</a> you use elsewhere.</li>
+</ul>
+<p>Before debugging client listeners, send a manual test push first. If a token receives a plain notification with a tiny payload, your transport path is probably healthy. If not, don’t start by changing navigation code. Start by validating the token, payload shape, and permission state.</p>
+<p><a id="handling-incoming-notifications-in-your-app"></a></p>
+<h2 id="handling-incoming-notifications-in-your-app">Handling Incoming Notifications in Your App</h2>
+<p>Delivery is only half of the feature. The app has to do something coherent when the notification arrives and when the user taps it.</p>
+<p>That means handling two separate moments:</p>
+<ul>
+<li>the notification arrives while the app is open</li>
+<li>the user interacts with the notification from the system tray or lock screen</li>
+</ul>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/6d7bc824-d3d6-4d01-b549-84f309fa5495/expo-push-notification-lifecycle.jpg" alt="A flowchart diagram illustrating the push notification lifecycle for mobile applications in foreground and background states."></p>
+<p><a id="foreground-receipt-and-user-response-are-different-events"></a></p>
+<h3 id="foreground-receipt-and-user-response-are-different-events">Foreground receipt and user response are different events</h3>
+<p>A reliable setup usually includes both listeners:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#F97583">import</span><span style="color:#E1E4E8"> { useEffect } </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'react'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#F97583">import</span><span style="color:#79B8FF"> *</span><span style="color:#F97583"> as</span><span style="color:#E1E4E8"> Notifications </span><span style="color:#F97583">from</span><span style="color:#9ECBFF"> 'expo-notifications'</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">export</span><span style="color:#F97583"> function</span><span style="color:#B392F0"> useNotificationObservers</span><span style="color:#E1E4E8">(</span></span>
+<span class="line"><span style="color:#B392F0">  onForegroundMessage</span><span style="color:#F97583">:</span><span style="color:#E1E4E8"> (</span><span style="color:#FFAB70">notification</span><span style="color:#F97583">:</span><span style="color:#B392F0"> Notifications</span><span style="color:#E1E4E8">.</span><span style="color:#B392F0">Notification</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">=&gt;</span><span style="color:#79B8FF"> void</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#B392F0">  onNotificationTap</span><span style="color:#F97583">:</span><span style="color:#E1E4E8"> (</span><span style="color:#FFAB70">response</span><span style="color:#F97583">:</span><span style="color:#B392F0"> Notifications</span><span style="color:#E1E4E8">.</span><span style="color:#B392F0">NotificationResponse</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">=&gt;</span><span style="color:#79B8FF"> void</span></span>
+<span class="line"><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#B392F0">  useEffect</span><span style="color:#E1E4E8">(() </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#F97583">    const</span><span style="color:#79B8FF"> receivedSub</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> Notifications.</span><span style="color:#B392F0">addNotificationReceivedListener</span><span style="color:#E1E4E8">(</span></span>
+<span class="line"><span style="color:#E1E4E8">      (</span><span style="color:#FFAB70">notification</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#B392F0">        onForegroundMessage</span><span style="color:#E1E4E8">(notification);</span></span>
+<span class="line"><span style="color:#E1E4E8">      }</span></span>
+<span class="line"><span style="color:#E1E4E8">    );</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    const</span><span style="color:#79B8FF"> responseSub</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> Notifications.</span><span style="color:#B392F0">addNotificationResponseReceivedListener</span><span style="color:#E1E4E8">(</span></span>
+<span class="line"><span style="color:#E1E4E8">      (</span><span style="color:#FFAB70">response</span><span style="color:#E1E4E8">) </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#B392F0">        onNotificationTap</span><span style="color:#E1E4E8">(response);</span></span>
+<span class="line"><span style="color:#E1E4E8">      }</span></span>
+<span class="line"><span style="color:#E1E4E8">    );</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8"> () </span><span style="color:#F97583">=&gt;</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E1E4E8">      receivedSub.</span><span style="color:#B392F0">remove</span><span style="color:#E1E4E8">();</span></span>
+<span class="line"><span style="color:#E1E4E8">      responseSub.</span><span style="color:#B392F0">remove</span><span style="color:#E1E4E8">();</span></span>
+<span class="line"><span style="color:#E1E4E8">    };</span></span>
+<span class="line"><span style="color:#E1E4E8">  }, [onForegroundMessage, onNotificationTap]);</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p><code>addNotificationReceivedListener</code> runs when the app is active. <code>addNotificationResponseReceivedListener</code> runs when the user taps a delivered notification. Don’t combine them mentally. They serve different UX paths.</p>
+<p><a id="read-the-data-payload-and-navigate-intentionally"></a></p>
+<h3 id="read-the-data-payload-and-navigate-intentionally">Read the data payload and navigate intentionally</h3>
+<p>Here’s a practical pattern for tap handling:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#F97583">type</span><span style="color:#B392F0"> NotificationData</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#FFAB70">  type</span><span style="color:#F97583">?:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#FFAB70">  orderId</span><span style="color:#F97583">?:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#FFAB70">  screen</span><span style="color:#F97583">?:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E1E4E8">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">export</span><span style="color:#F97583"> function</span><span style="color:#B392F0"> handleNotificationTap</span><span style="color:#E1E4E8">(</span></span>
+<span class="line"><span style="color:#FFAB70">  response</span><span style="color:#F97583">:</span><span style="color:#B392F0"> Notifications</span><span style="color:#E1E4E8">.</span><span style="color:#B392F0">NotificationResponse</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#FFAB70">  navigation</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> any</span></span>
+<span class="line"><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> data</span><span style="color:#F97583"> =</span></span>
+<span class="line"><span style="color:#E1E4E8">    response.notification.request.content.data </span><span style="color:#F97583">as</span><span style="color:#B392F0"> NotificationData</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (data.screen </span><span style="color:#F97583">===</span><span style="color:#9ECBFF"> 'OrderDetails'</span><span style="color:#F97583"> &amp;&amp;</span><span style="color:#E1E4E8"> data.orderId) {</span></span>
+<span class="line"><span style="color:#E1E4E8">    navigation.</span><span style="color:#B392F0">navigate</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'OrderDetails'</span><span style="color:#E1E4E8">, { orderId: data.orderId });</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (data.type </span><span style="color:#F97583">===</span><span style="color:#9ECBFF"> 'new_review'</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#E1E4E8">    navigation.</span><span style="color:#B392F0">navigate</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'Inbox'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E1E4E8">  navigation.</span><span style="color:#B392F0">navigate</span><span style="color:#E1E4E8">(</span><span style="color:#9ECBFF">'Home'</span><span style="color:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>This pattern stays resilient because the payload contains routing hints, not whole documents. If the order has changed since the notification was sent, the app can fetch current server state after navigation.</p>
+<blockquote>
+<p>A tapped notification should lead to one obvious destination. If your fallback path is vague, users notice immediately.</p>
+</blockquote>
+<p><a id="foreground-behavior-should-match-user-context"></a></p>
+<h3 id="foreground-behavior-should-match-user-context">Foreground behavior should match user context</h3>
+<p>When the app is already open, blindly showing a system-style alert can feel clumsy. Sometimes the right move is an in-app banner, badge update, or silent refresh. A support inbox screen might not need a visible alert when the user is already reading that conversation.</p>
+<p>That’s why your foreground listener should branch by route and notification type. For example:</p>
+<ul>
+<li><strong>Chat screen open:</strong> append the message and avoid a redundant banner</li>
+<li><strong>Dashboard open:</strong> show a lightweight in-app toast</li>
+<li><strong>Critical account event:</strong> surface a stronger UI treatment</li>
+</ul>
+<p>A simple approach looks like this:</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#F97583">export</span><span style="color:#F97583"> function</span><span style="color:#B392F0"> handleForegroundNotification</span><span style="color:#E1E4E8">(</span></span>
+<span class="line"><span style="color:#FFAB70">  notification</span><span style="color:#F97583">:</span><span style="color:#B392F0"> Notifications</span><span style="color:#E1E4E8">.</span><span style="color:#B392F0">Notification</span><span style="color:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#FFAB70">  currentRouteName</span><span style="color:#F97583">:</span><span style="color:#79B8FF"> string</span></span>
+<span class="line"><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#F97583">  const</span><span style="color:#79B8FF"> data</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> notification.request.content.data </span><span style="color:#F97583">as</span><span style="color:#E1E4E8"> { </span><span style="color:#FFAB70">type</span><span style="color:#F97583">?:</span><span style="color:#79B8FF"> string</span><span style="color:#E1E4E8"> };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">  if</span><span style="color:#E1E4E8"> (currentRouteName </span><span style="color:#F97583">===</span><span style="color:#9ECBFF"> 'ChatThread'</span><span style="color:#F97583"> &amp;&amp;</span><span style="color:#E1E4E8"> data.type </span><span style="color:#F97583">===</span><span style="color:#9ECBFF"> 'new_message'</span><span style="color:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#6A737D">    // refresh local thread state</span></span>
+<span class="line"><span style="color:#F97583">    return</span><span style="color:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D">  // otherwise show your own in-app UI or update badges</span></span>
+<span class="line"><span style="color:#E1E4E8">}</span></span></code></pre>
+<p>If your app doesn’t distinguish these contexts, users will feel notification fatigue faster, even if delivery is technically correct.</p>
+<p><a id="production-best-practices-and-common-pitfalls"></a></p>
+<h2 id="production-best-practices-and-common-pitfalls">Production Best Practices and Common Pitfalls</h2>
+<p>Most broken Expo push notification setups don’t fail because Expo is too limited. They fail because teams assume the token is permanent, payloads can carry anything, and app updates won’t affect notification logic.</p>
+<p>That assumption doesn’t survive production.</p>
+<p><img src="https://cdnimg.co/c504846a-b33a-4018-bc93-5bfa9be0f3af/10a38095-6849-457d-95ff-79290f47d29c/expo-push-notification-checklist.jpg" alt="A checklist infographic outlining eight best practices for managing production push notifications for mobile apps."></p>
+<p><a id="tokens-are-ephemeral-not-identity-records"></a></p>
+<h3 id="tokens-are-ephemeral-not-identity-records">Tokens are ephemeral, not identity records</h3>
+<p>An Expo Push Token is best treated like a lease, not a lifelong device identifier. Tokens can rotate after reinstall, OS changes, or other lifecycle events. If a token eventually returns <code>DeviceNotRegistered</code>, your backend should stop treating it as active.</p>
+<p>A practical backend model stores:</p>
+<ul>
+<li><strong>user ID</strong></li>
+<li><strong>platform</strong></li>
+<li><strong>install-scoped metadata</strong></li>
+<li><strong>current token</strong></li>
+<li><strong>last seen timestamp</strong></li>
+<li><strong>status such as active, stale, or revoked</strong></li>
+</ul>
+<p>Don’t store one token field on the user table and call it done. Users have multiple devices, and devices change state.</p>
+<p><a id="refresh-strategy-matters-more-than-most-tutorials-admit"></a></p>
+<h3 id="refresh-strategy-matters-more-than-most-tutorials-admit">Refresh strategy matters more than most tutorials admit</h3>
+<p>The official ecosystem guidance leaves a real operational gap here. Existing Expo push notification content often doesn’t explain how to maintain token validity across <strong>App Store review cycles and OTA updates</strong>, which is especially important for teams shipping live changes because push reliability depends on current token state and backend synchronization, as noted in <a href="https://docs.expo.dev/versions/latest/sdk/notifications/">Expo notifications documentation</a>.</p>
+<p>That affects how you design refresh triggers. Good times to reconcile token state include:</p>
+<ul>
+<li><strong>App launch after an update</strong></li>
+<li><strong>User sign-in</strong></li>
+<li><strong>Permission settings change</strong></li>
+<li><strong>Credential rotation work on your release process</strong></li>
+<li><strong>Recovery flows after push-related support tickets</strong></li>
+</ul>
+<p><a id="security-and-compliance-dont-belong-at-the-end-of-the-sprint"></a></p>
+<h3 id="security-and-compliance-dont-belong-at-the-end-of-the-sprint">Security and compliance don’t belong at the end of the sprint</h3>
+<p>A lot of Expo tutorials focus on mechanics and skip operational risk. That’s fine for hobby apps. It isn’t fine for healthcare-adjacent, fintech, or regulated commerce products.</p>
+<p><a href="https://www.courier.com/blog/expo-notifications">Courier’s enterprise-focused discussion of Expo notification gaps</a> highlights a lack of practical guidance around consent logging, audit trails, and minimizing sensitive payload exposure. The direct engineering takeaway is simple:</p>
+<ul>
+<li><strong>Don’t put sensitive business data in notification text or payload metadata.</strong></li>
+<li><strong>Log consent changes server-side.</strong></li>
+<li><strong>Record which notification intent was sent to which token.</strong></li>
+<li><strong>Use IDs in payloads and fetch protected content after app open.</strong></li>
+</ul>
+<p>For teams aligning release operations with broader <a href="https://capgo.app/blog/top-api-security-standards-for-app-store-compliance/">app store compliance and API security practices</a>, push should be included in the same review discipline as auth, analytics, and backend event logging.</p>
+<blockquote>
+<p>Push notifications are user-facing messages, but they’re also a distributed systems problem. Treat them with the same care you apply to auth state and payment events.</p>
+</blockquote>
+<p><a id="what-usually-works-and-what-usually-breaks"></a></p>
+<h3 id="what-usually-works-and-what-usually-breaks">What usually works and what usually breaks</h3>
+<table>
+<thead>
+<tr>
+<th>Usually works</th>
+<th>Usually breaks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Requesting permission after a clear value explanation</td>
+<td>Prompting on first frame</td>
+</tr>
+<tr>
+<td>Testing on real devices</td>
+<td>Trusting simulator registration</td>
+</tr>
+<tr>
+<td>Storing tokens with device context</td>
+<td>One token per user record</td>
+</tr>
+<tr>
+<td>Sending small metadata payloads</td>
+<td>Embedding large or sensitive blobs</td>
+</tr>
+<tr>
+<td>Handling foreground and tap events separately</td>
+<td>Assuming all notifications follow one path</td>
+</tr>
+<tr>
+<td>Expiring stale tokens aggressively</td>
+<td>Retrying dead tokens forever</td>
+</tr>
+</tbody>
+</table>
+<p>A solid Expo push setup isn’t complicated. It’s disciplined.</p>
+<hr>
+<p>If your team ships frequent app logic changes and needs tighter control over release behavior, rollbacks, and delivery visibility, <a href="https://capgo.app">Capgo</a> is worth a look. It helps mobile teams push updates quickly without waiting on store review, which is especially useful when notification flows, routing logic, or client-side fixes need to reach users fast.</p>
+
+          </article>
+        </div>
+        <div class="right-0 hidden px-10 md:block">
+          <div class="flex flex-col gap-y-4 relative pb-5">
+  <p class="text-sm text-gray-400">Written by</p>
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+    <img width="36" height="36" loading="lazy" decoding="async" alt="Martin Donadieu" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+    <div class="flex flex-col">
+      <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+      <p class="text-sm text-gray-400">Content Marketer</p>
+    </div>
+  </a>
+</div>
+          <div id="staticToc" class="sticky top-16 pt-4 pb-8">
+                <div>
+                  <p class="-ml-0.5 flex items-center gap-1.5 text-sm text-gray-400">
+                    <svg width="24" height="24" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" class="lucide lucide-align-left h-4 w-4">
+                      <line x1="21" x2="3" y1="6" y2="6"></line>
+                      <line x1="15" x2="3" y1="12" y2="12"></line>
+                      <line x1="17" x2="3" y1="18" y2="18"></line>
+                    </svg>
+                    Table of Contents
+                  </p>
+                  <div class="mt-4 grid gap-4 border-l border-gray-600">
+                    <a id="table-of-contents-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#table-of-contents">
+                        Table of Contents
+                      </a><a id="the-foundation-for-engaging-users-with-expo-push-notifications-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#the-foundation-for-engaging-users-with-expo-push-notifications">
+                        The Foundation for Engaging Users with Expo Push Notifications
+                      </a><a id="what-expo-actually-abstracts-away-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-expo-actually-abstracts-away">
+                        What Expo actually abstracts away
+                      </a><a id="what-production-readiness-really-means-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-production-readiness-really-means">
+                        What production readiness really means
+                      </a><a id="initial-project-setup-and-configuration-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#initial-project-setup-and-configuration">
+                        Initial Project Setup and Configuration
+                      </a><a id="install-the-notification-packages-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#install-the-notification-packages">
+                        Install the notification packages
+                      </a><a id="add-project-level-configuration-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#add-project-level-configuration">
+                        Add project-level configuration
+                      </a><a id="set-a-notification-handler-early-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#set-a-notification-handler-early">
+                        Set a notification handler early
+                      </a><a id="android-needs-channel-configuration-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#android-needs-channel-configuration">
+                        Android needs channel configuration
+                      </a><a id="requesting-permission-and-capturing-push-tokens-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#requesting-permission-and-capturing-push-tokens">
+                        Requesting Permission and Capturing Push Tokens
+                      </a><a id="the-client-function-that-should-be-your-baseline-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#the-client-function-that-should-be-your-baseline">
+                        The client function that should be your baseline
+                      </a><a id="why-deviceisdevice-isnt-optional-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#why-deviceisdevice-isnt-optional">
+                        Why Device.isDevice isn’t optional
+                      </a><a id="ask-for-permission-at-the-right-moment-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#ask-for-permission-at-the-right-moment">
+                        Ask for permission at the right moment
+                      </a><a id="sending-notifications-from-your-server-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#sending-notifications-from-your-server">
+                        Sending Notifications From Your Server
+                      </a><a id="what-each-payload-field-should-do-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-each-payload-field-should-do">
+                        What each payload field should do
+                      </a><a id="keep-payloads-small-and-boring-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#keep-payloads-small-and-boring">
+                        Keep payloads small and boring
+                      </a><a id="useful-server-side-habits-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#useful-server-side-habits">
+                        Useful server-side habits
+                      </a><a id="handling-incoming-notifications-in-your-app-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#handling-incoming-notifications-in-your-app">
+                        Handling Incoming Notifications in Your App
+                      </a><a id="foreground-receipt-and-user-response-are-different-events-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#foreground-receipt-and-user-response-are-different-events">
+                        Foreground receipt and user response are different events
+                      </a><a id="read-the-data-payload-and-navigate-intentionally-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#read-the-data-payload-and-navigate-intentionally">
+                        Read the data payload and navigate intentionally
+                      </a><a id="foreground-behavior-should-match-user-context-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#foreground-behavior-should-match-user-context">
+                        Foreground behavior should match user context
+                      </a><a id="production-best-practices-and-common-pitfalls-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#production-best-practices-and-common-pitfalls">
+                        Production Best Practices and Common Pitfalls
+                      </a><a id="tokens-are-ephemeral-not-identity-records-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#tokens-are-ephemeral-not-identity-records">
+                        Tokens are ephemeral, not identity records
+                      </a><a id="refresh-strategy-matters-more-than-most-tutorials-admit-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#refresh-strategy-matters-more-than-most-tutorials-admit">
+                        Refresh strategy matters more than most tutorials admit
+                      </a><a id="security-and-compliance-dont-belong-at-the-end-of-the-sprint-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#security-and-compliance-dont-belong-at-the-end-of-the-sprint">
+                        Security and compliance don’t belong at the end of the sprint
+                      </a><a id="what-usually-works-and-what-usually-breaks-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-usually-works-and-what-usually-breaks">
+                        What usually works and what usually breaks
+                      </a>
+                  </div>
+                </div>
+              </div>
+        </div>
+      </div>
+      <div>
+  <div class="relative mx-4 my-6 max-w-4xl p-4 sm:mx-auto sm:my-10 sm:p-8 md:my-14 md:p-12">
+    <!-- Border design -->
+    <div class="absolute inset-0 rounded-[20px] border border-gray-700 sm:rounded-[40px]"></div>
+
+    <div class="relative">
+      <span class="mb-4 text-3xl leading-tight font-normal text-white sm:mb-6 sm:text-4xl md:text-[44px]">
+        Live updates for Capacitor apps
+      </span>
+
+      <p class="mb-6 max-w-3xl text-lg leading-relaxed font-normal text-gray-300 sm:mb-8 sm:text-xl md:mb-12">
+        When a web-layer bug is live, ship the fix through Capgo instead of waiting days for app store approval. Users get the update in the background while native changes stay in the normal review path.
+      </p>
+
+      <div class="flex flex-col items-start gap-3">
+        <p class="font-inter inline-flex items-center text-sm gap-1.5 text-gray-400 justify-start">
+  <span>human support from Martin</span>
+  <img src="/avatars/martin-96.webp" alt="" width="20" height="20" class="h-5 w-5 rounded-full object-cover ring-2 ring-white/15" loading="lazy" decoding="async" aria-hidden="true">
+</p>
+        <a href="/register/" class="inline-flex w-full items-center justify-center rounded-lg bg-black px-6 py-3 text-lg text-white transition-colors duration-200 hover:bg-gray-800 sm:w-auto sm:px-10 sm:py-4 sm:text-xl">
+          Get Started Now
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="mx-auto max-w-xl text-center">
+        <p class="text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">Latest from our Blog</p>
+        <p class="mt-4 text-base leading-7 font-normal text-gray-400 lg:mt-6 lg:text-lg lg:leading-8">
+          Capgo gives you the best insights you need to create a truly professional mobile app.
+        </p>
+      </div>
+      <div class="mt-8 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+            <a href="/blog/2-way-communication-in-capacitor-apps/" aria-label="2-Way Communication in Capacitor Apps" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/2-way-communication-in-capacitor-apps.webp" alt="2-Way Communication in Capacitor Apps" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 26, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      2-Way Communication in Capacitor Apps
+    </p>
+  </div>
+</a><a href="/blog/5-common-ota-update-mistakes-to-avoid/" aria-label="5 Common OTA Update Mistakes to Avoid" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-common-ota-update-mistakes-to-avoid.webp" alt="5 Common OTA Update Mistakes to Avoid" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Security
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 13, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Common OTA Update Mistakes to Avoid
+    </p>
+  </div>
+</a><a href="/blog/5-security-best-practices-for-mobile-app-live-updates/" aria-label="5 Security Best Practices for Mobile App Live Updates" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-security-best-practices-for-mobile-app-live-updates.webp" alt="5 Security Best Practices for Mobile App Live Updates" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      January 14, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Security Best Practices for Mobile App Live Updates
+    </p>
+  </div>
+</a>
+          </div>
+      <div class="my-12 text-center">
+        <a href="/blog/" class="group inline-flex items-center text-sm font-semibold text-white transition-all duration-200 hover:text-gray-200 hover:underline">
+          See all from our blog
+          <svg class="ml-1 h-5 w-5 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="7" y1="17" x2="17" y2="7"></line>
+            <polyline points="7 7 17 7 17 17"></polyline>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+      </main>
+      

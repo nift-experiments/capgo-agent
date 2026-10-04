@@ -1,0 +1,348 @@
+
+
+<script type="module">var n=document.getElementById("menu-toggle"),r=document.getElementById("mobile-menu"),o=document.getElementById("products-toggle"),c=document.getElementById("products-submenu"),l=document.getElementById("products-chevron"),d=document.getElementById("solutions-toggle"),g=document.getElementById("solutions-submenu"),m=document.getElementById("solutions-chevron"),s=document.getElementById("header-auth-live"),v="capgo_paid_user",a;function h(){try{return document.cookie.split(";").some(e=>e.trim()===`${v}=1`)}catch{return!1}}function b(e){!s||a===e||(s.textContent=e?"Console link available":"Login and register links available",a=e)}function i(){try{const e=h();document.querySelectorAll("[data-guest-auth-link]").forEach(t=>{e?t.setAttribute("hidden",""):t.removeAttribute("hidden")}),document.querySelectorAll("[data-console-auth-link]").forEach(t=>{e?t.removeAttribute("hidden"):t.setAttribute("hidden","")}),b(e)}catch{}}n?.addEventListener("click",()=>{const e=!r?.classList.toggle("hidden");n.setAttribute("aria-expanded",String(e))});var u=window.matchMedia("(min-width: 768px)");function p(){u.matches&&(r?.classList.add("hidden"),n?.setAttribute("aria-expanded","false"))}u.addEventListener("change",p);o?.addEventListener("click",()=>{const e=!c?.classList.toggle("hidden");o.setAttribute("aria-expanded",String(e)),l?.classList.toggle("rotate-180",e)});d?.addEventListener("click",()=>{const e=!g?.classList.toggle("hidden");d.setAttribute("aria-expanded",String(e)),m?.classList.toggle("rotate-180",e)});i();window.addEventListener("focus",i);document.addEventListener("visibilitychange",()=>{document.hidden||i()});</script>
+      <main id="main-content">
+        
+  <div class="product-hero flex w-full flex-col items-center">
+    <div class="relative w-full max-w-7xl px-8 sm:px-10 lg:px-12">
+      <div class="relative z-0 mx-auto pb-12">
+        <div class="relative max-w-(--breakpoint-sm)">
+          <div class="mt-4 flex flex-row flex-wrap items-center gap-3">
+            <a href="/blog/category/mobile/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Mobile
+                </a><a href="/blog/category/tutorial/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  Tutorial
+                </a><a href="/blog/category/cicd/" class="rounded-lg border border-gray-400 px-4 py-1.5 text-sm text-white hover:bg-white hover:text-black">
+                  CI/CD
+                </a>
+            <time datetime="2026-09-22T21:47:52.000Z" class="text-sm text-white">
+              September 23, 2026
+            </time>
+          </div>
+          <h1 class="font-display mt-8 text-left text-4xl font-medium text-white sm:text-4xl sm:leading-tight">
+            Capgo Pull Request Preview Cleanup API Key
+          </h1>
+          <p class="mt-4 text-gray-400 sm:text-lg">Learn how to use a Capgo API key to clean up pull request previews safely, reset active previews, remove bundles, and automate CI/CD cleanup.</p>
+          <div class="flex flex-col gap-y-4 mt-6 md:hidden">
+  
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+    <img width="36" height="36" loading="lazy" decoding="async" alt="Martin Donadieu" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+    <div class="flex flex-col">
+      <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+      <p class="text-sm text-gray-400">Content Marketer</p>
+    </div>
+  </a>
+</div>
+        </div>
+      </div>
+    </div>
+    <div class="relative w-full max-w-7xl overflow-clip px-8 sm:px-10 lg:px-12">
+      <div class="max-w-grid-width relative z-auto mx-auto grid grid-cols-3">
+        <div class="relative col-span-3 md:col-span-2">
+          <img width="1536" height="1024" id="blogImage" loading="eager" decoding="async" alt="Capgo Pull Request Preview Cleanup API Key" src="/capgo_banner.png" class="rounded border border-white/5 object-cover">
+          <article class="prose prose-invert blog mt-8 min-w-full">
+            <p>Deleting a pull request preview looks like a one-command job. With <a href="https://capgo.app">Capgo</a>, there is one catch: you must move away from an active preview before deleting it, then remove its bundles by ID. We will build a safe cleanup flow with a restricted API key, preview lookup, reset handling, bundle deletion, and CI automation.</p>
+<h3 id="table-of-contents">Table of Contents</h3>
+<ul>
+<li>Step 1: Create a Restricted Capgo API Key for Preview Cleanup</li>
+<li>Step 2: Identify the Pull Request Preview and Its Bundle IDs</li>
+<li>Step 3: Switch Away From the Active Preview Before Cleanup</li>
+<li>Step 4: Delete Preview Bundles by ID With the API Key</li>
+<li>Step 5: Automate Cleanup When a Pull Request Closes</li>
+<li>Step 6: Verify Cleanup and Protect Rollouts From Accidental Deletion</li>
+<li>FAQ</li>
+<li>Conclusion</li>
+</ul>
+<h2 id="step-1-create-a-restricted-capgo-api-key-for-preview-cleanup">Step 1: Create a Restricted Capgo API Key for Preview Cleanup</h2>
+<p>The first step in a Capgo pull request preview cleanup flow is to make a key that can do only the work your CI job needs.</p>
+<p>Do not put a broad organization key into a pull request workflow. A pull request can come from a branch that has not earned trust yet. The workflow may also print a command or environment value during a failed run. A narrow key limits the damage if that happens.</p>
+<p>In Capgo, start with an App Preview key for preview work. The key should be tied to the app or preview scope that your job manages. If your team uses role-based access control, limit the key to selected apps instead of granting access across the whole organization. Capgo documents those preview key choices in its <a href="https://capgo.app/docs/webapp/api-keys/">API key settings for web app workflows</a>.</p>
+<p>Store the secret in your CI provider’s encrypted secret store. Give it a name that says what it does, such as<code>CAPGO_PREVIEW_CLEANUP_KEY</code>. Do not place it in a workflow file, shell script, pull request comment, or generated log.</p>
+<p>Pass the key to the cleanup process through an environment variable. Your script should fail when the variable is missing. A silent fallback is dangerous because it can turn a cleanup job into a request with no auth, or tempt a developer to paste a key into the command line.</p>
+<pre class="astro-code github-dark" style="background-color:#24292e;color:#e1e4e8; overflow-x: auto;" tabindex="0" data-language="plaintext"><code><span class="line"><span>if [ -z "$CAPGO_PREVIEW_CLEANUP_KEY" ]; then echo "Missing preview cleanup key" exit 1</span></span>
+<span class="line"><span>fi</span></span></code></pre>
+<p>Keep this key separate from the key used to publish production bundles. The publish job may need to upload a release. The cleanup job only needs to remove preview resources. Separate keys make review easier and reduce the chance that a delete action reaches a production channel.</p>
+<p>Use the same secret in a protected environment when possible. Require approval before a job can touch shared channels. For ordinary pull request previews, the job should work on a temporary channel and nothing else.</p>
+<p><strong>Key Takeaway:</strong> Use a dedicated App Preview key, limit its app scope, and keep it in encrypted CI secrets.</p>
+<p>Before moving on, test the key against a harmless read action. Confirm that the job can see the intended app, but cannot access an unrelated app or production workflow. The exact request details for cleanup are not fully published, so keep your first test small and inspect the SDK or Capgo support guidance before adding delete calls.</p>
+<h2 id="step-2-identify-the-pull-request-preview-and-its-bundle-ids">Step 2: Identify the Pull Request Preview and Its Bundle IDs</h2>
+<p>The Capgo pull request preview cleanup API key is useful only when your job knows which preview and bundle IDs it owns.</p>
+<p>Use a stable naming rule for preview channels. A common pattern is the repository name plus the pull request number. The key point is consistency. Your cleanup job must rebuild the same identifier after the pull request closes.</p>
+<p>Save the preview channel name when the preview is created. You can place it in the workflow output, a pull request check, or a small piece of job metadata. Do not rely on a display name that a person might change in the dashboard.</p>
+<p>Next, list the bundles tied to that preview. Capgo’s Delete Bundle action requires bundle IDs. The source documentation points to a list call for retrieving all available bundle IDs before deletion. Treat that list as the source of truth. Never guess an ID from a file name, commit hash, or branch name.</p>
+<p>Filter the returned records by the preview channel or another value your workflow controls. Then keep the exact bundle ID for each match. If the list is empty, mark cleanup as complete. An empty result is not a failure unless your workflow expected a preview to exist.</p>
+<p>Also record the commit SHA that produced each preview. This gives you a second check before deletion. If the channel name matches but the commit does not, stop and ask for review. That small pause can prevent a race where a new preview is being built while an old cleanup job runs.</p>
+<p><img src="https://rebelgrowth.s3.us-east-1.amazonaws.com/blog-images/batch_109510_0_848a6c8739fa.webp" alt="Pull request preview channel and bundle ID review for Capgo cleanup"></p>
+<p>Do not delete while a publish job is still running. Add a dependency between the preview build and cleanup workflows, or use a lock keyed to the pull request number. The cleanup job should start only after the close event and after any pending preview upload has ended.</p>
+<p>Capgo’s public API covers resources such as channels and bundles through authenticated HTTP requests, but the cleanup actions still need careful verification in your project. The <a href="https://capgo.app/docs/public-api/">Capgo public API overview</a> is the right place to confirm the current resource model before you write a wrapper.</p>
+<p>By now you should have a preview identifier, a list of exact bundle IDs, and the commit SHA tied to each record. If one of those values is missing, stop here. Cleanup without ownership checks is guesswork.</p>
+<h2 id="step-3-switch-away-from-the-active-preview-before-cleanup">Step 3: Switch Away From the Active Preview Before Cleanup</h2>
+<p>An active preview cannot be deleted until the app switches away from it or you call<code>resetPreview</code>. This is the key detail in the Capgo pull request preview cleanup flow.</p>
+<p>Think of the active preview as the version currently selected by the app. Deleting the server-side record first would leave the app pointing at something that no longer exists. Capgo blocks that state change, so your cleanup job must reset the app’s preview state before it removes the preview.</p>
+<p>First, check whether the preview is still active. If it is, move the app to a safe channel or use the updater reset action. The right choice depends on how your test app is configured. A disposable test app can return to its normal default channel. A shared test app may need a dedicated staging channel instead.</p>
+<p>Use<code>resetPreview</code>when the preview state needs to be cleared directly. Keep this call tied to the same pull request and app that created the preview. A cleanup script should never reset a production device or a shared release channel just because a channel name happens to match.</p>
+<p>There is a useful ordering rule here:</p>
+<ul>
+<li>Confirm the pull request is closed.</li>
+<li>Confirm no preview upload is running.</li>
+<li>Switch away from the active preview or call<code>resetPreview</code>.</li>
+<li>Wait for that state change to finish.</li>
+<li>Only then call Delete Preview.</li>
+</ul>
+<p>Do not treat a successful HTTP response from the reset request as proof that the app has already changed state on every device. A device may check for updates later. Your server-side cleanup can still proceed once the preview assignment has been cleared according to the API response, but keep device behavior separate from resource deletion.</p>
+<p>Capgo supports channel-based rollout control, which makes this separation easier to reason about. A channel is a named path that tells an app which update stream to follow. Your preview channel should never be the same channel used by production devices.</p>
+<p>For teams that need a stricter boundary, use the documented <a href="https://capgo.app/docs/live-updates/channels/">Capgo channel workflow for preview automation</a>. It describes the temporary channel pattern and helps keep a cleanup job away from shared default channels.</p>
+<p>The open-source updater documentation also records the deletion limit: active previews need a switch away or a reset first. You can review the source in the Capgo Capacitor updater repository. That source is useful when the dashboard wording is too brief for a CI decision.</p>
+<p><strong>Pro Tip:</strong> Make reset a separate logged step. If Delete Preview fails, the log should show whether the preview was still active or whether the delete request had another problem.</p>
+<p>Once the active state is gone, the preview record is ready for deletion. Do not combine reset and delete into one opaque shell line. Two clear commands are easier to retry and much easier to audit.</p>
+<h2 id="step-4-delete-preview-bundles-by-id-with-the-api-key">Step 4: Delete Preview Bundles by ID With the API Key</h2>
+<p>Delete each preview bundle by its exact ID, after the active preview has been reset. This is where a Capgo cleanup key removes the storage objects left by the pull request.</p>
+<p>Start with the bundle list from Step 2. For each matching ID, call the Delete Bundle action through the Capgo SDK or the current public API method available to your account.</p>
+<p>Inspect the SDK method signature or confirm the current request shape with Capgo support. Record the method and response format in your team’s internal runbook once you have verified them. That runbook should include the API version, the required identifier, and the error codes your retry logic can handle.</p>
+<p>Use a dry-run mode in your script. It should print the preview channel and the bundle IDs it would remove, without sending delete requests. Run that mode against several closed pull requests. Check that it excludes production channels and that it does not treat an empty list as a wildcard.</p>
+<p>A safe deletion loop has three gates:</p>
+<ol>
+<li>Reject a missing or malformed bundle ID.</li>
+<li>Reject a bundle whose channel does not match the pull request preview.</li>
+<li>Delete only after the ownership check passes.</li>
+</ol>
+<p>Then handle each response by type. A successful delete can be recorded as complete. A not-found response can be treated as already clean if the resource is known to have been removed by an earlier retry. Permission errors should fail the job and alert the owner. Rate limits should pause and retry with a capped delay.</p>
+<p>Do not retry every error. A bad ID will not become valid after three attempts. An authorization error usually means the key scope is wrong. Retry only transient failures, and set a maximum run time so a stuck cleanup job does not consume your CI queue.</p>
+<p>Bundle deletion is separate from preview deletion. Removing the preview channel does not automatically prove that every bundle has gone. Your job should retain a result for each ID, then make a final list request if the API supports it. If any bundle remains, report the ID and stop rather than silently claiming success.</p>
+<p>Keep deletion logs free of secrets. It is fine to log the pull request number, preview name, bundle ID, request result, and timestamp. Never log the API key, an authorization header, or a full request object that might include one.</p>
+<p>That approach gives you a useful audit trail without turning the log into another place where credentials can leak. It also makes a failed cleanup easy to resume because the next run can skip records already confirmed as absent.</p>
+<h2 id="step-5-automate-cleanup-when-a-pull-request-closes">Step 5: Automate Cleanup When a Pull Request Closes</h2>
+<p>Run the cleanup job from the pull request close event, but add checks that prevent a late build from deleting a new preview.</p>
+<p>Your workflow should receive the repository and pull request number from the event payload. Rebuild the preview channel name from those values. Do not accept a channel name supplied by a pull request comment or an untrusted branch variable.</p>
+<p>A useful job sequence looks like this:</p>
+<ol>
+<li>Load the restricted cleanup key from encrypted secrets.</li>
+<li>Confirm the event is a closed pull request.</li>
+<li>Check that the preview belongs to the expected repository and app.</li>
+<li>Wait for any active preview deployment to finish.</li>
+<li>Switch away from the preview or call<code>resetPreview</code>.</li>
+<li>List bundle IDs for that preview.</li>
+<li>Delete each verified bundle.</li>
+<li>Delete the preview record.</li>
+<li>Write a short result to the workflow summary.</li>
+</ol>
+<p>The order matters. If you delete first, the active preview rule can block the request. If you skip the list call, you may not know which bundle IDs still exist. If you delete by a guessed name, you risk touching the wrong resource.</p>
+<p><img src="https://rebelgrowth.s3.us-east-1.amazonaws.com/blog-images/batch_109510_1_4c04cb666309.webp" alt="Automated CI/CD workflow for pull request preview cleanup"></p>
+<p>Use a concurrency rule keyed to the pull request number. When a close event and a rebuild event arrive near the same time, the old cleanup job should not race the new deployment. Cancel an obsolete cleanup run or make the job wait until the deployment lock is clear.</p>
+<p>Capgo’s one-command CLI workflow can reduce the number of custom shell calls around build and release work. For command names and supported operations, check the <a href="https://capgo.app/docs/cli/commands/">Capgo CLI command documentation</a>. Use the CLI where it gives you a verified command. Use the SDK or public API where cleanup actions need a direct request.</p>
+<p>Do not put cleanup in a workflow that runs with every push. A push job can remove a preview that is still being tested. The close event is the right trigger for normal cleanup. Add a manual workflow dispatch for recovery when a job fails.</p>
+<p>Set a retention fallback too. If a close event is missed, a scheduled job can find previews older than your team’s allowed test window. That job needs stricter safeguards than the normal close hook. It should select only previews with a clear owner and an expired timestamp.</p>
+<p>For GitHub Actions, keep permissions narrow and pass only the values needed by the cleanup step. Capgo’s current GitHub Actions integration documentation explains where the token is stored and how the workflow connects to Capgo.</p>
+<p>By now you should have an automated path that reacts to closure, waits for competing jobs, resets active state, lists IDs, and deletes only matched bundles. That is fast enough for daily development without making cleanup a blind broom.</p>
+<h2 id="step-6-verify-cleanup-and-protect-rollouts-from-accidental-deletion">Step 6: Verify Cleanup and Protect Rollouts From Accidental Deletion</h2>
+<p>Verification closes the Capgo pull request preview cleanup loop. A delete response alone is not enough for a safe release process.</p>
+<p>After the cleanup job runs, check the preview channel again. Confirm that it no longer appears as an active preview. Then check the bundle list for the same app and filter. The expected result is that the targeted bundle IDs are gone while production bundles remain.</p>
+<p>Save these values in the job summary:</p>
+<ul>
+<li>Repository and pull request number.</li>
+<li>Preview channel name.</li>
+<li>Commit SHA used for ownership checks.</li>
+<li>Bundle IDs found.</li>
+<li>Bundle IDs deleted.</li>
+<li>Any IDs that returned an error.</li>
+</ul>
+<p>Use a clear status. “Cleaned” means every verified target is gone. “Already clean” means the resource was absent before this run. “Needs review” means one or more checks failed. Do not label a partial deletion as success.</p>
+<p>Add a production guard in code. Reject channel names such as your default or release channel. Also reject a bundle if its metadata does not match the preview app. The guard should fail closed. When the script cannot identify the target with confidence, it should stop.</p>
+<p>Keep rollback separate from cleanup. A rollback changes which bundle devices receive. Cleanup removes an old preview resource. If a test finds a bug after the pull request closes, you may need the bundle for investigation. Set a short retention window instead of deleting the instant the event arrives if your team often debugs after merge.</p>
+<p>Watch for three common failure patterns:</p>
+<ul>
+<li><strong>Active preview error:</strong> reset or switch away before retrying Delete Preview.</li>
+<li><strong>Missing bundle ID:</strong> run the list action again instead of guessing.</li>
+<li><strong>Permission error:</strong> review the key scope, then issue a new key if needed.</li>
+</ul>
+<p>Rotate the cleanup key on a schedule set by your security policy, and rotate it at once if it appears in a log or commit. A new key should be tested before the old one is revoked, unless exposure requires immediate revocation.</p>
+<p>The documentation gap around cleanup deserves a note in your security review. Treat the SDK and verified Capgo guidance as the source for your implementation, and keep your own request contract under version control.</p>
+<p><strong>Key Takeaway:</strong> Verify the preview and bundle list after deletion, block production targets in code, and report partial cleanup as a failure.</p>
+<p>One command is useful only when the guardrails are clear. Track the preview. Adopt a predictable channel name. Roll back release changes separately. Then let the cleanup job do its small job without touching live traffic.</p>
+<h2 id="faq">FAQ</h2>
+<h3 id="can-i-delete-an-active-capgo-pull-request-preview">Can I delete an active Capgo pull request preview?</h3>
+<p>No. An active preview must be switched away from first, or you must call<code>resetPreview</code>. After the active state clears, run Delete Preview. This rule is the main detail to remember when setting up a Capgo pull request preview cleanup API key in CI.</p>
+<h3 id="do-i-need-bundle-ids-to-clean-up-a-capgo-preview">Do I need bundle IDs to clean up a Capgo preview?</h3>
+<p>Yes. Capgo’s Delete Bundle action requires the bundle IDs, so list the available bundles before deleting them. Match each ID to the preview channel and commit before sending a delete request. Never build an ID from a branch name or assume that deleting the preview also removes every bundle.</p>
+<h3 id="what-kind-of-api-key-should-ci-use-for-preview-cleanup">What kind of API key should CI use for preview cleanup?</h3>
+<p>Use a restricted App Preview key for preview cleanup, stored in your CI provider’s encrypted secret store. Limit the key to the app or scope it needs. Keep it separate from the key used to publish production updates. This makes the Capgo cleanup job easier to review and safer to rotate.</p>
+<h3 id="can-i-automate-cleanup-when-a-pull-request-closes">Can I automate cleanup when a pull request closes?</h3>
+<p>Yes. Trigger cleanup from the closed pull request event, then wait for active deployment jobs before resetting the preview. List the bundle IDs, delete verified matches, and confirm the result. Add concurrency controls so a late build cannot race the cleanup job.</p>
+<h3 id="why-is-my-capgo-cleanup-request-failing">Why is my Capgo cleanup request failing?</h3>
+<p>The usual causes are an active preview, a missing bundle ID, or a key without the needed scope. Reset the preview first, repeat the list call, and inspect the key permissions. Because request details can vary by API or SDK version, confirm the current method and parameters before changing the script.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Use Capgo with a dedicated preview key and a strict cleanup order: reset the active preview, list its bundle IDs, delete verified bundles, then remove the preview. Start with a dry run against one closed pull request, confirm the request shape in the current SDK, and add the production-channel guard before turning on automatic cleanup.</p>
+
+          </article>
+        </div>
+        <div class="right-0 hidden px-10 md:block">
+          <div class="flex flex-col gap-y-4 relative pb-5">
+  <p class="text-sm text-gray-400">Written by</p>
+  <a class="group flex items-center space-x-3" href="https://github.com/riderx">
+    <img width="36" height="36" loading="lazy" decoding="async" alt="Martin Donadieu" src="https://avatars.githubusercontent.com/u/4084527?v=4" class="blur-0 rounded-full transition-all group-hover:brightness-90">
+    <div class="flex flex-col">
+      <p class="text-sm font-medium whitespace-nowrap text-gray-400">Martin Donadieu</p>
+      <p class="text-sm text-gray-400">Content Marketer</p>
+    </div>
+  </a>
+</div>
+          <div id="staticToc" class="sticky top-16 pt-4 pb-8">
+                <div>
+                  <p class="-ml-0.5 flex items-center gap-1.5 text-sm text-gray-400">
+                    <svg width="24" height="24" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" class="lucide lucide-align-left h-4 w-4">
+                      <line x1="21" x2="3" y1="6" y2="6"></line>
+                      <line x1="15" x2="3" y1="12" y2="12"></line>
+                      <line x1="17" x2="3" y1="18" y2="18"></line>
+                    </svg>
+                    Table of Contents
+                  </p>
+                  <div class="mt-4 grid gap-4 border-l border-gray-600">
+                    <a id="table-of-contents-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#table-of-contents">
+                        Table of Contents
+                      </a><a id="step-1-create-a-restricted-capgo-api-key-for-preview-cleanup-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#step-1-create-a-restricted-capgo-api-key-for-preview-cleanup">
+                        Step 1: Create a Restricted Capgo API Key for Preview Cleanup
+                      </a><a id="step-2-identify-the-pull-request-preview-and-its-bundle-ids-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#step-2-identify-the-pull-request-preview-and-its-bundle-ids">
+                        Step 2: Identify the Pull Request Preview and Its Bundle IDs
+                      </a><a id="step-3-switch-away-from-the-active-preview-before-cleanup-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#step-3-switch-away-from-the-active-preview-before-cleanup">
+                        Step 3: Switch Away From the Active Preview Before Cleanup
+                      </a><a id="step-4-delete-preview-bundles-by-id-with-the-api-key-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#step-4-delete-preview-bundles-by-id-with-the-api-key">
+                        Step 4: Delete Preview Bundles by ID With the API Key
+                      </a><a id="step-5-automate-cleanup-when-a-pull-request-closes-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#step-5-automate-cleanup-when-a-pull-request-closes">
+                        Step 5: Automate Cleanup When a Pull Request Closes
+                      </a><a id="step-6-verify-cleanup-and-protect-rollouts-from-accidental-deletion-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#step-6-verify-cleanup-and-protect-rollouts-from-accidental-deletion">
+                        Step 6: Verify Cleanup and Protect Rollouts From Accidental Deletion
+                      </a><a id="faq-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#faq">
+                        FAQ
+                      </a><a id="can-i-delete-an-active-capgo-pull-request-preview-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#can-i-delete-an-active-capgo-pull-request-preview">
+                        Can I delete an active Capgo pull request preview?
+                      </a><a id="do-i-need-bundle-ids-to-clean-up-a-capgo-preview-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#do-i-need-bundle-ids-to-clean-up-a-capgo-preview">
+                        Do I need bundle IDs to clean up a Capgo preview?
+                      </a><a id="what-kind-of-api-key-should-ci-use-for-preview-cleanup-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#what-kind-of-api-key-should-ci-use-for-preview-cleanup">
+                        What kind of API key should CI use for preview cleanup?
+                      </a><a id="can-i-automate-cleanup-when-a-pull-request-closes-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#can-i-automate-cleanup-when-a-pull-request-closes">
+                        Can I automate cleanup when a pull request closes?
+                      </a><a id="why-is-my-capgo-cleanup-request-failing-link" class="ml-4 pl-4 truncate text-sm text-gray-400" href="#why-is-my-capgo-cleanup-request-failing">
+                        Why is my Capgo cleanup request failing?
+                      </a><a id="conclusion-link" class="ml-4 pl-2 truncate text-sm text-gray-400" href="#conclusion">
+                        Conclusion
+                      </a>
+                  </div>
+                </div>
+              </div>
+        </div>
+      </div>
+      <div>
+  <div class="relative mx-4 my-6 max-w-4xl p-4 sm:mx-auto sm:my-10 sm:p-8 md:my-14 md:p-12">
+    <!-- Border design -->
+    <div class="absolute inset-0 rounded-[20px] border border-gray-700 sm:rounded-[40px]"></div>
+
+    <div class="relative">
+      <span class="mb-4 text-3xl leading-tight font-normal text-white sm:mb-6 sm:text-4xl md:text-[44px]">
+        Live updates for Capacitor apps
+      </span>
+
+      <p class="mb-6 max-w-3xl text-lg leading-relaxed font-normal text-gray-300 sm:mb-8 sm:text-xl md:mb-12">
+        When a web-layer bug is live, ship the fix through Capgo instead of waiting days for app store approval. Users get the update in the background while native changes stay in the normal review path.
+      </p>
+
+      <div class="flex flex-col items-start gap-3">
+        <p class="font-inter inline-flex items-center text-sm gap-1.5 text-gray-400 justify-start">
+  <span>human support from Martin</span>
+  <img src="/avatars/martin-96.webp" alt="" width="20" height="20" class="h-5 w-5 rounded-full object-cover ring-2 ring-white/15" loading="lazy" decoding="async" aria-hidden="true">
+</p>
+        <a href="/register/" class="inline-flex w-full items-center justify-center rounded-lg bg-black px-6 py-3 text-lg text-white transition-colors duration-200 hover:bg-gray-800 sm:w-auto sm:px-10 sm:py-4 sm:text-xl">
+          Get Started Now
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+      <div class="mx-auto max-w-xl text-center">
+        <p class="text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">Latest from our Blog</p>
+        <p class="mt-4 text-base leading-7 font-normal text-gray-400 lg:mt-6 lg:text-lg lg:leading-8">
+          Capgo gives you the best insights you need to create a truly professional mobile app.
+        </p>
+      </div>
+      <div class="mt-8 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+            <a href="/blog/2-way-communication-in-capacitor-apps/" aria-label="2-Way Communication in Capacitor Apps" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/2-way-communication-in-capacitor-apps.webp" alt="2-Way Communication in Capacitor Apps" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 26, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      2-Way Communication in Capacitor Apps
+    </p>
+  </div>
+</a><a href="/blog/5-common-ota-update-mistakes-to-avoid/" aria-label="5 Common OTA Update Mistakes to Avoid" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-common-ota-update-mistakes-to-avoid.webp" alt="5 Common OTA Update Mistakes to Avoid" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Security
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      April 13, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Common OTA Update Mistakes to Avoid
+    </p>
+  </div>
+</a><a href="/blog/5-security-best-practices-for-mobile-app-live-updates/" aria-label="5 Security Best Practices for Mobile App Live Updates" class="block pb-8 bg-gray-700 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+  <div>
+    <div class="relative p-2">
+      <img width="1536" height="1024" decoding="async" src="/blog-images/5-security-best-practices-for-mobile-app-live-updates.webp" alt="5 Security Best Practices for Mobile App Live Updates" loading="lazy" class="object-contain w-full h-full text-transparent bg-center bg-no-repeat bg-cover rounded-lg border border-gray-600 z-2 aspect-video bg-linear-to-br from-gray-600/50 to-gray-700/50">
+      <div class="absolute top-4 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none">
+        <span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Development
+          </span><span class="max-w-full truncate py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white rounded-full shadow-lg">
+            Mobile
+          </span>
+        <span class="shrink-0 py-1.5 px-3 text-xs font-semibold tracking-widest text-gray-900 uppercase bg-white/90 rounded-full shadow-lg">
+            +1
+          </span>
+      </div>
+    </div>
+    <span class="block px-5 mt-3 text-sm font-semibold tracking-widest text-gray-300 uppercase">
+      January 14, 2025
+    </span>
+    <p class="px-5 mt-3 text-2xl font-semibold text-gray-100">
+      5 Security Best Practices for Mobile App Live Updates
+    </p>
+  </div>
+</a>
+          </div>
+      <div class="my-12 text-center">
+        <a href="/blog/" class="group inline-flex items-center text-sm font-semibold text-white transition-all duration-200 hover:text-gray-200 hover:underline">
+          See all from our blog
+          <svg class="ml-1 h-5 w-5 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="7" y1="17" x2="17" y2="7"></line>
+            <polyline points="7 7 17 7 17 17"></polyline>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+      </main>
+      
