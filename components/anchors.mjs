@@ -1,0 +1,1 @@
+export default function(){return tree=>{function visit(node){if(typeof node.properties?.id==='string'&&node.properties.id.startsWith('mdx-'))node.properties.id=node.properties.id.slice(4);for(const c of node.children??[])visit(c);}visit(tree);};}

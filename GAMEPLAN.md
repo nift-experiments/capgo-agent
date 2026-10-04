@@ -53,8 +53,8 @@ conditions and equivalent acceptance tests before runs. Run the final evaluation
 
 ## CP06 — Prove provenance-preserving semantic conversion
 
-- [ ] Parse representative upstream MD/MDX into validated semantic records, map Starlight components and runtime descriptors, preserve code/examples/images/links/tables. Retain source for update reconciliation; ordinary agent edits must not require Astro/Starlight/MDX knowledge. Acceptance: audited fixtures match source semantics; unknown JSX/expressions fail with location, never silently flatten/drop. No dependency on production mdx.html unless independently justified.
-- [ ] Save evidence, commit this checkpoint, and update handover status.
+- [x] Parse representative upstream MD/MDX into validated semantic records, map Starlight components and runtime descriptors, preserve code/examples/images/links/tables. Retain source for update reconciliation; ordinary agent edits must not require Astro/Starlight/MDX knowledge. Acceptance: audited fixtures match source semantics; unknown JSX/expressions fail with location, never silently flatten/drop. No dependency on production mdx.html unless independently justified.
+- [x] Save evidence, commit this checkpoint, and update handover status.
 
 ## CP07 — Define agent update/import workflow
 

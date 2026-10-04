@@ -1,0 +1,2 @@
+import {createRequire} from 'node:module';import {pathToFileURL} from 'node:url';import {resolve} from 'node:path';
+const local=createRequire(import.meta.url);export async function load(name){try{return await import(pathToFileURL(local.resolve(name)).href);}catch(error){if(error.code!=='MODULE_NOT_FOUND'&&error.code!=='ERR_MODULE_NOT_FOUND')throw error;const external=createRequire(resolve(process.env.MDX_NODE_MODULES??'/usr/local/lib/node_modules','package.json'));return import(pathToFileURL(external.resolve(name)).href);}}
