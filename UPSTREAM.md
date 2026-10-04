@@ -170,3 +170,7 @@ complete translation cache are not supplied by this repository. Preserve source
 license/attribution on import; do not imply that all production backend data is
 public or that these experiments are endorsed by Capgo. Later fetches should be
 public snapshots or user-authorised APIs, not private Capgo credentials.
+
+## Implementation authorization update
+
+4 October: implementation now authorized. Historical planning-only statements above describe the inspection phase. MDX production rendering is implemented; the compiler-semantic preparation path is approved and remains to be built/certified. Proper Nift file-type APIs have landed locally. Shared corpus pin is unchanged; CP01 evidence and active HANDOVER govern current work.

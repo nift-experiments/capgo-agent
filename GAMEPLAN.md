@@ -1,6 +1,6 @@
 # capgo-agent — implementation gameplan
 
-**All 23 checkpoints are pending. Implementation requires user approval.**
+**Implementation authorized 4 October 2026. Checkpoints proceed until completion; evidence is required before marking acceptance.**
 Read HANDOVER.md, UPSTREAM.md and provenance.json first. Each checkpoint ends
 with acceptance evidence, a small Git commit and a handover update. Dependencies
 flow in order; do not skip corpus/functionality gates to advertise benchmarks.
@@ -24,12 +24,12 @@ type, stateful feature, source→output trace, seeded bug and cross-cutting visu
 change. Record success/correctness, turns, context/tokens where measurable,
 files inspected/modified, failed builds/tests, unnecessary edits, intervention,
 architecture explanation and preferred codebase/reasons. Freeze model/tool/start
-conditions and equivalent acceptance tests before runs. No final evaluation now.
+conditions and equivalent acceptance tests before runs. Run the final evaluation only after implementation correctness gates pass.
 
 ## CP01 — Pin baseline and corpus contract
 
-- [ ] Verify the recorded upstream and lock hashes, create a disposable detached upstream checkout, record license/attribution and select exact runtime patches. Agree one inclusion/exclusion manifest and runtime capability vocabulary shared with the sibling experiment. Acceptance: documented pin verification and no divergent source snapshot.
-- [ ] Save evidence, commit this checkpoint, and update handover status.
+- [x] Verify the recorded upstream and lock hashes, create a disposable detached upstream checkout, record license/attribution and select exact runtime patches. Agree one inclusion/exclusion manifest and runtime capability vocabulary shared with the sibling experiment. Acceptance: documented pin verification and no divergent source snapshot.
+- [x] Save evidence, commit this checkpoint, and update handover status.
 
 ## CP02 — Reproduce upstream build
 
@@ -63,7 +63,7 @@ conditions and equivalent acceptance tests before runs. No final evaluation now.
 
 ## CP08 — Create minimal Nift project
 
-- [ ] After approval define ordinary public output, explicit templates, page wrappers and Nift-native metadata inputs. Acceptance: representative normalized pages full/incremental/targeted-build with working root/prefix paths.
+- [ ] Define ordinary public output, explicit templates, page wrappers and Nift-native metadata inputs. Acceptance: representative normalized pages full/incremental/targeted-build with working root/prefix paths.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
 ## CP09 — Implement full corpus normalization
@@ -83,7 +83,7 @@ conditions and equivalent acceptance tests before runs. No final evaluation now.
 
 ## CP12 — Design Capgo-appropriate agent-oriented layouts
 
-- [ ] Reinterpret layout/navigation where it clarifies agent ownership and maintainability; remain recognizably appropriate for Capgo. Light/dark and blue allowed, and both siblings may share visual identity. Acceptance: clear homepage/docs/article/mobile hierarchy and predictable implementation; design freedom serves maintenance rather than a different palette.
+- [ ] Recreate close Capgo visual and behavioral fidelity, matching the sibling externally while keeping normalized ownership internally. Do not deliberately simplify or redesign navigation/layout. Light/dark and blue allowed, and both siblings may share visual identity. Acceptance: clear homepage/docs/article/mobile hierarchy and predictable implementation; design freedom serves maintenance rather than a different palette.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
 ## CP13 — Add explicit vanilla modules and justified islands
@@ -141,3 +141,7 @@ conditions and equivalent acceptance tests before runs. No final evaluation now.
 - [ ] Publish reviewed methodology/maintenance findings, suggest Labs report data using dark/no-blue there only, record functional gaps and import/update recipe. Acceptance: fresh reproduction, truthful comparison and final documentation.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
+
+## Current implementation decisions
+
+Both sites target close Capgo visual/behavioral fidelity and the same pinned corpus, route policy, assets and API snapshots. The distinction is maintenance architecture, not visual design. Preserve the 22/23 checkpoint skeletons; investigate intermediate failures and continue. Full corpus, runtime, fresh-clone, targeted visual, build and maintenance evidence are required. MDX compiler-preparation is approved by the current user outline; 8–15 s / 1–2 s remain provisional until measured. Fallback normalization is permitted only with an evidenced decision. Labs dark/no-blue stays separate. No core edits.

@@ -1,0 +1,7 @@
+# Shared corpus and runtime contract
+
+Version 1. Both independent experiments use Cap-go/website at 7d5b69d6ba8a6630384dffc7d012431ee3ed22ec and AGPL-3.0 attribution. Include English canonical docs (519 MDX + 10 MD), published English blog documents (515 sources before published filtering), plugin tutorials (149 MD), marketing informational pages, generated listings/categories/plugin catalogs, raw docs/LLM/search, and redirect aliases. Source count is not output route count. Publish exact route records with source/hash, locale, family, metadata, headings/code/text checks, assets/links/component requirements and explicit exclusions. Exclude private console applications and unfrozen translated responses; support configured services where practical.
+
+Capabilities: search/navigation/theme/tabs/copy/filter/pagination locally; diagrams/media with accessible fallback; questionnaires preserve rule branches; pricing/metrics/forms/tools via explicit configured provider, frozen snapshot or external service link. Missing provider yields setup/unavailable, never fake success. Secrets stay server-side. Build comparisons use the same frozen snapshots, never live API latency. Same broad design and route policy across siblings; architecture remains independent. Unknown content/component conversion is an error.
+
+Toolchain: upstream Bun 1.4.2 and Node 24.21.0 selected for reproduction. Nift source 76e16a0a0541d9d22ade1c463b9ce12cf2efddf5 currently contains file-type APIs; package CI must pin a tested core revision. No silent lock refresh or core modifications.
