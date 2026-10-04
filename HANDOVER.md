@@ -1,6 +1,6 @@
 # capgo-agent — golden-reference migration handover
 
-Current phase: Phase 0, preserve prototype and rebuild the pinned production reference.
+Current phase: Phase 8 baseline complete; Phase 9/10 native visual and behavior reconstruction pending.
 
 The previous reconstruction failed visual fidelity: class stripping and broad substitute CSS broke layout, cards, decorative positioning, typography, logo grids, testimonial height, navigation and footer. Route completion did not certify fidelity. User screenshots demonstrate these regressions. Do not polish or accept this prototype as the target.
 
@@ -19,3 +19,5 @@ Phase 2 accepted: 13 representative routes captured at 375/768/1440px (39 observ
 ## 5 October — Phase 8 recovered baseline
 
 Replaced the old prototype preview with 1,347 maintained HTML bodies and shared Nift header/footer/docs templates recovered from the faithful migration. No authored MDX is read during normal builds. Build threads are -1. Full byte/DOM/route parity passes for 3,876 files, with zero introduced link defects. First full build: 3.66s / 152040 KiB maximum RSS (148.5 MiB). Local preview remains port 4173. Golden frontend JavaScript is retained temporarily; Phase 9/10 vanilla reconstruction, final corpus audit and fair repeated benchmarks are not complete. Screenshot saved under evidence/parity/recovered-home.
+
+5 October follow-up: all recovered baseline checkpoints through 9912502 are pushed to origin/main. Sequential installed /usr/local/bin/nift build --all: 1.06s / 65088 KiB RSS; this excludes the wrapper’s full golden hash/output validation. DOM parity now distinguishes element nesting as well as attributes/text. The vanilla runtime migration remains pending.
