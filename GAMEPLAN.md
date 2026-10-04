@@ -33,8 +33,8 @@ conditions and equivalent acceptance tests before runs. Run the final evaluation
 
 ## CP02 — Reproduce upstream build
 
-- [ ] Install the frozen lock with Bun 1.4.2 and chosen Node 24 patch, build docs and web without deploying, record command/env/logs and generated artifact inventory. Identify required public API responses; capture authorised public snapshots or record missing ones. Acceptance: a reproducible baseline or explicit blockers; no timing campaign yet.
-- [ ] Save evidence, commit this checkpoint, and update handover status.
+- [x] Install the frozen lock with Bun 1.4.2 and chosen Node 24 patch, build docs and web without deploying, record command/env/logs and generated artifact inventory. Identify required public API responses; capture authorised public snapshots or record missing ones. Acceptance: a reproducible baseline or explicit blockers; no timing campaign yet.
+- [x] Save evidence, commit this checkpoint, and update handover status.
 
 ## CP03 — Inventory routes and content semantics
 

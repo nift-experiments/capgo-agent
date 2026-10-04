@@ -7,3 +7,5 @@ CP01 complete: verified common upstream SHA and lock digest, shared inclusion/ca
 capgo preserves authored MD/MDX; capgo-agent maintains normalized semantic records with source provenance. A distinct generic compiler-semantic MDX preparation path is now authorized and needed before corpus integration. Existing preservation APIs remain compatible. Nift core source now exposes is_dir/is_file; verify package integration and Windows CI. Never modify core from this work.
 
 Pinned upstream: 7d5b69d6ba8a6630384dffc7d012431ee3ed22ec. Ordinary builds must not refresh it. See evidence/checkpoints/CP01.json and docs/CORPUS-CONTRACT.md. Remaining checkpoint acceptance is pending, not implied by authorization.
+
+CP02 baseline inspection complete: frozen install and docs build succeed. Original web build fails on public pricing network fetch; valid anonymous plans/credits responses captured for deterministic snapshot reproduction. Retry continues before final baseline certification/benchmarks. This checkpoint accepts documented baseline blockers, not a claim the full upstream build passed.

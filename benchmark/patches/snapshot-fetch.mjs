@@ -1,0 +1,2 @@
+import {readFileSync} from 'node:fs';
+const original=globalThis.fetch;globalThis.fetch=(input,options)=>{const url=typeof input==='string'?input:input.url;if(url==='https://api.capgo.app/private/plans'||url==='https://api.capgo.app/private/credits'){const name=url.endsWith('plans')?'plans':'credits';return Promise.resolve(new Response(readFileSync(new URL('./snapshots/'+name+'.json',import.meta.url)),{headers:{'content-type':'application/json'}}));}return original(input,options);};
