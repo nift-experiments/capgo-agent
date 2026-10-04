@@ -1,0 +1,58 @@
+---
+title: "@capgo/capacitor-ricoh360"
+description: "Provides an SDK for the Ricoh360 cameras for Capacitor."
+tableOfContents: false
+next: false
+prev: false
+sidebar:
+  order: 1
+  label: "Introduction"
+hero:
+  tagline: "Provides an SDK for the Ricoh360 cameras for Capacitor."
+  actions:
+    - text: Get started
+      link: /docs/plugins/ricoh360-camera/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/Cap-go/capacitor-ricoh360-camera-plugin/
+      icon: external
+      variant: minimal
+---
+
+## Overview
+
+Provides an SDK for the Ricoh360 cameras for Capacitor.
+
+<span title="Renamed from @capgo/ricoh360 to @capgo/capacitor-ricoh360.">Package name changed.</span>
+
+## Core Capabilities
+
+- `initialize` - Initializes the SDK with camera URL.
+- `getCameraAsset` - Retrieves a camera asset from a URL and returns it as base64.
+- `listFiles` - Lists files stored on the camera.
+- `capturePicture` - Captures a picture.
+
+## Public API
+
+| Method | Description |
+| --- | --- |
+| `initialize` | Initializes the SDK with camera URL. |
+| `getCameraAsset` | Retrieves a camera asset from a URL and returns it as base64. |
+| `listFiles` | Lists files stored on the camera. |
+| `capturePicture` | Captures a picture. |
+| `captureVideo` | Captures a video. |
+| `livePreview` | Starts live preview. |
+| `stopLivePreview` | Stops live preview. |
+| `readSettings` | Reads camera settings. |
+| `setSettings` | Sets camera settings. |
+| `sendCommand` | Send raw command to camera. |
+| `getPluginVersion` | Get the native Capacitor plugin version. |
+
+## Source Of Truth
+
+This reference is synced from `src/definitions.ts` in [capacitor-ricoh360-camera-plugin](https://github.com/Cap-go/capacitor-ricoh360-camera-plugin/).
+
+## Keep going from @capgo/capacitor-ricoh360
+
+If you are using **@capgo/capacitor-ricoh360** to plan native media and interface behavior, connect it with [Using @capgo/capacitor-live-activities](/plugins/capacitor-live-activities/) for the native capability in Using @capgo/capacitor-live-activities, [@capgo/capacitor-live-activities](/docs/plugins/live-activities/) for the implementation detail in @capgo/capacitor-live-activities, [Using @capgo/capacitor-video-player](/plugins/capacitor-video-player/) for the native capability in Using @capgo/capacitor-video-player, [@capgo/capacitor-video-player](/docs/plugins/video-player/) for the implementation detail in @capgo/capacitor-video-player, and [Using @capgo/capacitor-native-navigation](/plugins/capacitor-native-navigation/) for the native capability in Using @capgo/capacitor-native-navigation.

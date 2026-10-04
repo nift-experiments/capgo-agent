@@ -1,0 +1,1 @@
+Maintained page records live in data/pages. Import reconciliation compares upstream hashes and generated baseline hashes; modified records require explicit conflict resolution. Optional override records are separately owned and never replaced by importing. Normal site builds read normalized records and never MDX.

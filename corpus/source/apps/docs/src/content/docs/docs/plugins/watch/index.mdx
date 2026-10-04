@@ -1,0 +1,58 @@
+---
+title: "@capgo/capacitor-watch"
+description: "Capacitor plugin for Apple Watch communication with bidirectional messaging support."
+tableOfContents: false
+next: false
+prev: false
+sidebar:
+  order: 1
+  label: "Introduction"
+hero:
+  tagline: "Apple Watch communication plugin for Capacitor. Provides bidirectional messaging between iPhone and Apple Watch using WatchConnectivity."
+  actions:
+    - text: Get started
+      link: /docs/plugins/watch/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/Cap-go/capacitor-watch/
+      icon: external
+      variant: minimal
+---
+
+## Overview
+
+Apple Watch communication plugin for Capacitor. Provides bidirectional messaging between iPhone and Apple Watch using WatchConnectivity.
+
+## Core Capabilities
+
+- `sendMessage` - Send an interactive message to the watch. The watch must be reachable for this to succeed. Use this for time-sensitive, interactive communication.
+- `updateApplicationContext` - Update the application context shared with the watch. Only the latest context is kept - this overwrites any previous context. Use this for syncing app state that the watch needs to display.
+- `transferUserInfo` - Transfer user info to the watch. Transfers are queued and delivered in order, even if the watch is not currently reachable. Use this for important data that must be delivered reliably.
+- `replyToMessage` - Reply to a message from the watch that requested a reply. Use this in response to the messageReceivedWithReply event.
+
+## Public API
+
+| Method | Description |
+| --- | --- |
+| `sendMessage` | Send an interactive message to the watch. The watch must be reachable for this to succeed. Use this for time-sensitive, interactive communication. |
+| `updateApplicationContext` | Update the application context shared with the watch. Only the latest context is kept - this overwrites any previous context. Use this for syncing app state that the watch needs to display. |
+| `transferUserInfo` | Transfer user info to the watch. Transfers are queued and delivered in order, even if the watch is not currently reachable. Use this for important data that must be delivered reliably. |
+| `replyToMessage` | Reply to a message from the watch that requested a reply. Use this in response to the messageReceivedWithReply event. |
+| `getInfo` | Get information about the watch connectivity status. |
+| `getPluginVersion` | Get the native Capacitor plugin version. |
+| `addListener` | Listen for messages received from the watch. |
+| `addListener` | Listen for messages from the watch that require a reply. |
+| `addListener` | Listen for application context updates from the watch. |
+| `addListener` | Listen for user info transfers from the watch. |
+| `addListener` | Listen for watch reachability changes. |
+| `addListener` | Listen for session activation state changes. |
+| `removeAllListeners` | Remove all listeners for this plugin. |
+
+## Source Of Truth
+
+This reference is synced from `src/definitions.ts` in [capacitor-watch](https://github.com/Cap-go/capacitor-watch/).
+
+## Keep going from @capgo/capacitor-watch
+
+If you are using **@capgo/capacitor-watch** to plan migration and enterprise operations, connect it with [Using @capgo/capacitor-watch](/plugins/capacitor-watch/) for the native capability in Using @capgo/capacitor-watch, [Capgo Enterprise](/enterprise/) for the product workflow in Capgo Enterprise, [Ionic Enterprise Plugin Alternatives](/ionic-enterprise-plugins/) for the product workflow in Ionic Enterprise Plugin Alternatives, [Capgo Alternatives](/alternatives/) for the product workflow in Capgo Alternatives, and [Capgo Consulting](/consulting/) for the product workflow in Capgo Consulting.

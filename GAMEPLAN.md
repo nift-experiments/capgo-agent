@@ -48,8 +48,8 @@ conditions and equivalent acceptance tests before runs. Run the final evaluation
 
 ## CP05 — Define agent-first maintained schemas and ownership
 
-- [ ] Choose few explicit semantic blocks and page/route/navigation metadata; retain original MD/MDX for provenance while agent-owned records/overrides have an obvious maintained home. Specify deterministic importer reconciliation, predictable naming and small mechanically validated files. Acceptance: provenance/headings/assets complete and updates preserve agent edits; no MDX long-term authoring requirement or generic CMS.
-- [ ] Save evidence, commit this checkpoint, and update handover status.
+- [x] Choose few explicit semantic blocks and page/route/navigation metadata; retain original MD/MDX for provenance while agent-owned records/overrides have an obvious maintained home. Specify deterministic importer reconciliation, predictable naming and small mechanically validated files. Acceptance: provenance/headings/assets complete and updates preserve agent edits; no MDX long-term authoring requirement or generic CMS.
+- [x] Save evidence, commit this checkpoint, and update handover status.
 
 ## CP06 — Prove provenance-preserving semantic conversion
 

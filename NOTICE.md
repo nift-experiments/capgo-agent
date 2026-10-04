@@ -1,0 +1,1 @@
+Capgo website experiment derived from Cap-go/website at 7d5b69d6ba8a6630384dffc7d012431ee3ed22ec, AGPL-3.0. Preserve notices and provide corresponding source when deploying. Not endorsed by Capgo. Public branding/assets remain attributable to their respective owners. Imported sources retain upstream headers.

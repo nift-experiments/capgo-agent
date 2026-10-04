@@ -13,3 +13,5 @@ CP02 baseline inspection complete: frozen install and docs build succeed. Origin
 CP03 complete: definitive source/output manifest from successful pinned docs and snapshot-backed web builds, including metadata/headings/code/text/link/image expectations, unpublished exclusions and redirect records. Same manifest SHA in both siblings. See evidence/checkpoints/CP03.json.
 
 CP04 complete: audited capabilities and configured/snapshot/setup/error contracts in config/capabilities.json and docs/RUNTIME-CONTRACT.md. Implementation checks remain CP15; private console/translation/device signing are explicit boundaries.
+
+CP05 complete: all 1,193 authored MD/MDX documents retained with source hashes, colocated assets and AGPL notice. Case-normalized Starlight logical routes now map to original-cased source paths; both manifests still match. Authored versus normalized maintenance ownership is explicit.
