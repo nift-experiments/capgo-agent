@@ -1,4 +1,4 @@
-# capgo-alt — project handover
+# capgo-agent — project handover
 
 ## Purpose and principles
 
@@ -13,12 +13,13 @@ application with configurable APIs, not static-only.
 
 Follow Capgo's existing visual style family: recognizable product identity,
 clear typography, developer-oriented content and restrained panels/cards.
-Blue and light/dark themes are allowed. Explore a different information layout
-(such as a task-oriented documentation hub and compact product navigation)
-without copying the Astro component architecture. The original outline's
-radically unrelated style is superseded by the user's request for Capgo-inspired
-styles on both websites. Future agents retain creative latitude in layout and
-content presentation. The Labs dark/no-blue rule is for report pages only.
+Blue and light/dark themes are allowed. Layouts and navigation may be
+reinterpreted substantially when that makes
+agent ownership and maintenance clearer, while remaining appropriate for Capgo.
+Design freedom serves the agent-oriented codebase; it is not a requirement for
+a different palette or branding. Future agents retain creative latitude where
+it supports understandable content and implementation. The Labs dark/no-blue
+rule is for report pages only.
 
 ## Proposed architecture specific to this version
 
@@ -50,18 +51,40 @@ means justified boundaries, not regex-only parsing or silent data loss.
 Explicitly evaluate only audited data/component mappings. Unsupported expressions
 or imported components fail with a source location and a reviewable mapping
 request. Content examples inside fences are inert. Preserve whole MDX source for
-update/provenance even if rendering uses normalized blocks. The normalised
-representation is cached/importer-owned; agent overrides are separate and updates
-reapply them deliberately. A narrow HTML fragment block may be an audited fallback
+update/provenance even if rendering uses normalized blocks. Validated normalized
+records are the maintained agent-oriented representation;
+original MD/MDX remains provenance/update input, not mandatory authoring syntax.
+Define an explicit home for agent edits/overrides and reconciliation; the importer
+must preserve them rather than treating all maintained data as disposable cache.
+Agents should not need Astro/Starlight/MDX knowledge for ordinary website changes.
+A narrow HTML fragment block may be an audited fallback
 with semantic-validation evidence, not the default opaque flattening of the corpus.
 
 Navigation and indexes are generated from normalized metadata, not copied into
-multiple templates. Stable route IDs tie original paths to alt paths. Local search
+multiple templates. Stable route IDs tie original paths to capgo-agent paths.
+Local search
 can use section/block text without an MDX runtime. Code highlighting and diagram
 preprocessing are optional bounded steps with separately measured cost. Build
 should work offline on already imported records and configured snapshots. A fresh
 import and an authored-source edit must run the converter and be timed separately
 from render-only builds; an agent-first data model must not hide preprocessing cost.
+
+## Component and island decision rule
+
+Apply the same progression in both sibling experiments: static HTML → CSS →
+vanilla JS enhancement → a framework island when state/complexity materially
+justifies it. Menus, theme switching, tabs, copy buttons, TOCs, simple filtering
+and pagination should use vanilla JavaScript; pagination does not use Nift.
+Complex configurators, data explorers, dashboards, live tools or stateful workflows
+may use React, Vue, Svelte, Solid or another appropriate library if that produces
+the clearest, smallest codebase for humans and agents. Do not preselect a framework.
+
+For each island record why vanilla JS was not preferable, chosen runtime, exact
+scope, hydration and client bundle cost, state ownership, API boundary and tests.
+Keep its ownership local and explicit, with independent tests and an accessible
+static shell where practical. One widget does not justify hydrating the entire
+site. Both experiments may independently choose the same island technology;
+do not force differences simply to make their repositories look different.
 
 ## Current status and boundaries
 
@@ -108,7 +131,7 @@ English docs, published articles/blog, plugin tutorials, marketing informational
 pages, generated indexes and discoverability outputs. Exclude private account
 applications and write an honest capability matrix for runtime services.
 Use the same document/route inclusion decisions, text/heading checks and public
-snapshot data in both experiments. Alt may change presentation/navigation; map
+snapshot data in both experiments. The agent-first version may change presentation/navigation; map
 old logical URLs to new ones so coverage and links remain auditable.
 
 Content updates are explicit, never a network fetch during an ordinary build.
@@ -126,8 +149,8 @@ Plan two explicit modes with the same content:
    metrics/pricing content; static search, diagrams and navigation. Clearly label
    snapshot dates and disable or externally link unavailable transactional
    actions. Can be deployed on Pages.
-2. **Configured application:** local/hosted runtime adapter + vanilla browser
-   client, configured against a user's own APIs. Define capability contracts for
+2. **Configured application:** local/hosted runtime adapter + vanilla-first browser
+   client (with justified local islands), configured against a user's own APIs. Define capability contracts for
    plans/credits, metrics, forms and supported tools. Support provider URL,
    tenant/public settings, authentication mode and documented response schemas.
    Unknown/unconfigured features give a clear setup/unavailable state. Do not
@@ -177,7 +200,9 @@ Benchmark the full conversion orchestration, not just a pre-rendered fragment.
 Run `nift build` immediately after changes to config/tracking and after meaningful
 edits. Validate `nift status`, `nift build --all`, normal incremental and explicit
 `nift build <tracked-name>`. Pin Nift/tool releases after the compatibility spike;
-local inspected version was Nift 4.5.0, not a guarantee for future runners.
+the original planning inspection found Nift 4.5.0; the MDX investigation required
+Nift 4.6.0 because 4.5.0 rejected the parser’s UTF-8 encode call. Verify the
+certified package/runtime combination before selecting future runners.
 See https://nift.dev/docs.html, https://nift.dev/docs/markup.html,
 https://nift.dev/docs/paths.html, https://nift.dev/docs/incremental-builds.html,
 and https://nift.dev/docs/platforms/github-pages.html.
@@ -187,7 +212,7 @@ and https://nift.dev/docs/platforms/github-pages.html.
 Use `data/routes.json` as the logical route registry, with original Capgo path,
 experiment path, tracked name, output path, type and alias mapping. Preserve
 trailing-slash clean URLs where practical. Relative `@path` links keep HTML
-usable under `/capgo-similar/` or `/capgo-alt/` on project Pages and at a domain
+usable under `/capgo/` or `/capgo-agent/` on project Pages and at a domain
 root. Audit JS fetches, imports, CSS URLs, fonts and dynamically created links
 separately; configure a public base URL for canonicals/OG/sitemap/robots. Canonicals
 must use the actual deployment and preview indexing policy, not accidentally
@@ -233,6 +258,23 @@ controlled application scenario. Same hardware, frozen inputs, declared warmups,
 repeat runs and dispersion, raw commands/results. Invalid output fails the gate;
 no invented targeted Astro equivalent and no universal speed claim.
 
+## Maintenance/agent comparison contract
+
+Compare upstream / capgo / capgo-agent on equivalent tasks after implementation
+and corpus certification. Include adding a docs page, changing global navigation,
+updating a shared component, adding a content type, altering a stateful UI feature,
+tracing source to output, diagnosing an introduced bug and a cross-cutting visual
+change. Freeze task specifications, equivalent correctness tests, model/tool
+settings and starting states; reset between runs and document intervention.
+
+Record task success/correctness, agent turns, context/tokens where measurable,
+files inspected/modified, failed builds/tests, unnecessary edits and human
+intervention. Collect the agent’s architecture explanation and preferred codebase
+with reasons. Keep this dimension separate from build/system timing: clean/full,
+warm/full, no-change, one content edit, targeted build, shared-layout fanout,
+memory, dependency/install footprint and output size. Do not run this evaluation
+during planning or infer maintenance superiority from build speed.
+
 ## Safety and next action
 
 Do not delete `.git`, wipe existing project trees, rewrite unrelated history,
@@ -241,3 +283,12 @@ After approval, execute the checklist in `GAMEPLAN.md` in order, with a small
 reviewable commit and evidence note for each checkpoint. Update this handover as
 facts change. Mark a checkpoint complete only after its acceptance checks pass.
 Until then, stop at these planning documents.
+
+## Rename/planning revision completed
+
+GitHub repository identity and local .git history were preserved in place. The
+new canonical repository names and project prefixes are capgo and capgo-agent.
+The upstream SHA, lock digest and materially equivalent shared corpus are
+unchanged. All implementation checkpoints remain pending; the rename did not
+start site or MDX production work. Both plans now include the same island rule
+and separate build/system and maintenance/agent evaluation protocols.

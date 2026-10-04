@@ -96,15 +96,33 @@ and JSX that are prose, not executable dependencies. A fence-aware exploratory
 scan found 137 docs import lines from Starlight components; this is a heuristic,
 not a complete AST compatibility certificate.
 
-Local Nift package `nift-packages/mdx/README.md` describes a preservation parser:
-it does not compile MDX, JSX, JavaScript, Markdown or YAML to HTML. Its 4,096-byte
-file limit already excludes many real docs. Do not adopt it as this corpus's
-renderer or modify it/core to make the experiment pass. For the similar version,
-plan a pinned external build-time MDX compiler with explicit static component
-adapters. For alt, use deterministic semantic conversion with reviewable output.
-Nift native `@markup` handles ordinary Markdown, not arbitrary MDX. It evaluates
-Nift syntax before conversion, so literal sigils in the corpus need a tested
-escaping/opaque-insertion boundary. Never repeatedly parse compiled HTML.
+The current Nift `mdx` production package is still a bounded preservation parser,
+not an HTML renderer. Its dedicated investigation proved the composition
+`mdx.html(mdx.input(...))` in an isolated prototype. The next package task must
+implement/certify a batched rendering path, lightweight pure parse/input use,
+ordinary static HTML without browser React/JSX, transitive Nift dependencies,
+trusted-build limits and parser performance, component adapters, execution policy,
+diagnostics, adapter invalidation and Linux/macOS/Windows portability. React
+`renderToStaticMarkup` may be a replaceable build-time implementation detail;
+the public abstraction remains MDX document → HTML, not React components.
+
+Measured prototype rendering of 100 realistic fixtures took 41.35s with separate
+processes versus 1.44s batched (renderer-only, not full corpus builds). Canonical
+docs MDX count 519; 242 exceed4KB, max43,342B. These findings require batching as
+the normal production architecture and a measured trusted-build parser profile;
+they are not Capgo benchmark results. Package investigation and implementation
+checklist: https://github.com/nift-packages/mdx/tree/main/investigation
+
+`capgo` preserves MD/MDX/frontmatter where practical and depends explicitly on
+that package certification before its MDX integration checkpoint. Do not create
+a second independent Capgo MDX renderer without an evidenced package blocker.
+Capgo-owned Starlight/Astro adapters remain appropriate. `capgo-agent` ingests the
+same sources with provenance but can maintain validated normalized semantic
+records rendered by explicit Nift templates; it does not require MDX as its
+long-term representation. Keep original sources available for reconciliation.
+Neither website nor MDX production work begins during this rename task. Do not
+modify Nift core. Nift native `@markup` handles Markdown, not arbitrary MDX;
+its evaluated template sigils require a tested escaping/opaque insertion boundary.
 
 ## Routes, discovery, and runtime boundaries
 

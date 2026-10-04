@@ -1,4 +1,4 @@
-# capgo-alt
+# capgo-agent
 
 Agent-first Capgo recreation with a normalized Nift content model.
 
@@ -21,8 +21,16 @@ Read:
 - [UPSTREAM.md](UPSTREAM.md): observed architecture, corpus and open constraints.
 - [provenance.json](provenance.json): exact upstream SHA, lock digest and measured inventory.
 
-Sibling: https://github.com/nift-experiments/capgo-similar
+Sibling: https://github.com/nift-experiments/capgo
 
 No Nift core or unrelated package changes are in scope. No permanent upstream
 fork, dependency installation, benchmark campaign or deployment was performed in
 this planning phase.
+
+The distinction is maintenance model, not forced visual or technology divergence.
+Prefer HTML/CSS/vanilla JS; isolated framework islands are allowed for materially
+complex stateful UI, with documented boundaries, costs and tests. Build/system
+and equivalent maintenance/agent evaluations are separate future goals.
+
+Upstream MD/MDX stays available for provenance; validated normalized records
+may be the maintained source without requiring MDX as the authoring format.

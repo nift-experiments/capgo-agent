@@ -1,10 +1,30 @@
-# capgo-alt — implementation gameplan
+# capgo-agent — implementation gameplan
 
 **All 23 checkpoints are pending. Implementation requires user approval.**
 Read HANDOVER.md, UPSTREAM.md and provenance.json first. Each checkpoint ends
 with acceptance evidence, a small Git commit and a handover update. Dependencies
 flow in order; do not skip corpus/functionality gates to advertise benchmarks.
 The ordered list is adapted to the pinned Capgo monorepo and latest user changes.
+
+## Shared component and evaluation rules
+
+Progress from static HTML to CSS to vanilla JS; use a local framework island only
+when complex state materially makes it clearer/smaller to maintain. Do not
+preselect React/Vue/Svelte/Solid or force technology differences between siblings.
+For each island record the reason vanilla was not preferable, runtime, scope,
+hydration/client bundle cost, state ownership, API boundary and independent tests.
+Menus/theme/tabs/copy/TOCs/simple filtering/pagination remain vanilla JS.
+
+Keep build/system and maintenance/agent evaluation separate, comparing
+upstream / capgo / capgo-agent on equivalent corpus/functionality and tasks.
+Build scenarios: clean/full, warm/full, no-change, one content edit, targeted
+build, shared-layout fanout, memory, dependency/install footprint, output size.
+Maintenance tasks: docs page, global navigation, shared component, new content
+type, stateful feature, source→output trace, seeded bug and cross-cutting visual
+change. Record success/correctness, turns, context/tokens where measurable,
+files inspected/modified, failed builds/tests, unnecessary edits, intervention,
+architecture explanation and preferred codebase/reasons. Freeze model/tool/start
+conditions and equivalent acceptance tests before runs. No final evaluation now.
 
 ## CP01 — Pin baseline and corpus contract
 
@@ -26,14 +46,14 @@ The ordered list is adapted to the pinned Capgo monorepo and latest user changes
 - [ ] Audit interactive pages and decide supported own-API capabilities, schemas/auth/CORS/base URL behavior, external services and preview fallbacks. Specify local run/deployment topology. Acceptance: per-feature success/setup/error contract and documented unavailable production services.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
-## CP05 — Define normalized schema and ownership
+## CP05 — Define agent-first maintained schemas and ownership
 
-- [ ] Choose limited semantic blocks and page/route/navigation metadata; specify importer-owned records versus agent overrides. Acceptance: schemas include provenance, headings, assets and update merge behavior; no generic CMS framework.
+- [ ] Choose few explicit semantic blocks and page/route/navigation metadata; retain original MD/MDX for provenance while agent-owned records/overrides have an obvious maintained home. Specify deterministic importer reconciliation, predictable naming and small mechanically validated files. Acceptance: provenance/headings/assets complete and updates preserve agent edits; no MDX long-term authoring requirement or generic CMS.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
-## CP06 — Prove semantic conversion
+## CP06 — Prove provenance-preserving semantic conversion
 
-- [ ] Parse representative MD/MDX into blocks, map Starlight components and runtime descriptors, preserve code/examples/images/links/tables. Acceptance: audited fixtures match source semantics; unknown JSX/expressions fail with location, never silently flatten/drop.
+- [ ] Parse representative upstream MD/MDX into validated semantic records, map Starlight components and runtime descriptors, preserve code/examples/images/links/tables. Retain source for update reconciliation; ordinary agent edits must not require Astro/Starlight/MDX knowledge. Acceptance: audited fixtures match source semantics; unknown JSX/expressions fail with location, never silently flatten/drop. No dependency on production mdx.html unless independently justified.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
 ## CP07 — Define agent update/import workflow
@@ -56,19 +76,19 @@ The ordered list is adapted to the pinned Capgo monorepo and latest user changes
 - [ ] Generate .nift/tracked.json from checked routes plus compact category/tag/plugin/TOC/LLM/raw outputs. Track per-page record/source/adapter deps. Acceptance: collisions rejected and one-record edit does not force unrelated pages.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
-## CP11 — Complete page families and route mapping
+## CP11 — Complete explicit page families and route mapping
 
-- [ ] Render docs/articles/plugins/marketing through few templates; maintain original-to-alt route mapping and explicit redirect aliases. Acceptance: full agreed route count and semantic coverage without importing Astro layout conventions.
+- [ ] Render docs/articles/plugins/marketing through a few explicit Nift templates; maintain original-to-capgo-agent route mapping and redirect aliases. Acceptance: full shared content/functionality coverage with obvious data/template ownership and no forced divergence from capgo technologies.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
-## CP12 — Design Capgo-inspired alternative layouts
+## CP12 — Design Capgo-appropriate agent-oriented layouts
 
-- [ ] Use task-oriented navigation and simpler layouts while staying in Capgo visual family. Light/dark and blue allowed. Acceptance: professional homepage/docs/article/mobile samples and content hierarchy, with no visual-clone gate.
+- [ ] Reinterpret layout/navigation where it clarifies agent ownership and maintainability; remain recognizably appropriate for Capgo. Light/dark and blue allowed, and both siblings may share visual identity. Acceptance: clear homepage/docs/article/mobile hierarchy and predictable implementation; design freedom serves maintenance rather than a different palette.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
-## CP13 — Add small vanilla interaction modules
+## CP13 — Add explicit vanilla modules and justified islands
 
-- [ ] Accessible menus, TOC/copy/tabs/theme; data-driven questionnaires and JS pagination where needed. Acceptance: modules have obvious ownership, no framework hydration requirement and keyboard/fallback checks pass.
+- [ ] Accessible menus/TOC/copy/tabs/theme/simple filtering and JS pagination use vanilla modules. Assess complex stateful questionnaires/workflows under the shared island rule; any React/Vue/Svelte/Solid/etc. island records rationale/runtime/scope/hydration cost/state/API/tests. Acceptance: obvious local ownership, independent tests, keyboard/fallback checks and no site-wide framework adoption by default.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
 ## CP14 — Generate local search and code/media enhancements
@@ -86,9 +106,9 @@ The ordered list is adapted to the pinned Capgo monorepo and latest user changes
 - [ ] Generate sitemap/robots/canonicals/404, verify prefix-aware fetch paths, assets and static/runtime redirects. Acceptance: no unintended missing assets/routes/fragments; output metadata stable and alias counts separate.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
-## CP17 — Certify semantic corpus coverage
+## CP17 — Certify equivalent corpus and functionality
 
-- [ ] Compare normalized blocks/text/headings/code/images/links against source manifest and sibling. Reject skipped MDX or partial content. Acceptance: identical underlying informational corpus, only presentation differences or reviewed exclusions.
+- [ ] Compare normalized blocks/text/headings/code/images/links/runtime capabilities against source manifest and capgo. Reject skipped MDX or partial content. Acceptance: materially equivalent underlying content/functionality, with representation/navigation/presentation differences and exclusions explicit; preserved provenance and maintained record edits remain reconcilable.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
 ## CP18 — Certify maintenance and usability
@@ -106,14 +126,14 @@ The ordered list is adapted to the pinned Capgo monorepo and latest user changes
 - [ ] Add preview Actions and separate full-runtime recipe; verify prefix/root, robots and artifact limits. Acceptance: frozen Pages preview useful while service-backed mode is deployable on a real server-capable target.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
-## CP21 — Freeze controlled benchmarking
+## CP21 — Freeze build and maintenance comparison protocols
 
-- [ ] Use same inclusion and API snapshots as similar; declare normalized-preprocessing versus render-only costs and caches. Acceptance: source edit measured through conversion, equal output assembly work and stable measurement environment.
+- [ ] Use same inclusion/API snapshots as capgo; declare normalized preprocessing versus render-only costs and caches, equal output work and stable environment. Freeze equivalent maintenance tasks/model/tool settings/start states/correctness tests for upstream / capgo / capgo-agent. Acceptance: both dimensions reproducible and no hidden conversion cost or final evaluation during planning.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
-## CP22 — Measure controlled authoring/agent comparison
+## CP22 — Measure separate build and agent-maintenance results
 
-- [ ] Run upstream/similar/alt full/warm/no-change/edit/target/fan-out scenarios plus memory/footprint/output counts. Acceptance: same hardware, valid corpora, raw evidence and clear performance impact of representation choices.
+- [ ] Run controlled upstream / capgo / capgo-agent full/warm/no-change/edit/target/fanout scenarios with memory/install/output counts, then equivalent maintenance tasks under the frozen protocol. Record task success/turns/context/files/failures/unnecessary edits/intervention/architecture explanation/preference. Acceptance: valid corpora, equivalent correctness gates, raw evidence and separate analysis of build costs and maintenance outcomes.
 - [ ] Save evidence, commit this checkpoint, and update handover status.
 
 ## CP23 — Prepare Labs evidence and release handover
