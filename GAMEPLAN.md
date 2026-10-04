@@ -4,7 +4,7 @@ The 5 October instructions in docs/GOLDEN-MIGRATION-INSTRUCTIONS.md supersede th
 
 ## Phase 0 — preserve current work and establish baseline
 
-- [ ] Implement, validate against the immutable production build, save evidence, update handover and commit.
+- [x] Implement, validate against the immutable production build, save evidence, update handover and commit.
 
 ## Phase 1 — create a golden production-build snapshot
 

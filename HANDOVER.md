@@ -9,3 +9,5 @@ The authoritative upstream remains 7d5b69d6ba8a6630384dffc7d012431ee3ed22ec. Its
 capgo first reproduces the complete compiled output through Nift, retains frontend assets as needed, then extracts templates and reconnects authored MDX. capgo-agent uses the same oracle but reconstructs a lean native presentation and vanilla behavior. Neither final project may be merely a copied build. No Nift core changes. Preserve Git history. Push authorized checkpoint commits.
 
 Useful preserved work includes source provenance, normalized importer, generic MDX integration, component inventories, runtime contract, public snapshots, build logs, and incomplete adapters. Browser/runtime/production certification is pending. Old progress is archived in docs/prototype.
+
+Phase 0 complete: useful prototype preserved in Git and superseded explicitly. Full pinned production build succeeds with recorded anonymous public API responses, including upstream Kotlin 404. See evidence/checkpoints/PHASE00.json and the build log. Phase 1 snapshot copied; inventory review and verification pending. No visual-parity claim yet.
