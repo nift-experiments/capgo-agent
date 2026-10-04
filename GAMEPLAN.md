@@ -38,13 +38,13 @@ conditions and equivalent acceptance tests before runs. Run the final evaluation
 
 ## CP03 — Inventory routes and content semantics
 
-- [ ] Enumerate published slugs, docs, marketing routes, category/index families, plugin mappings, redirects and raw/LLM outputs. Capture expected heading/code/text/image/link semantics. Acceptance: collision-free exact route manifest and classified exclusions, not source-file-count guesses.
-- [ ] Save evidence, commit this checkpoint, and update handover status.
+- [x] Enumerate published slugs, docs, marketing routes, category/index families, plugin mappings, redirects and raw/LLM outputs. Capture expected heading/code/text/image/link semantics. Acceptance: collision-free exact route manifest and classified exclusions, not source-file-count guesses.
+- [x] Save evidence, commit this checkpoint, and update handover status.
 
 ## CP04 — Define API and runtime contract
 
-- [ ] Audit interactive pages and decide supported own-API capabilities, schemas/auth/CORS/base URL behavior, external services and preview fallbacks. Specify local run/deployment topology. Acceptance: per-feature success/setup/error contract and documented unavailable production services.
-- [ ] Save evidence, commit this checkpoint, and update handover status.
+- [x] Audit interactive pages and decide supported own-API capabilities, schemas/auth/CORS/base URL behavior, external services and preview fallbacks. Specify local run/deployment topology. Acceptance: per-feature success/setup/error contract and documented unavailable production services.
+- [x] Save evidence, commit this checkpoint, and update handover status.
 
 ## CP05 — Define agent-first maintained schemas and ownership
 
