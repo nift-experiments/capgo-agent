@@ -1,0 +1,1676 @@
+<SYSTEM>Plugin Native Purchases: in-app purchases, subscriptions, paywalls, revenue playbook, and monetization plugin</SYSTEM>
+
+# @capgo/native-purchases
+
+> In-app Subscriptions Made Easy.
+
+## Overview [Section titled “Overview”](#overview) In-app Subscriptions Made Easy. ## Core Capabilities [Section titled “Core Capabilities”](#core-capabilities) * Native in-app purchases and subscriptions with StoreKit 2 and Google Play Billing. * Product metadata loaded directly from the stores, including localized titles and prices. * iOS StoreKit pricing terms for monthly subscriptions with 12-month commitments. * Purchase, restore, entitlement refresh, and native subscription management flows. * App Transaction helpers for migration from older business models. ## Public API [Section titled “Public API”](#public-api) | Method | Description | | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | | `restorePurchases` | Restores a user’s previous and links their appUserIDs to any user’s also using those . | | `getAppTransaction` | Gets the App Transaction information, which provides details about when the user originally downloaded or purchased the app. | | `isEntitledToOldBusinessModel` | Compares the original app version from the App Transaction against a target version to determine if the user is entitled to features from an earlier business model. | | `purchaseProduct` | Starts the native purchase flow. On supported iOS versions, pass `billingPlanType: 'monthly'` to purchase a monthly billing plan with a 12-month commitment. | | `getProducts` | Gets product info associated with product identifiers. On supported iOS versions, subscription products can include `pricingTerms`. | | `getProduct` | Gets the product info for a single product identifier. | | `isBillingSupported` | Check if billing is supported for the current device. | | `getPluginVersion` | Get the native Capacitor plugin version. | | `getPurchases` | Gets all the user’s purchases (both in-app purchases and subscriptions). This method queries the platform’s purchase history for the current user. | | `manageSubscriptions` | Opens the platform’s native subscription management page. This allows users to view, modify, or cancel their subscriptions. | | `acknowledgePurchase` | Manually acknowledge/finish a purchase transaction. | | `consumePurchase` | Consume an in-app purchase on Android. | | `addListener` | Listen for StoreKit transaction updates delivered by Apple’s Transaction.updates. Fires on app launch if there are unfinished transactions, and for any updates afterward. iOS only. | | `addListener` | Listen for StoreKit transaction verification failures delivered by Apple’s Transaction.updates. Fires when the verification result is unverified. iOS only. | | `removeAllListeners` | Remove all registered listeners. | ## Source Of Truth [Section titled “Source Of Truth”](#source-of-truth) This reference is synced from `src/definitions.ts` in [capacitor-native-purchases](https://github.com/Cap-go/capacitor-native-purchases/). ## Keep going from @capgo/native-purchases [Section titled “Keep going from @capgo/native-purchases”](#keep-going-from-capgonative-purchases) If you are using **@capgo/native-purchases** to plan payments and purchases, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [Capgo Pricing](/pricing/) for the product workflow in Capgo Pricing, [Payment system](/docs/webapp/payment/) for the implementation detail in Payment system, [Getting Started](/docs/plugins/native-purchases/getting-started/) for the implementation detail in Getting Started, and [Revenue Playbook](/docs/plugins/native-purchases/revenue-playbook/) for the implementation detail in Revenue Playbook.
+
+# Create Android Auto-Renewable Subscription
+
+> Step-by-step guide to creating auto-renewable subscriptions in Google Play Console for the native-purchases plugin.
+
+Auto-renewable subscriptions provide access to content, services, or premium features in your app on an ongoing basis. This guide will help you create and configure subscriptions in Google Play Console. ## Overview [Section titled “Overview”](#overview) Subscriptions automatically renew at the end of each billing period until the user cancels. They’re ideal for: * Premium content access * Ad-free experiences * Cloud storage * Ongoing services ## Creating a Subscription [Section titled “Creating a Subscription”](#creating-a-subscription) 1. **Navigate to Subscriptions** In Google Play Console, select your app and choose **Monetize > Subscriptions** from the left menu. Click the **Create subscription** button to begin. ![Navigate to subscriptions](/native-purchases/android/create-subscription/navigate-to-subscriptions.webp) 2. **Enter Basic Information** Provide a subscription name and product ID. The product ID is required for configuration in your app and cannot be changed later. ![Enter subscription details](/native-purchases/android/create-subscription/enter-subscription-details.webp) 3. **Create Base Plan** Google Play requires exactly one base plan per subscription. The native-purchases plugin supports only one base plan to maintain compatibility with iOS. Click **Add base plan** to continue. ![Create base plan](/native-purchases/android/create-subscription/create-base-plan.webp) 4. **Configure Base Plan Details** Enter: * **Base plan ID**: Unique identifier for this plan * **Billing period**: How often users are charged (weekly, monthly, yearly, etc.) * **Grace period**: Time window during which Google maintains the subscription while retrying payment before cancellation ![Configure base plan](/native-purchases/android/create-subscription/configure-base-plan-details.webp) 5. **Set Up Pricing** Access the pricing section and select all countries/regions where you want to offer the subscription. ![Select regions](/native-purchases/android/create-subscription/select-pricing-regions.webp) 6. **Configure Price** Set your base price in your primary currency. Google Play automatically converts this to local currencies. ![Set price](/native-purchases/android/create-subscription/set-base-price.webp) 7. **Review Regional Pricing** Review the automatically converted prices for each country. You can adjust individual prices if needed. ![Review pricing](/native-purchases/android/create-subscription/review-regional-pricing.webp) 8. **Save Configuration** Save your pricing configuration. ![Save pricing](/native-purchases/android/create-subscription/save-pricing-configuration.webp) 9. **Activate Subscription** Click the **Activate** button to make your subscription product live and available for purchase. ![Activate subscription](/native-purchases/android/create-subscription/activate-subscription.webp) ## Important Considerations [Section titled “Important Considerations”](#important-considerations) ### Base Plan Limitation [Section titled “Base Plan Limitation”](#base-plan-limitation) The native-purchases plugin requires exactly one base plan per subscription to ensure consistency with iOS subscription handling. Multiple base plans are not supported. ### Grace Period [Section titled “Grace Period”](#grace-period) The grace period allows Google Play to retry failed payments while maintaining the user’s subscription access. Common grace periods are: * 3 days for monthly subscriptions * 7 days for longer subscriptions ### Subscription Status [Section titled “Subscription Status”](#subscription-status) After creation, your subscription will be in “Draft” status until activated. You can test draft subscriptions in sandbox mode. ## Using in Your App [Section titled “Using in Your App”](#using-in-your-app) Once created, reference the subscription in your app using the product ID: 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+// Load subscription info
+const { products } = await NativePurchases.getProducts({
+  productIdentifiers: ['com.example.premium.monthly'],
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+const product = products[0];
+console.log(`${product.title} — ${product.priceString}`);
+
+
+// Purchase (planIdentifier = Base Plan ID from Google Play Console)
+const transaction = await NativePurchases.purchaseProduct({
+  productIdentifier: 'com.example.premium.monthly',
+  planIdentifier: 'monthly-plan', // REQUIRED on Android, ignored on iOS
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+console.log('Transaction ID', transaction.transactionId);
+
+
+// Later, check purchase state
+const { purchases } = await NativePurchases.getPurchases({
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+const subscription = purchases.find(
+  (purchase) => purchase.productIdentifier === 'com.example.premium.monthly',
+);
+
+
+if (subscription && subscription.purchaseState === 'PURCHASED' && subscription.isAcknowledged) {
+  console.log('Subscription active locally');
+  // For expiration/cancellation, validate purchaseToken through your backend
+}
+```
+ ## Next Steps [Section titled “Next Steps”](#next-steps) * [Create an introductory offer](/docs/plugins/native-purchases/android-introductory-offer/) to attract new subscribers * [Configure sandbox testing](/docs/plugins/native-purchases/android-sandbox-testing/) to test your subscriptions * Set up backend receipt validation for security ## Troubleshooting [Section titled “Troubleshooting”](#troubleshooting) **Subscription not appearing in app:** * Verify the product ID matches exactly * Ensure the subscription is activated * Check that your app has the correct package name * Wait 2-3 hours after activation for changes to propagate **Base plan errors:** * Ensure you have exactly one base plan * Verify all required fields are filled * Check that billing period is valid **Pricing issues:** * Confirm at least one country is selected * Verify base price is greater than minimum allowed * Check currency conversion rates are acceptable ## Keep going from Create Android Auto-Renewable Subscription [Section titled “Keep going from Create Android Auto-Renewable Subscription”](#keep-going-from-create-android-auto-renewable-subscription) If you are using **Create Android Auto-Renewable Subscription** to plan store approval and distribution, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [@capgo/capacitor-in-app-review](/docs/plugins/in-app-review/) for the implementation detail in @capgo/capacitor-in-app-review, [Using @capgo/capacitor-in-app-review](/plugins/capacitor-in-app-review/) for the native capability in Using @capgo/capacitor-in-app-review, [@capgo/capacitor-native-market](/docs/plugins/native-market/) for the implementation detail in @capgo/capacitor-native-market, and [Using @capgo/capacitor-native-market](/plugins/capacitor-native-market/) for the native capability in Using @capgo/capacitor-native-market.
+
+# Create Android Subscription Introductory Offer
+
+> Learn how to create introductory offers for auto-renewable subscriptions on Android to attract new subscribers.
+
+Introductory offers allow you to provide eligible users with either a free trial or a discounted introductory price. After the introductory period concludes, subscriptions automatically renew at standard pricing unless cancelled. ## Overview [Section titled “Overview”](#overview) Introductory offers are a powerful tool to: * Reduce barriers to entry for new subscribers * Increase conversion rates * Allow users to try your premium features risk-free * Build long-term subscriber relationships ## Eligibility [Section titled “Eligibility”](#eligibility) Users can receive an introductory offer if they haven’t previously purchased or received an introductory offer for the subscription. Google Play handles eligibility automatically. ## Prerequisites [Section titled “Prerequisites”](#prerequisites) You must first [create an auto-renewable subscription](/docs/plugins/native-purchases/android-create-subscription/) before adding an introductory offer. ## Creating an Introductory Offer [Section titled “Creating an Introductory Offer”](#creating-an-introductory-offer) 1. **Access Offer Configuration** Navigate to your subscription in Google Play Console and select the **Add offer** button. ![Add offer button](/native-purchases/android/introductory-offer/add-offer-button.webp) 2. **Select Base Plan** A modal will appear requiring you to choose your base plan. Typically, you’ll only have one base plan. Click **Add offer** to continue. ![Select base plan](/native-purchases/android/introductory-offer/select-base-plan.webp) 3. **Configure Offer Details** Enter the following information: **Offer ID**: A unique identifier for this offer **Eligibility**: Choose who can receive this offer * **New customers**: Only users who have never subscribed * **Existing customers**: Users who previously subscribed * **Developer determined**: Custom eligibility logic (not supported by native-purchases) Caution The native-purchases plugin does not support the “Developer determined” eligibility option. Use “New customers” or “Existing customers” instead. ![Configure offer](/native-purchases/android/introductory-offer/configure-offer-details.webp) 4. **Add Phases** Click **Add phase** at the bottom of the page to define your offer structure. You can add up to two phases, allowing combinations like: * Free trial only * Discounted price only * Free trial followed by discounted recurring payment 5. **Select Phase Type** Choose from three phase types: **Free Trial** * Complimentary access for a set duration * Example: 7 days free, then $9.99/month **Single Payment** * One-time discounted price for a specific period * Example: $1.99 for 2 months, then $9.99/month **Discounted Recurring Payment** * Reduced per-billing-cycle rate for multiple cycles * Example: $4.99/month for 3 months, then $9.99/month 6. **Configure Phase Duration** Set how long the introductory phase lasts: * Days, weeks, or months * Number of billing cycles 7. **Finalize and Activate** Click **Apply**, then **Save** to activate the offer. The **Activate** button will become available once saved. ## Offer Phase Examples [Section titled “Offer Phase Examples”](#offer-phase-examples) ### Example 1: Simple Free Trial [Section titled “Example 1: Simple Free Trial”](#example-1-simple-free-trial) * Phase 1: 7 days free * Then: $9.99/month standard pricing ### Example 2: Discounted Introduction [Section titled “Example 2: Discounted Introduction”](#example-2-discounted-introduction) * Phase 1: $1.99 for the first month * Then: $9.99/month standard pricing ### Example 3: Extended Trial + Discount [Section titled “Example 3: Extended Trial + Discount”](#example-3-extended-trial--discount) * Phase 1: 14 days free * Phase 2: $4.99/month for 2 months * Then: $9.99/month standard pricing ## Using in Your App [Section titled “Using in Your App”](#using-in-your-app) The native-purchases plugin automatically handles introductory offer eligibility and presentation: 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+// Fetch products (includes intro offer metadata)
+const { products } = await NativePurchases.getProducts({
+  productIdentifiers: ['com.example.premium.monthly'],
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+const product = products[0];
+
+
+if (product.introductoryPrice) {
+  console.log(`Intro price: ${product.introductoryPriceString}`);
+  console.log(`Regular price: ${product.priceString}`);
+  console.log(
+    `Offer duration: ${product.introductoryPrice.subscriptionPeriod?.numberOfUnits} ${product.introductoryPrice.subscriptionPeriod?.unit}`,
+  );
+} else {
+  console.log('No intro offer configured for this product');
+}
+
+
+// Purchase (Google Play applies intro pricing automatically if the user is eligible)
+const transaction = await NativePurchases.purchaseProduct({
+  productIdentifier: 'com.example.premium.monthly',
+  planIdentifier: 'monthly-plan', // Base Plan ID from Google Play Console
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+console.log('Introductory purchase transaction', transaction.transactionId);
+```
+ ## Best Practices [Section titled “Best Practices”](#best-practices) ### Offer Duration [Section titled “Offer Duration”](#offer-duration) * **Free trials**: 3-14 days is optimal for most apps * **Discounted periods**: 1-3 months works well for building habit * **Price discount**: 50-70% off regular price drives conversions ### Marketing [Section titled “Marketing”](#marketing) * Clearly display the intro offer and regular price * Show what happens after the intro period * Make cancellation easy and transparent * Remind users before the intro period ends ### A/B Testing [Section titled “A/B Testing”](#ab-testing) Test different offer structures: * Free trial length * Discount percentage * Discount duration * Single phase vs. multi-phase ## Important Notes [Section titled “Important Notes”](#important-notes) * Only one introductory offer can be active per subscription at a time * Users can only claim an intro offer once per subscription * Intro offers don’t apply to subscription upgrades/downgrades * Changes to intro offers don’t affect existing subscribers ## Troubleshooting [Section titled “Troubleshooting”](#troubleshooting) **Intro offer not showing:** * Verify the offer is activated in Play Console * Check user eligibility (may have used offer before) * Ensure app is using latest product information **Wrong users receiving offer:** * Review eligibility settings (new vs. existing customers) * Check if user previously subscribed on different device * Verify Play Store account history **Offer not applying at purchase:** * Confirm product ID matches exactly * Check that offer is still active and not expired * Verify date range settings for the offer ## Next Steps [Section titled “Next Steps”](#next-steps) * [Configure sandbox testing](/docs/plugins/native-purchases/android-sandbox-testing/) to test your offers * Monitor conversion rates in Play Console analytics * Consider creating multiple subscription tiers with different offers ## Keep going from Create Android Subscription Introductory Offer [Section titled “Keep going from Create Android Subscription Introductory Offer”](#keep-going-from-create-android-subscription-introductory-offer) If you are using **Create Android Subscription Introductory Offer** to plan payments and purchases, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [Capgo Pricing](/pricing/) for the product workflow in Capgo Pricing, [Payment system](/docs/webapp/payment/) for the implementation detail in Payment system, [@capgo/native-purchases](/docs/plugins/native-purchases/) for the implementation detail in @capgo/native-purchases, and [Getting Started](/docs/plugins/native-purchases/getting-started/) for the implementation detail in Getting Started.
+
+# Android Play Store Review Guidelines for IAP
+
+> Complete guide to passing Google Play review with in-app purchases and subscriptions, including compliance requirements and best practices.
+
+Getting your Android app approved on Google Play requires compliance with Google’s policies, especially for apps with in-app purchases and subscriptions. This guide covers everything you need to pass review successfully. ## Release Path That Works [Section titled “Release Path That Works”](#release-path-that-works) 1. **Build a Signed Android App Bundle** New Google Play apps should be uploaded as an Android App Bundle (`.aab`), not a sideloaded debug APK. Keep your `versionCode` increasing on every upload and store your upload key safely if you use Play App Signing. ![Android App Bundle flow](/native-build-assets/android-studio-select-android-app-bundle.webp) 2. **Create the App Record in Play Console** If you do not have a developer account yet, start with [Play Console signup](https://play.google.com/console/signup). Then, in **Home > Create app**, choose the language, app/game type, free/paid status, support email, and accept the required declarations. Choose the free/paid setting carefully. Google lets you change a paid app to free later, but once an app has been offered for free, it cannot be switched to paid. ![Create app in Play Console](/native-build-assets/google-play-console-create-app.webp) 3. **Complete App Content and Store Listing** Before production review, finish the required Play Console declarations: * Privacy policy * Ads * App access * Target audience and content * Content rating * Data Safety * Sensitive permissions declarations, if applicable 4. **Run a Play-Installed Test Track** Start with **internal testing** for fast QA. If your developer account is a personal account created after November 13, 2023, you must also complete a **closed test** with at least 12 opted-in testers for 14 consecutive days before production access. ![Internal testing in Play Console](/native-build-assets/google-play-console-internal-testing.webp) 5. **Verify Billing End-to-End** Install the app from Google Play, not from a locally exported APK. Then confirm that: * Products load from Play correctly * The purchase sheet shows a **test purchase** banner for license testers * Entitlements unlock after purchase * Restore and subscription management flows work ## Google Play Billing Requirements [Section titled “Google Play Billing Requirements”](#google-play-billing-requirements) ### Mandatory Billing System [Section titled “Mandatory Billing System”](#mandatory-billing-system) For digital goods and services, you **must** use Google Play’s billing system: **Digital Goods (Must Use Play Billing):** * Subscriptions to premium features * In-app currency or credits * Digital content (ebooks, music, videos) * Game upgrades and power-ups * App unlocks and premium tiers **Physical Goods (Cannot Use Play Billing):** * Physical merchandise * Real-world services * One-time donations to nonprofits :::note Subscription Setup In Play Console, configure Android subscriptions using the current **subscription -> base plan -> offer** model. In `native-purchases`, pass the Base Plan ID with `planIdentifier`. ::: ### Implementation with Native Purchases [Section titled “Implementation with Native Purchases”](#implementation-with-native-purchases) 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+// Ensure billing is available on the device
+const { isBillingSupported } = await NativePurchases.isBillingSupported();
+if (!isBillingSupported) throw new Error('Google Play Billing not available');
+
+
+// Fetch subscription products (Store data is required—never hardcode pricing)
+const { products } = await NativePurchases.getProducts({
+  productIdentifiers: ['premium_monthly', 'premium_yearly'],
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+// Plan identifiers are the Base Plan IDs you create in Google Play Console
+const transaction = await NativePurchases.purchaseProduct({
+  productIdentifier: 'premium_monthly',
+  planIdentifier: 'monthly-plan', // REQUIRED on Android, ignored on iOS
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+console.log('Purchase token for server validation:', transaction.purchaseToken);
+```
+ ## Transparency and Disclosure Requirements [Section titled “Transparency and Disclosure Requirements”](#transparency-and-disclosure-requirements) ### Upfront Pricing Disclosure [Section titled “Upfront Pricing Disclosure”](#upfront-pricing-disclosure) Google Play mandates clear disclosure of all costs before purchase: **Required Elements:** * Exact price in user’s local currency * Billing frequency (monthly, yearly, etc.) * What’s included in the subscription * Total cost for introductory offers * When charges will occur ![UI Design Best Practices](/native-purchases/review-guides/ui-design-dos-donts.webp) **Example of Compliant UI:** 
+```typescript
+function SubscriptionCard({ product }) {
+  return (
+    <div className="subscription-card">
+      <h3>{product.title}</h3>
+
+
+      {/* Show intro offer if available */}
+      {product.introductoryPrice && (
+        <div className="intro-offer">
+          <p className="intro-price">{product.introductoryPriceString}</p>
+          <p className="intro-period">
+            for {product.introductoryPricePeriod}
+          </p>
+        </div>
+      )}
+
+
+      {/* Regular price */}
+      <div className="regular-price">
+        <p className="price">{product.priceString}</p>
+        <p className="period">per {product.subscriptionPeriod}</p>
+      </div>
+
+
+      {/* Clear description */}
+      <p>{product.description}</p>
+
+
+      {/* Renewal terms */}
+      <p className="terms">
+        Renews automatically. Cancel anytime in Google Play.
+      </p>
+
+
+      <button onClick={() => handlePurchase(product)}>
+        Subscribe Now
+      </button>
+    </div>
+  );
+}
+```
+ ### Auto-Renewal Disclosure [Section titled “Auto-Renewal Disclosure”](#auto-renewal-disclosure) Before a subscription auto-renews, Google requires: * Clear notification that renewal will occur * Reminder of the price * Easy access to cancellation ### Cross-Platform Pricing Clarity [Section titled “Cross-Platform Pricing Clarity”](#cross-platform-pricing-clarity) If you sell the same entitlement on multiple platforms, keep the product naming, billing period, included benefits, and renewal language aligned so users are not surprised. Prices can legitimately differ because of taxes, local currency, or store economics, but the purchase UI must never hide those differences or imply a different renewal cost than the one Google Play will charge. ## Privacy Policy Requirements [Section titled “Privacy Policy Requirements”](#privacy-policy-requirements) ### Mandatory Privacy Policy [Section titled “Mandatory Privacy Policy”](#mandatory-privacy-policy) If your app includes in-app purchases, you must: 1. **Link in Play Store Listing** * Add privacy policy URL in Play Console * Must be publicly accessible * Must be in the same language as your app 2. **Link Within App** * Display privacy policy in app settings * Show before collecting any user data * Make easily discoverable **Example Implementation:** 
+```typescript
+function SettingsScreen() {
+  const openPrivacyPolicy = () => {
+    window.open('https://yourapp.com/privacy', '_blank');
+  };
+
+
+  const openTerms = () => {
+    window.open('https://yourapp.com/terms', '_blank');
+  };
+
+
+  return (
+    <div>
+      <h2>Settings</h2>
+
+
+      <button onClick={openPrivacyPolicy}>
+        Privacy Policy
+      </button>
+
+
+      <button onClick={openTerms}>
+        Terms of Service
+      </button>
+
+
+      <button onClick={() => NativePurchases.manageSubscriptions()}>
+        Manage Subscriptions
+      </button>
+    </div>
+  );
+}
+```
+ ### Data Safety Section [Section titled “Data Safety Section”](#data-safety-section) Google Play requires detailed disclosure in the Data Safety section: **For IAP Apps, Declare:** * Purchase history collection * Email addresses (for receipts) * Device IDs (for fraud prevention) * Payment information handling * Analytics data collection The Data Safety section is legally binding. Inaccurate declarations can result in app removal. ## App Content Declarations [Section titled “App Content Declarations”](#app-content-declarations) Google Play review is not only about the binary. Before a production release, complete the declarations on **Policy and programs > App content**. **The minimum set to review carefully:** * **Privacy policy**: Public URL in Play Console, plus an in-app entry point when required * **Ads**: Declare whether the app contains ads * **App access**: Give reviewers working credentials or a clear test path if any screen is gated * **Target audience and content**: Match the real audience of the app * **Content ratings**: Complete the IARC questionnaire so the app is not marked unrated * **Data Safety**: Declare collection, sharing, and security practices accurately ## Common Rejection Reasons [Section titled “Common Rejection Reasons”](#common-rejection-reasons) ### 1. Missing or Incorrect Billing Implementation [Section titled “1. Missing or Incorrect Billing Implementation”](#1-missing-or-incorrect-billing-implementation) **Why It Fails:** * Not using Google Play Billing for digital goods * Using deprecated billing APIs * Implementing custom payment solutions for subscriptions **Prevention:** 
+```typescript
+// ✅ Correct: Use native-purchases (uses Google Play Billing)
+await NativePurchases.purchaseProduct({
+  productIdentifier: 'premium_monthly',
+  planIdentifier: 'monthly-plan',
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+// ❌ Wrong: Custom payment processor for subscriptions
+// await CustomPayment.charge(user, 9.99);
+```
+ ### 2. Unclear Pricing or Hidden Costs [Section titled “2. Unclear Pricing or Hidden Costs”](#2-unclear-pricing-or-hidden-costs) **Why It Fails:** * Price only shown after clicking purchase * Additional fees not disclosed upfront * Vague subscription terms **Prevention:** 
+```typescript
+function PurchaseScreen({ product }) {
+  return (
+    <div>
+      {/* Show ALL costs upfront */}
+      <h2>Premium Subscription</h2>
+
+
+      <div className="pricing">
+        <p className="price">{product.priceString}/month</p>
+        <p className="taxes">Taxes may apply based on location</p>
+      </div>
+
+
+      <div className="features">
+        <h3>Includes:</h3>
+        <ul>
+          <li>Ad-free experience</li>
+          <li>Unlimited cloud storage</li>
+          <li>Priority support</li>
+        </ul>
+      </div>
+
+
+      <div className="terms">
+        <p>
+          Subscription renews automatically unless cancelled at least
+          24 hours before the end of the current period.
+        </p>
+        <p>
+          Manage or cancel in Google Play Subscriptions.
+        </p>
+      </div>
+
+
+      <button onClick={handlePurchase}>
+        Start Subscription
+      </button>
+    </div>
+  );
+}
+```
+ ### 3. Deceptive Subscription Patterns [Section titled “3. Deceptive Subscription Patterns”](#3-deceptive-subscription-patterns) **Why It Fails:** * Pre-selecting premium options * Hiding cheaper alternatives * Making cancellation difficult * Fake urgency (“Only 3 spots left!”) ![Description Best Practices](/native-purchases/review-guides/description-guidelines-1.webp) ![Marketing Guidelines](/native-purchases/review-guides/description-guidelines-2.webp) **Prevention:** * Display all subscription tiers equally * Make cancellation clear and accessible * Avoid countdown timers or fake scarcity * Don’t use dark patterns to push expensive options ### 4. Incomplete Testing [Section titled “4. Incomplete Testing”](#4-incomplete-testing) **Why It Fails:** * App crashes when purchasing * Products don’t load * Purchase confirmation doesn’t show * Premium features don’t unlock after purchase * Testing only happened on sideloaded builds instead of a Play-installed testing track **Prevention:** 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+// Comprehensive testing before submission
+async function testPurchaseFlow() {
+  try {
+    // 1. Test product loading
+    const { products } = await NativePurchases.getProducts({
+      productIdentifiers: ['premium_monthly', 'premium_yearly'],
+      productType: PURCHASE_TYPE.SUBS,
+    });
+    console.log('✓ Products loaded:', products.length);
+
+
+    // 2. Test purchase flow
+    const transaction = await NativePurchases.purchaseProduct({
+      productIdentifier: 'premium_monthly',
+      planIdentifier: 'monthly-plan',
+      productType: PURCHASE_TYPE.SUBS,
+    });
+    console.log('✓ Purchase completed', transaction.transactionId);
+
+
+    // 3. Verify entitlements
+    const { purchases } = await NativePurchases.getPurchases({
+      productType: PURCHASE_TYPE.SUBS,
+    });
+    if (
+      purchases.some(
+        (purchase) =>
+          purchase.productIdentifier === 'premium_monthly' &&
+          ['PURCHASED', '1'].includes(purchase.purchaseState ?? '') &&
+          purchase.isAcknowledged,
+      )
+    ) {
+      console.log('✓ Premium features unlocked');
+    }
+
+
+    // 4. Test restore
+    await NativePurchases.restorePurchases();
+    console.log('✓ Restore works');
+
+
+  } catch (error) {
+    console.error('✗ Test failed:', error);
+  }
+}
+```
+ ### 5. Privacy Policy Violations [Section titled “5. Privacy Policy Violations”](#5-privacy-policy-violations) **Why It Fails:** * No privacy policy link in app * Privacy policy not accessible * Data collection not disclosed * Data Safety section inaccurate **Prevention:** * Add privacy policy to Play Store listing * Include link in app settings * Accurately fill out Data Safety section * Update policy when adding new data collection ## Alternative Billing Programs [Section titled “Alternative Billing Programs”](#alternative-billing-programs) Google’s alternative billing programs are region-specific and can change. If you want anything other than standard Google Play Billing, confirm the exact market eligibility, required APIs, and disclosure language in Play Console immediately before implementation. ## Subscription Management [Section titled “Subscription Management”](#subscription-management) ### Easy Cancellation [Section titled “Easy Cancellation”](#easy-cancellation) Users must be able to: * View active subscriptions easily * Cancel without contacting support * Understand when cancellation takes effect **Implementation:** 
+```typescript
+import { NativePurchases } from '@capgo/native-purchases';
+
+
+function ManageSubscriptionButton() {
+  const openManagement = async () => {
+    try {
+      // Opens Google Play subscription management
+      await NativePurchases.manageSubscriptions();
+    } catch (error) {
+      // Fallback to direct URL
+      const playStoreUrl = 'https://play.google.com/store/account/subscriptions';
+      window.open(playStoreUrl, '_blank');
+    }
+  };
+
+
+  return (
+    <button onClick={openManagement}>
+      Manage Subscription in Google Play
+    </button>
+  );
+}
+```
+ ### Cancellation Grace Period [Section titled “Cancellation Grace Period”](#cancellation-grace-period) **Required Disclosure:** * When does cancellation take effect? * Do users keep access until period ends? * Are partial refunds available? 
+```typescript
+function CancellationInfo() {
+  return (
+    <div className="cancellation-info">
+      <h3>Cancellation Policy</h3>
+      <ul>
+        <li>Cancel anytime in Google Play</li>
+        <li>Access continues until end of billing period</li>
+        <li>No refunds for partial periods</li>
+        <li>Resubscribe anytime to regain access</li>
+      </ul>
+
+
+      <button onClick={() => NativePurchases.manageSubscriptions()}>
+        Manage in Google Play
+      </button>
+    </div>
+  );
+}
+```
+ ## Pre-Submission Checklist [Section titled “Pre-Submission Checklist”](#pre-submission-checklist) ![Pre-Submission Checklist](/native-purchases/review-guides/pre-submission-checklist.webp) 1. **Verify Billing Implementation** * Using Google Play Billing (via native-purchases) * All subscription products created in Play Console * Base plans and offers configured correctly * Products are activated and published * Pricing set for all target countries 2. **Test Purchase Flows** * Create license test account * Install the build from a Play testing track * Test each subscription tier * Verify products load correctly * Test purchase completion * Confirm the **test purchase** banner appears * Verify premium features unlock * Test subscription restoration * Test on multiple devices 3. **Review All Copy** * Pricing displayed clearly before purchase * All fees disclosed upfront * Subscription terms are clear * Cancellation process explained * No misleading claims 4. **App Content and Privacy** * Privacy policy linked in Play Console * Privacy policy accessible in app * Ads declaration completed * App access instructions added if the app is gated * Data Safety section completed accurately * Permissions justified and documented 5. **Content Rating and Audience** * Complete content rating questionnaire * Complete target audience and content section * Ensure rating matches actual content * Declare in-app purchases in questionnaire 6. **Prepare Store Listing** * App description accurate * Short description is within 80 characters * Full description is within 4000 characters * At least 2 phone screenshots uploaded * 1024x500 feature graphic uploaded * Screenshots show current version * All required assets uploaded ## Review Timeline [Section titled “Review Timeline”](#review-timeline) **Production Access for New Personal Accounts:** Usually 7 days or less after you apply **First Production Review:** Often several days, sometimes longer if billing or policy questions are raised **Updates:** Often faster than a first release, but still reviewed **Appeals:** Plan for several days and provide exact fixes and reviewer instructions :::tip Rolling Reviews Unlike Apple, Google reviews apps continuously. Your app may go live at any time during the review period, not at a fixed time. ::: ## Testing Before Submission [Section titled “Testing Before Submission”](#testing-before-submission) ### License Testing [Section titled “License Testing”](#license-testing) 1. **Add Test Account:** * Go to Play Console * Settings > License testing * Add Gmail account for testing 2. **Test in Sandbox:** 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+// Test purchases with license test account
+async function testInSandbox() {
+  const { isBillingSupported } = await NativePurchases.isBillingSupported();
+  if (!isBillingSupported) {
+    console.error('Billing not supported in this environment');
+    return;
+  }
+
+
+  // Fetch products (returns test pricing when using a license tester)
+  const { products } = await NativePurchases.getProducts({
+    productIdentifiers: ['premium_monthly'],
+    productType: PURCHASE_TYPE.SUBS,
+  });
+
+
+  console.log('Test products:', products);
+
+
+  // Make test purchase (no charge)
+  const transaction = await NativePurchases.purchaseProduct({
+    productIdentifier: 'premium_monthly',
+    planIdentifier: 'monthly-plan',
+    productType: PURCHASE_TYPE.SUBS,
+  });
+
+
+  console.log('Test purchase complete:', transaction.transactionId);
+}
+```
+ 3. **Verify Test Banner:** * When purchasing with test account * Should see “Test purchase” notification * No real charges occur ### Internal and Closed Testing Tracks [Section titled “Internal and Closed Testing Tracks”](#internal-and-closed-testing-tracks) Before production release: 1. Create an **internal testing** track for fast QA or a **closed testing** track for broader testing 2. Upload a signed `.aab` and publish the testing release 3. Add tester email addresses and share the opt-in link 4. Have testers install the build from Google Play 5. Verify purchase flows work end-to-end on the Play-installed build 6. If your personal developer account was created after November 13, 2023, keep at least 12 testers opted in to a closed test for 14 consecutive days before applying for production A sideloaded debug build is not a substitute for a Play-installed testing build when validating Google Play Billing. ## Best Practices for Native Purchases [Section titled “Best Practices for Native Purchases”](#best-practices-for-native-purchases) ### Handle All Purchase States [Section titled “Handle All Purchase States”](#handle-all-purchase-states) 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+async function handlePurchase(productId: string, planIdentifier?: string) {
+  try {
+    setLoading(true);
+
+
+    const transaction = await NativePurchases.purchaseProduct({
+      productIdentifier: productId,
+      planIdentifier,
+      productType: planIdentifier ? PURCHASE_TYPE.SUBS : PURCHASE_TYPE.INAPP,
+    });
+
+
+    console.log('Purchase token:', transaction.purchaseToken ?? transaction.receipt);
+
+
+    // Success - check entitlements from the store
+    const { purchases } = await NativePurchases.getPurchases({
+      productType: planIdentifier ? PURCHASE_TYPE.SUBS : PURCHASE_TYPE.INAPP,
+    });
+
+
+    const isOwned = purchases.some(
+      (purchase) =>
+        purchase.productIdentifier === productId &&
+        (purchase.purchaseState === 'PURCHASED' || purchase.purchaseState === '1') &&
+        purchase.isAcknowledged,
+    );
+
+
+    if (isOwned) {
+      unlockPremiumFeatures();
+      showSuccess('Premium activated!');
+    }
+
+
+  } catch (error: any) {
+    // Handle specific error cases
+    switch (error.code) {
+      case 'USER_CANCELLED':
+        // User backed out - no error needed
+        console.log('Purchase cancelled');
+        break;
+
+
+      case 'ITEM_ALREADY_OWNED':
+        // They already own it - restore instead
+        showInfo('You already own this! Restoring...');
+        await NativePurchases.restorePurchases();
+        break;
+
+
+      case 'ITEM_UNAVAILABLE':
+        showError('This subscription is currently unavailable. Please try again later.');
+        break;
+
+
+      case 'NETWORK_ERROR':
+        showError('Network error. Please check your connection and try again.');
+        break;
+
+
+      default:
+        showError('Purchase failed. Please try again.');
+        console.error('Purchase error:', error);
+    }
+  } finally {
+    setLoading(false);
+  }
+}
+```
+ ### Implement Restore Purchases [Section titled “Implement Restore Purchases”](#implement-restore-purchases) 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+function RestorePurchasesButton() {
+  const [loading, setLoading] = useState(false);
+
+
+  const handleRestore = async () => {
+    setLoading(true);
+
+
+    try {
+      await NativePurchases.restorePurchases();
+
+
+      const { purchases } = await NativePurchases.getPurchases({
+        productType: PURCHASE_TYPE.SUBS,
+      });
+
+
+      const hasSubscription = purchases.some(
+        (purchase) => purchase.productType === 'subs' && purchase.isAcknowledged,
+      );
+
+
+      if (hasSubscription) {
+        unlockPremiumFeatures();
+        showSuccess('Subscriptions restored!');
+        return;
+      }
+
+
+      // Check one-time unlocks if needed
+      const { purchases: iaps } = await NativePurchases.getPurchases({
+        productType: PURCHASE_TYPE.INAPP,
+      });
+      const hasInApp = iaps.some((purchase) => purchase.productIdentifier === 'premium_unlock');
+
+
+      if (hasInApp) {
+        unlockPremiumFeatures();
+        showSuccess('Previous purchases restored!');
+        return;
+      }
+
+
+      showInfo('No previous purchases found.');
+    } catch (error) {
+      showError('Failed to restore purchases. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  return (
+    <button onClick={handleRestore} disabled={loading}>
+      {loading ? 'Restoring...' : 'Restore Purchases'}
+    </button>
+  );
+}
+```
+ ### Check Subscription Status [Section titled “Check Subscription Status”](#check-subscription-status) 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+async function checkSubscriptionStatus() {
+  try {
+    const { purchases } = await NativePurchases.getPurchases({
+      productType: PURCHASE_TYPE.SUBS,
+    });
+
+
+    const subscription = purchases.find(
+      (purchase) =>
+        purchase.productIdentifier === 'premium_monthly' &&
+        (purchase.purchaseState === 'PURCHASED' || purchase.purchaseState === '1') &&
+        purchase.isAcknowledged,
+    );
+
+
+    if (!subscription) {
+      showPaywall();
+      return;
+    }
+
+
+    console.log('Subscription active:', {
+      productId: subscription.productIdentifier,
+      expiresAt: subscription.expirationDate,
+      willRenew: subscription.willCancel === false,
+      purchaseToken: subscription.purchaseToken,
+    });
+
+
+    unlockPremiumFeatures();
+  } catch (error) {
+    console.error('Failed to check subscription:', error);
+  }
+}
+```
+ ## If Your App Gets Rejected [Section titled “If Your App Gets Rejected”](#if-your-app-gets-rejected) ### Common Policy Violations [Section titled “Common Policy Violations”](#common-policy-violations) **Payments Policy:** * Not using Google Play Billing * Misleading subscription terms * Hidden costs **User Data Policy:** * Missing privacy policy * Inaccurate Data Safety declarations * Excessive permissions ### Resolution Steps [Section titled “Resolution Steps”](#resolution-steps) 1. **Review the Violation Notice** * Read the specific policy cited * Understand what Google flagged * Check examples they provided 2. **Fix the Issue** * Address root cause, not just symptoms * Test thoroughly after fix * Document all changes made 3. **Submit Appeal (if applicable)** ![Clarification and Appeal Process](/native-purchases/review-guides/clarification-process.webp) 
+   ```plaintext
+   Subject: Policy Violation Appeal - [App Name]
+
+
+   Dear Google Play Review Team,
+
+
+   I have received notification that my app violates [Policy X.Y].
+   I have made the following changes to comply:
+
+
+   1. [Specific change made]
+   2. [Specific change made]
+   3. [Specific change made]
+
+
+   The updated version [version number] addresses all concerns raised.
+
+
+   Test account for verification:
+   Email: test@example.com
+   Password: TestPass123
+
+
+   Thank you for your consideration.
+   ```
+ ![Request Documentation Example](/native-purchases/review-guides/request-documents.webp) 4. **Resubmit or Update** * Upload fixed version * Resubmit for review * Monitor status in Play Console ## Additional Resources [Section titled “Additional Resources”](#additional-resources) * [Google Play Developer Policy Center](https://play.google.com/about/developer-content-policy/) * [Google Play Billing Documentation](https://developer.android.com/google/play/billing) * [Subscriptions Best Practices](https://developer.android.com/google/play/billing/subscriptions) * [Prepare Your App for Review](https://support.google.com/googleplay/android-developer/answer/9859455) * [Testing Requirements for New Personal Accounts](https://support.google.com/googleplay/android-developer/answer/14151465) * [Play Console Help](https://support.google.com/googleplay/android-developer/) ## Need Expert Help? [Section titled “Need Expert Help?”](#need-expert-help) Navigating Play Store review can be complex, especially when you need to combine billing compliance, App content declarations, and testing-track setup. If you need personalized assistance: **[Book a consultation call with our team](https://book.capgo.app/consulting-services/)** for help with: * Complete Play Store review preparation * Testing track setup and tester recruitment * IAP implementation review * Data Safety and privacy compliance * Rejection troubleshooting and appeals * Complete app submission process Our experts have guided hundreds of apps through successful Play Store submissions and can help you navigate the current requirements. ## Support [Section titled “Support”](#support) Need help with implementation? * Review the [Native Purchases documentation](/docs/plugins/native-purchases/getting-started/) * Check [Android sandbox testing guide](/docs/plugins/native-purchases/android-sandbox-testing/) * Visit [Google Play Developer Support](https://support.google.com/googleplay/android-developer/) ## Keep going from Android Play Store Review Guidelines for IAP [Section titled “Keep going from Android Play Store Review Guidelines for IAP”](#keep-going-from-android-play-store-review-guidelines-for-iap) If you are using **Android Play Store Review Guidelines for IAP** to plan security and compliance, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [Encryption](/docs/live-updates/encryption/) for the implementation detail in Encryption, [Compliance](/docs/live-updates/compliance/) for the implementation detail in Compliance, [Capgo Security Scanner](/security-scanner/) for the product workflow in Capgo Security Scanner, and [Capgo Security](/security/) for the product workflow in Capgo Security.
+
+# Configure Android Sandbox Testing
+
+> Learn how to set up sandbox testing for in-app purchases on Android using Google Play Console.
+
+Testing in-app purchases requires proper configuration in Google Play Console. This guide will walk you through setting up sandbox testing for your Android app. ## Use the right build for the job [Section titled “Use the right build for the job”](#use-the-right-build-for-the-job) Before you start, separate these three Android build types: * **Local debug/dev build**: Good for checking UI and native integrations on your device. * **Signed release AAB uploaded to Play Console**: Required for realistic Google Play billing tests. * **Play-installed testing build**: The build your testers install from an internal or closed track. Use this for purchase QA. If you only sideload an APK from Android Studio or `adb`, Google Play Billing may not behave the same way it does in production. For subscription and in-app purchase validation, always test with a build installed from Google Play. ## Prerequisites [Section titled “Prerequisites”](#prerequisites) * A Google Play Console developer account. If you have not created one yet, start at [Play Console signup](https://play.google.com/console/signup). * An app record created in Play Console with your final Android package name * Your in-app products or subscriptions created in Play Console * A test Gmail account that you can add to license testing * A signed release build ready for upload Before you spend time on billing setup, create the app in Play Console and decide whether it will be **free** or **paid**. Google lets you move a paid app to free later, but once an app has been offered for free, it cannot be switched to paid. Use an Android App Bundle (`.aab`) for new Play Store apps: 
+```bash
+bunx cap sync android
+cd android
+./gradlew bundleRelease
+```
+ Make sure your Android release signing is already configured before you run `bundleRelease`. If your keystore, signing config, or release passwords are not set yet, create the signed bundle from Android Studio with **Build > Generate Signed App Bundle / APK**, which prompts you for those values. ## Setup Process [Section titled “Setup Process”](#setup-process) 1. **Add Testing Account** In Play Console, open **Settings > License testing** and add the primary Google account used on your Android test device. This ensures purchases show the Play sandbox flow instead of attempting a real charge. ![Add testing account](/native-purchases/android/sandbox-testing/add-testing-account.webp) 2. **Choose a Testing Track** Go to **Test and release > Testing** and choose one of these tracks: * **Internal testing**: Fastest path for QA and billing smoke tests. New bundles are normally available within minutes. * **Closed testing**: Better for broader testing, and required before production for personal developer accounts created after November 13, 2023. For a first release, Play may show a temporary app name and listing information to internal testers for up to 48 hours. ![Create testing track](/native-purchases/android/sandbox-testing/create-testing-track.webp) 3. **Create Tester List** After opening your track, create a tester list and add the Google accounts that should receive the build. If you are working toward production access on a newly created personal account, make sure you use **closed testing** and keep at least 12 testers opted in for 14 consecutive days. ![Create tester list](/native-purchases/android/sandbox-testing/create-tester-list.webp) 4. **Upload a Signed Release Build** Create a new release in the selected testing track and upload your signed `.aab`. New Google Play apps should use an Android App Bundle rather than an APK. After upload, save the release, fix any policy or store listing blockers Play flags, then publish the release to the testing track. ![Upload release build](/native-purchases/android/sandbox-testing/upload-signed-apk.webp) 5. **Join the Testing Program** Open the opt-in URL from your test device and click the **“Become a tester”** button to enroll. Install the app from the Play Store listing created by that opt-in flow, not from a locally exported APK. ![Join testing](/native-purchases/android/sandbox-testing/join-testing-program.webp) 6. **Build and Test** Launch the Play-installed build on the test device and attempt a purchase. You should see a message like: > “This is a test order; you will not be charged.” ![Test purchase](/native-purchases/android/sandbox-testing/test-purchase-confirmation.webp) ## Important Notes [Section titled “Important Notes”](#important-notes) * For billing QA, uninstall any sideloaded copy of the app before installing the Play testing build. * Internal testing is great for fast smoke tests, but closed testing is the track that matters for new personal-account production access. * Test accounts will not be charged for purchases * Test purchases use the same flow as production purchases * You can test all subscription features including trials and introductory offers * Test subscriptions have accelerated renewal periods for faster testing * Use the same Google account for all three places: the Play Store on the device, the tester opt-in flow, and License testing ## Troubleshooting [Section titled “Troubleshooting”](#troubleshooting) **Products not showing in test mode:** * Ensure your app is uploaded to a testing track * Verify the test account is added to License testing * Check that products are active in Google Play Console * Confirm the build was installed from Google Play, not sideloaded locally **“Item not available” error:** * Wait 2-3 hours after creating products for them to become available * Ensure your app’s package name matches the one in Play Console * Verify you’re signed in with a test account * Confirm you uploaded the signed release build that points at the same package name and product catalog **Test purchases showing as real charges:** * Double-check the account is added to License testing * Ensure you’re using the build from the testing track * Verify the testing banner appears during purchase ## Additional Resources [Section titled “Additional Resources”](#additional-resources) * [Test purchases with Google Play Billing](https://developer.android.com/google/play/billing/test) * [Set up an open, closed, or internal test](https://support.google.com/googleplay/android-developer/answer/9845334) * [Testing requirements for new personal developer accounts](https://support.google.com/googleplay/android-developer/answer/14151465) ## Keep going from Configure Android Sandbox Testing [Section titled “Keep going from Configure Android Sandbox Testing”](#keep-going-from-configure-android-sandbox-testing) If you are using **Configure Android Sandbox Testing** to plan store approval and distribution, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [@capgo/capacitor-in-app-review](/docs/plugins/in-app-review/) for the implementation detail in @capgo/capacitor-in-app-review, [Using @capgo/capacitor-in-app-review](/plugins/capacitor-in-app-review/) for the native capability in Using @capgo/capacitor-in-app-review, [@capgo/capacitor-native-market](/docs/plugins/native-market/) for the implementation detail in @capgo/capacitor-native-market, and [Using @capgo/capacitor-native-market](/plugins/capacitor-native-market/) for the native capability in Using @capgo/capacitor-native-market.
+
+# Getting Started
+
+> Learn how to install and use the @capgo/native-purchases plugin to implement one-time purchases and subscriptions with StoreKit 2 and Google Play Billing 7.
+
+## Installation [Section titled “Installation”](#installation) You can use our AI-Assisted Setup to install the plugin. Add the Capgo skills to your AI tool using the following command: 
+```bash
+npx skills add https://github.com/Cap-go/capgo-skills --skill capacitor-plugins
+```
+ Then use the following prompt: 
+```text
+Use the `capacitor-plugins` skill from `Cap-go/capgo-skills` to install the `@capgo/native-purchases` plugin in my project.
+```
+ If you prefer Manual Setup, install the plugin by running the following commands and follow the platform-specific instructions below: 1. **Install the package** 
+   ```sh
+   bun add @capgo/native-purchases
+   ```
+ 2. **Sync with native projects** 
+   ```sh
+   bunx cap sync
+   ```
+ 3. **Check billing support** 
+   ```typescript
+   import { NativePurchases } from '@capgo/native-purchases';
+
+
+   const { isBillingSupported } = await NativePurchases.isBillingSupported();
+   if (!isBillingSupported) {
+     throw new Error('Billing is not available on this device');
+   }
+   ```
+ 4. **Load products directly from the stores** 
+   ```typescript
+   import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+   const { products } = await NativePurchases.getProducts({
+     productIdentifiers: [
+       'com.example.premium.monthly',
+       'com.example.premium.yearly',
+       'com.example.one_time_unlock'
+     ],
+     productType: PURCHASE_TYPE.SUBS, // Use PURCHASE_TYPE.INAPP for one‑time products
+   });
+
+
+   products.forEach((product) => {
+     console.log(product.title, product.priceString);
+   });
+   ```
+ 5. **Implement purchase & restore flows** 
+   ```typescript
+   import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+   const monthlyPlanId = 'monthly-plan'; // Base Plan ID from Google Play Console
+
+
+   const transaction = await NativePurchases.purchaseProduct({
+     productIdentifier: 'com.example.premium.monthly',
+     planIdentifier: monthlyPlanId,        // REQUIRED for Android subscriptions, ignored on iOS
+     productType: PURCHASE_TYPE.SUBS,
+     quantity: 1,
+   });
+
+
+   console.log('Transaction ID', transaction.transactionId);
+
+
+   await NativePurchases.restorePurchases();
+   ```
+ * iOS * Create in-app products and subscriptions in App Store Connect. * Use StoreKit Local Testing or Sandbox testers for QA. * No manifest edits required. Make sure your products are approved. * Android * Create in-app products and subscriptions in Google Play Console. * Upload at least an internal test build and add license testers. * Add the billing permission to `AndroidManifest.xml`: 
+     ```xml
+     <uses-permission android:name="com.android.vending.BILLING" />
+     ```
+ ## Purchase service example [Section titled “Purchase service example”](#purchase-service-example) 
+```typescript
+import { NativePurchases, PURCHASE_TYPE, Transaction } from '@capgo/native-purchases';
+import { Capacitor } from '@capacitor/core';
+
+
+class PurchaseService {
+  private premiumProduct = 'com.example.premium.unlock';
+  private monthlySubId = 'com.example.premium.monthly';
+  private monthlyPlanId = 'monthly-plan'; // Base Plan ID (Android only)
+
+
+  async initialize() {
+    const { isBillingSupported } = await NativePurchases.isBillingSupported();
+    if (!isBillingSupported) throw new Error('Billing unavailable');
+
+
+    const { products } = await NativePurchases.getProducts({
+      productIdentifiers: [this.premiumProduct, this.monthlySubId],
+      productType: PURCHASE_TYPE.SUBS,
+    });
+
+
+    console.log('Loaded products', products);
+
+
+    if (Capacitor.getPlatform() === 'ios') {
+      NativePurchases.addListener('transactionUpdated', (transaction) => {
+        this.handleTransaction(transaction);
+      });
+    }
+  }
+
+
+  async buyPremium(appAccountToken?: string) {
+    const transaction = await NativePurchases.purchaseProduct({
+      productIdentifier: this.premiumProduct,
+      productType: PURCHASE_TYPE.INAPP,
+      appAccountToken,
+    });
+
+
+    await this.processTransaction(transaction);
+  }
+
+
+  async buyMonthly(appAccountToken?: string) {
+    const transaction = await NativePurchases.purchaseProduct({
+      productIdentifier: this.monthlySubId,
+      planIdentifier: this.monthlyPlanId, // REQUIRED for Android subscriptions
+      productType: PURCHASE_TYPE.SUBS,
+      appAccountToken,
+    });
+
+
+    await this.processTransaction(transaction);
+  }
+
+
+  async restore() {
+    await NativePurchases.restorePurchases();
+    await this.refreshEntitlements();
+  }
+
+
+  async openManageSubscriptions() {
+    await NativePurchases.manageSubscriptions();
+  }
+
+
+  private async processTransaction(transaction: Transaction) {
+    this.unlockContent(transaction.productIdentifier);
+    this.validateOnServer(transaction).catch(console.error);
+  }
+
+
+  private unlockContent(productIdentifier: string) {
+    // persist entitlement locally
+    console.log('Unlocked', productIdentifier);
+  }
+
+
+  private async refreshEntitlements() {
+    const { purchases } = await NativePurchases.getPurchases({
+      productType: PURCHASE_TYPE.SUBS,
+    });
+    console.log('Current purchases', purchases);
+  }
+
+
+  private async handleTransaction(transaction: Transaction) {
+    console.log('StoreKit transaction update:', transaction);
+    await this.processTransaction(transaction);
+  }
+
+
+  private async validateOnServer(transaction: Transaction) {
+    await fetch('/api/validate-purchase', {
+      method: 'POST',
+      body: JSON.stringify({
+        transactionId: transaction.transactionId,
+        receipt: transaction.receipt,
+        purchaseToken: transaction.purchaseToken,
+      }),
+    });
+  }
+}
+```
+ ## Required purchase options [Section titled “Required purchase options”](#required-purchase-options) | Option | Platform | Description | | ------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | | `productIdentifier` | iOS + Android | SKU/Product ID configured in App Store Connect / Google Play Console. | | `productType` | Android only | `PURCHASE_TYPE.INAPP` or `PURCHASE_TYPE.SUBS`. Defaults to `INAPP`. Always set to `SUBS` for subscriptions. | | `planIdentifier` | Android subscriptions | Base Plan ID from Google Play Console. Required for subscriptions, ignored on iOS and in-app purchases. | | `billingPlanType` | iOS subscriptions | StoreKit billing plan to purchase. Use `'monthly'` for monthly billing with a 12-month commitment when `product.pricingTerms` exposes that option. | | `quantity` | iOS | Only for in-app purchases, defaults to `1`. Android always purchases one item. | | `appAccountToken` | iOS + Android | UUID/string linking the purchase to your user. Required to be UUID on iOS; Android accepts any obfuscated string up to 64 chars. | | `isConsumable` | Android | Set to `true` to auto-consume tokens after granting entitlement for consumables. Defaults to `false`. | ## Checking entitlement status [Section titled “Checking entitlement status”](#checking-entitlement-status) Use `getPurchases()` for a cross-platform view of every transaction the stores report: 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+const { purchases } = await NativePurchases.getPurchases({
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+purchases.forEach((purchase) => {
+  if (purchase.isActive && purchase.expirationDate) {
+    console.log('iOS sub active until', purchase.expirationDate);
+  }
+
+
+  const isAndroidIapValid =
+    ['PURCHASED', '1'].includes(purchase.purchaseState ?? '') && purchase.isAcknowledged;
+
+
+  if (isAndroidIapValid) {
+    console.log('Grant in-app entitlement for', purchase.productIdentifier);
+  }
+});
+```
+ ### Platform behavior [Section titled “Platform behavior”](#platform-behavior) * **iOS**: Subscriptions include `isActive`, `expirationDate`, `willCancel`, and StoreKit 2 listener support. In-app purchases require server receipt validation. * **Android**: `isActive`/`expirationDate` are not populated; call the Google Play Developer API with the `purchaseToken` for authoritative status. `purchaseState` must be `PURCHASED` and `isAcknowledged` must be `true`. ## API quick reference [Section titled “API quick reference”](#api-quick-reference) * `isBillingSupported()` – check for StoreKit / Google Play availability. * `getProduct()` / `getProducts()` – fetch price, localized title, description, intro offers, and supported iOS pricing terms. * `purchaseProduct()` – initiate StoreKit 2 or Billing client purchase flow, including iOS monthly commitment billing plans. * `restorePurchases()` – replay historical purchases and sync to current device. * `getPurchases()` – list all iOS transactions or Play Billing purchases. * `manageSubscriptions()` – open the native subscription management UI. * `addListener('transactionUpdated')` – handle pending StoreKit 2 transactions when your app starts (iOS only). ## Best practices [Section titled “Best practices”](#best-practices) 1. **Show store pricing** – Apple requires displaying `product.title` and `product.priceString`; never hardcode. 2. **Use `appAccountToken`** – deterministically generate a UUID (v5) from your user ID to link purchases to accounts. 3. **Validate server-side** – send `receipt` (iOS) / `purchaseToken` (Android) to your backend for verification. 4. **Handle errors gracefully** – check for user cancellations, network failures, and unsupported billing environments. 5. **Test thoroughly** – follow the [iOS sandbox guide](/docs/plugins/native-purchases/ios-sandbox-testing/) and [Android sandbox guide](/docs/plugins/native-purchases/android-sandbox-testing/). 6. **Offer restore & management** – add UI buttons wired to `restorePurchases()` and `manageSubscriptions()`. ## Revenue next steps [Section titled “Revenue next steps”](#revenue-next-steps) After the purchase flow works, use the [Revenue Playbook](/docs/plugins/native-purchases/revenue-playbook/) to plan your first paid funnel: product scope, ASO, pricing, paywall placement, analytics, and churn feedback. ## Troubleshooting [Section titled “Troubleshooting”](#troubleshooting) **Products not loading** * Make sure the bundle ID / application ID matches store configuration. * Confirm the product IDs are active and approved (App Store) or activated (Google Play). * Wait several hours after creating products; store propagation is not instant. **Purchase cancelled or stuck** * Users can cancel mid-flow; wrap calls in `try/catch` and surface friendly error messages. * For Android, ensure test accounts install the app from Play Store (internal track) so Billing works. * Check logcat/Xcode for billing errors when running on device. **Subscription state incorrect** * Use `getPurchases()` to compare store data with your local entitlement cache. * On Android, always query the Google Play Developer API with the `purchaseToken` to obtain expiration dates or refund status. * On iOS, check `isActive`/`expirationDate` and validate receipts to detect refunds or revocations. ## Keep going from Getting Started [Section titled “Keep going from Getting Started”](#keep-going-from-getting-started) If you are using **Getting Started** to plan store approval and distribution, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [@capgo/capacitor-in-app-review](/docs/plugins/in-app-review/) for the implementation detail in @capgo/capacitor-in-app-review, [Using @capgo/capacitor-in-app-review](/plugins/capacitor-in-app-review/) for the native capability in Using @capgo/capacitor-in-app-review, [@capgo/capacitor-native-market](/docs/plugins/native-market/) for the implementation detail in @capgo/capacitor-native-market, and [Using @capgo/capacitor-native-market](/plugins/capacitor-native-market/) for the native capability in Using @capgo/capacitor-native-market.
+
+# iOS App Store Review Guidelines for IAP
+
+> Complete guide to passing App Store review with in-app purchases and subscriptions, including common rejection reasons and best practices.
+
+Getting your app approved on the App Store requires careful attention to Apple’s guidelines, especially when implementing in-app purchases and subscriptions. This guide covers everything you need to know to pass review on your first submission. ![iOS App Store Review Process](/native-purchases/review-guides/ios-review-hero.webp) ## Before You Submit [Section titled “Before You Submit”](#before-you-submit) ### Finish App Store Connect Setup [Section titled “Finish App Store Connect Setup”](#finish-app-store-connect-setup) Before Apple reviews your purchase flow, make sure the app record itself is complete: * Add a **Privacy Policy URL** in App Store Connect * Add a **Support URL** that leads to real contact information for users * Complete the **age rating** questionnaire so the app is publishable * Add **App Review contact details** and clear reviewer notes * If login is required, provide a **demo account that does not expire during review** ![App Store listing metadata with policy and support links](/_docs/policy-links.7G8uCyBB.png) ### Prepare Real Screenshots [Section titled “Prepare Real Screenshots”](#prepare-real-screenshots) * Use current screenshots from the actual build under review * For iPhone, `1290 x 2796` (6.7-inch) is the easiest default size * If your app runs on iPad, upload iPad screenshots too * Current accepted large iPad sizes include `2064 x 2752` (13-inch) and `2048 x 2732` (12.9-inch) * Never stretch iPhone screenshots to fake iPad support ### Dry-Run the Reviewer Journey in TestFlight [Section titled “Dry-Run the Reviewer Journey in TestFlight”](#dry-run-the-reviewer-journey-in-testflight) Run the exact path Apple will follow on a real device: * Install the latest build from TestFlight * Sign in with the review account you plan to provide * Reach the paywall without hidden gestures or debug menus * Complete purchase, restore, and manage-subscription flows * Verify the app still behaves correctly if permissions are denied ## In-App Purchase Requirements [Section titled “In-App Purchase Requirements”](#in-app-purchase-requirements) ### Pricing Transparency (Critical) [Section titled “Pricing Transparency (Critical)”](#pricing-transparency-critical) Apple requires crystal-clear pricing disclosure before any purchase: **Must-Have Elements:** * Display exact price before purchase button * Show billing frequency (e.g., “$9.99/month”) * Clearly state what users get for their money * Indicate when charges will occur **Common Rejection:** > “Subscription pricing must be clear and upfront.” :::caution Price Consistency All prices must match across: * App Store metadata listing * In-app purchase screens * Subscription management screens Even a $1 discrepancy between store listing ($4.99) and app ($5.99) will trigger automatic rejection. ::: ### Subscription Plan Presentation [Section titled “Subscription Plan Presentation”](#subscription-plan-presentation) **Required Disclosures:** * All available subscription tiers displayed together * Clear comparison of features per tier * No auto-defaulting to premium tiers through UI tricks * Easy-to-locate cancellation instructions ![UI Design Dos and Don'ts](/native-purchases/review-guides/ui-design-dos-donts.webp) ![Paywall with restore purchases and legal links](/_docs/paywall-links.cIq_wEKi.png) **Example of Compliant UI:** 
+```typescript
+import { NativePurchases } from '@capgo/native-purchases';
+
+
+function SubscriptionScreen() {
+  return (
+    <div>
+      <h2>Choose Your Plan</h2>
+
+
+      {/* Show all tiers equally */}
+      <PlanCard
+        title="Basic"
+        price="$4.99/month"
+        features={['Feature A', 'Feature B']}
+      />
+      <PlanCard
+        title="Premium"
+        price="$9.99/month"
+        features={['All Basic', 'Feature C', 'Feature D']}
+        highlighted={false} // Don't force premium
+      />
+
+
+      {/* Clear cancellation info */}
+      <Text>
+        Cancel anytime in Settings > Subscriptions.
+        No refunds for partial periods.
+      </Text>
+    </div>
+  );
+}
+```
+ ### Restore Purchases [Section titled “Restore Purchases”](#restore-purchases) **Required Implementation:** Every app with IAP must provide a way for users to restore previous purchases without contacting support. 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+async function restorePurchases() {
+  try {
+    await NativePurchases.restorePurchases();
+
+
+    const { purchases } = await NativePurchases.getPurchases({
+      productType: PURCHASE_TYPE.SUBS,
+    });
+
+
+    const activeSub = purchases.find(
+      (purchase) => purchase.isActive && purchase.expirationDate,
+    );
+
+
+    if (activeSub) {
+      unlockPremiumFeatures();
+      showMessage('Purchases restored successfully!');
+      return;
+    }
+
+
+    const { purchases: iaps } = await NativePurchases.getPurchases({
+      productType: PURCHASE_TYPE.INAPP,
+    });
+    const hasIap = iaps.some((purchase) => purchase.productIdentifier === 'premium_unlock');
+
+
+    showMessage(
+      hasIap ? 'Premium purchase restored!' : 'No previous purchases found.',
+    );
+  } catch (error) {
+    showError('Failed to restore purchases. Please try again.');
+  }
+}
+
+
+// Add a visible "Restore Purchases" button
+<Button onClick={restorePurchases}>
+  Restore Purchases
+</Button>
+```
+ ## Common Rejection Reasons [Section titled “Common Rejection Reasons”](#common-rejection-reasons) ### 1. App Crashes or Broken Functionality [Section titled “1. App Crashes or Broken Functionality”](#1-app-crashes-or-broken-functionality) **Why It Fails:** * App crashes on launch * Purchase flow fails to complete * Features shown in screenshots don’t work **Prevention:** * Test on real devices (not just simulators) * Test all subscription flows end-to-end * Verify receipt validation works * Check network error handling ### 2. Metadata Mismatches [Section titled “2. Metadata Mismatches”](#2-metadata-mismatches) **Why It Fails:** * Screenshots show features not in current build * Description mentions functionality that doesn’t exist * Pricing in metadata differs from in-app pricing ![Metadata Checklist](/native-purchases/review-guides/metadata-checklist.webp) **Prevention:** 
+```typescript
+// Document exactly what's in each tier
+const SUBSCRIPTION_FEATURES = {
+  basic: ['Ad-free', 'Cloud sync', 'Basic themes'],
+  premium: ['Ad-free', 'Cloud sync', 'All themes', 'Priority support']
+};
+
+
+// Use these in both your app AND App Store description
+```
+ ### 3. Missing Permission Explanations [Section titled “3. Missing Permission Explanations”](#3-missing-permission-explanations) **Why It Fails:** * Requesting camera/location/health without explanation * Permission requests buried multiple screens deep * Vague or generic permission descriptions **Prevention:** Update your `Info.plist` with clear explanations: ![Permission copy that is too vague for review](/_docs/rejected-permissions.B718tC7_.webp) ![Permission copy with clearer explanations](/_docs/accepted-permissions.DfOXuL54.png) 
+```xml
+<key>NSCameraUsageDescription</key>
+<string>Camera access is needed to scan product barcodes for quick subscription upgrades.</string>
+
+
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>Location helps us show relevant local content in your Premium subscription.</string>
+```
+ ### 4. Misleading Marketing [Section titled “4. Misleading Marketing”](#4-misleading-marketing) **Why It Fails:** * Claims like “#1 app in world” without proof * “Unlimited” features that have hidden limits * Fake urgency tactics (“Only 2 spots left!”) ![Description Guidelines Examples](/native-purchases/review-guides/description-guidelines-1.webp) ![Additional Description Guidelines](/native-purchases/review-guides/description-guidelines-2.webp) **Prevention:** * Be specific and factual in descriptions * Avoid superlatives without evidence * Don’t pressure users with fake scarcity ### 5. Hidden Cancellation Process [Section titled “5. Hidden Cancellation Process”](#5-hidden-cancellation-process) **Why It Fails:** * No mention of how to cancel * Cancellation button hidden or obscured * Multi-step cancellation process without Apple’s native flow **Prevention:** 
+```typescript
+// Always inform users about cancellation
+function SubscriptionInfo() {
+  return (
+    <div>
+      <h3>How to Cancel</h3>
+      <ol>
+        <li>Open iPhone Settings</li>
+        <li>Tap your name at the top</li>
+        <li>Tap Subscriptions</li>
+        <li>Select this app and tap Cancel</li>
+      </ol>
+
+
+      <p>Or manage directly in the App Store app.</p>
+
+
+      <Button onClick={openSubscriptionManagement}>
+        Manage Subscription in Settings
+      </Button>
+    </div>
+  );
+}
+
+
+async function openSubscriptionManagement() {
+  // Direct link to iOS subscription management
+  await NativePurchases.showManageSubscriptions();
+}
+```
+ ## Privacy & Data Usage (Section 5.1.1) [Section titled “Privacy & Data Usage (Section 5.1.1)”](#privacy--data-usage-section-511) Apple has significantly tightened privacy requirements in 2025. ### Required Disclosures [Section titled “Required Disclosures”](#required-disclosures) **For Every Permission:** 1. Why you need it (specific use case) 2. When it will be used 3. How data is stored/shared 4. Whether it’s optional or required ### Example: Proper Permission Flow [Section titled “Example: Proper Permission Flow”](#example-proper-permission-flow) 
+```typescript
+async function requestCameraPermission() {
+  // Show explanation BEFORE requesting
+  await showDialog({
+    title: 'Camera Access',
+    message: 'We need camera access to let you scan barcodes for quick product lookup. Your photos are never uploaded or stored.',
+    buttons: ['Not Now', 'Allow']
+  });
+
+
+  // Then request permission
+  const result = await Camera.requestPermissions();
+  return result.camera === 'granted';
+}
+```
+ ### Privacy Nutrition Labels [Section titled “Privacy Nutrition Labels”](#privacy-nutrition-labels) Ensure your App Store privacy labels accurately reflect: * Purchase history collection * Email addresses (for receipts) * Device IDs (for fraud prevention) * Usage data (for analytics) Inaccurate privacy labels are a common rejection reason in 2025. Audit your data collection carefully. ## Pre-Submission Checklist [Section titled “Pre-Submission Checklist”](#pre-submission-checklist) ![Pre-Submission Checklist](/native-purchases/review-guides/pre-submission-checklist.webp) 1. **Test All Purchase Flows** * Buy each subscription tier * Test free trials * Verify introductory offers apply correctly * Test restore purchases * Verify Family Sharing (if enabled) * Test on multiple devices 2. **Verify Pricing Consistency** * Check App Store metadata matches in-app prices * Verify all currencies are correct * Confirm free trial durations match descriptions * Check introductory offer terms are accurate 3. **Review All Copy** * Remove placeholder text * Verify claims are testable * Check grammar and spelling * Ensure descriptions match current build * Remove competitor mentions 4. **Test Permissions** * Request only necessary permissions * Show clear explanations before requesting * Test “Deny” flows (app should still work) * Verify Info.plist descriptions are clear 5. **Prepare Test Account** * Create a review account that remains valid during review * Document login credentials in App Review information * Verify the reviewer can reach the paywall and complete the purchase flow * Include extra accounts or app-specific switches in the Notes field if needed 6. **Check Metadata** * Screenshots match current UI * Support URL includes real contact information * Privacy policy URL is filled in * Age rating matches the content in the build * App preview video (if any) shows current version * Description accurately describes features * Privacy policy is accessible in-app and from the store listing 7. **Write Detailed Review Notes** 
+   ```plaintext
+   Contact:
+   Name: Jane Developer
+   Email: review@yourapp.com
+   Phone: +1 555-0100
+
+
+   Test Account:
+   Email: reviewer@test.com
+   Password: TestPass123!
+   This account does not expire during review.
+
+
+   Testing Instructions:
+   1. Log in with test account above
+   2. Tap "Upgrade to Premium" button
+   3. Select "Monthly Premium" subscription
+   4. Complete purchase (no charge in sandbox)
+   5. Verify premium features unlock
+
+
+   Note: Subscription pricing is clearly shown before purchase.
+   Cancellation instructions are in Settings > Account.
+   ```
+ ## Review Timeline [Section titled “Review Timeline”](#review-timeline) ![App Store Review Timeline](/native-purchases/review-guides/review-timeline.webp) **Standard Review:** 24-48 hours **Peak Periods:** 3-5 days (App Store holiday releases) **Weekends:** No reviews processed **Expedited Review:** Available for critical bug fixes (request via App Store Connect) Common statuses you will see in App Store Connect: * `Waiting for Review` * `In Review` * `Pending Developer Release` * `Rejected` ## 2026 Submission Focus [Section titled “2026 Submission Focus”](#2026-submission-focus) ### Current Focus Areas [Section titled “Current Focus Areas”](#current-focus-areas) **1. Subscription Clarity** * Side-by-side plan comparisons required * No “dark patterns” that hide cheaper options * Clear downgrade/upgrade paths **2. Metadata Accuracy** * Screenshots must match the build being reviewed * iPad screenshots are required if iPad support is enabled * Support URL and privacy policy should already be live before submission **3. Privacy and Review Detail Quality** * Privacy disclosures must match what your SDKs actually collect * App Review contact info and notes should be complete on the first submission * Demo credentials must stay valid for the full review window **4. Submission Readiness** * Apple updates minimum SDK requirements regularly, so confirm the current deadline before uploading a release build * TestFlight is the safest place to verify the exact reviewer path before you submit ## Best Practices for Native Purchases Plugin [Section titled “Best Practices for Native Purchases Plugin”](#best-practices-for-native-purchases-plugin) ### Implement Proper Error Handling [Section titled “Implement Proper Error Handling”](#implement-proper-error-handling) 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+async function handlePurchase(productId: string) {
+  try {
+    const transaction = await NativePurchases.purchaseProduct({
+      productIdentifier: productId,
+      productType: PURCHASE_TYPE.SUBS,
+    });
+
+
+    // Success
+    await validateReceiptOnServer(transaction.receipt);
+    showSuccess('Subscription activated!');
+    unlockFeatures();
+
+
+  } catch (error: any) {
+    // Handle specific error cases
+    if (error.code === 'USER_CANCELLED') {
+      // User cancelled - don't show error
+      console.log('Purchase cancelled by user');
+    } else if (error.code === 'PAYMENT_PENDING') {
+      showInfo('Payment is pending. Please check back later.');
+    } else if (error.code === 'PRODUCT_ALREADY_PURCHASED') {
+      // Restore instead
+      await NativePurchases.restorePurchases();
+    } else {
+      // Show user-friendly error
+      showError('Unable to complete purchase. Please try again.');
+    }
+  }
+}
+```
+ ### Display Loading States [Section titled “Display Loading States”](#display-loading-states) 
+```typescript
+function PurchaseButton({ productId }: { productId: string }) {
+  const [loading, setLoading] = useState(false);
+
+
+  const handlePurchase = async () => {
+    setLoading(true);
+    try {
+      await NativePurchases.purchaseProduct({ productIdentifier: productId });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  return (
+    <button onClick={handlePurchase} disabled={loading}>
+      {loading ? 'Processing...' : 'Subscribe Now'}
+    </button>
+  );
+}
+```
+ ### Show Terms Clearly [Section titled “Show Terms Clearly”](#show-terms-clearly) 
+```typescript
+function SubscriptionTerms() {
+  return (
+    <div className="terms">
+      <p>
+        Subscription automatically renews unless cancelled at least 24 hours
+        before the end of the current period.
+      </p>
+      <p>
+        Your account will be charged for renewal within 24 hours prior to
+        the end of the current period.
+      </p>
+      <p>
+        Subscriptions may be managed by the user and auto-renewal may be
+        turned off in Account Settings after purchase.
+      </p>
+      <p>
+        <a href="/terms">Terms of Service</a> |
+        <a href="/privacy/">Privacy Policy</a>
+      </p>
+    </div>
+  );
+}
+```
+ ## If Your App Gets Rejected [Section titled “If Your App Gets Rejected”](#if-your-app-gets-rejected) ### Steps to Resolve [Section titled “Steps to Resolve”](#steps-to-resolve) 1. **Read the rejection carefully** * Note the specific guideline cited (e.g., 3.1.1, 5.1.1) * Understand exactly what Apple flagged 2. **Fix the issue thoroughly** * Don’t just patch - fix root cause * Test the fix extensively * Document what you changed 3. **Respond in Resolution Center** 
+   ```plaintext
+   Thank you for your feedback. I have addressed the issue:
+
+
+   Issue: Subscription pricing not clear upfront
+
+
+   Fix: Added explicit pricing display on subscription selection
+   screen showing "$9.99/month" before purchase button. Also added
+   cancellation instructions on the same screen.
+
+
+   The changes are in this submission and can be tested using the
+   provided test account.
+   ```
+ 4. **Resubmit promptly** * Resubmissions are typically reviewed faster * Usually within 24 hours ### Appeal Process [Section titled “Appeal Process”](#appeal-process) If you believe the rejection is incorrect: ![App Store Clarification Process](/native-purchases/review-guides/clarification-process.webp) 1. Click “Appeal” in App Store Connect 2. Provide clear evidence: * Screenshots showing compliance * References to specific guidelines * Explanation of how you meet requirements 3. Be professional and factual 4. Include test account if functionality is hard to find ![Request for Documents Example](/native-purchases/review-guides/request-documents.webp) ## Additional Resources [Section titled “Additional Resources”](#additional-resources) * [Apple App Store Review Guidelines](https://developer.apple.com/app-store/review/guidelines/) * [In-App Purchase Guidelines](https://developer.apple.com/app-store/review/guidelines/#in-app-purchase) * [Subscriptions Best Practices](https://developer.apple.com/app-store/subscriptions/) * [App Store Connect Help](https://developer.apple.com/help/app-store-connect/) * [Screenshot Specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications) * [Platform Version Information](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information) ## Support [Section titled “Support”](#support) If you’re still having issues: * Review the [Native Purchases documentation](/docs/plugins/native-purchases/getting-started/) * Check [common troubleshooting issues](/docs/plugins/native-purchases/getting-started/#troubleshooting) * Contact Apple Developer Support for guideline clarifications ### Need Expert Help? [Section titled “Need Expert Help?”](#need-expert-help) Struggling with app review or need personalized assistance? **[Book a consultation call with our team](https://book.capgo.app/consulting-services/)** for dedicated support with: * IAP implementation review and optimization * App Store review preparation and strategy * Submission checklist review * Rejection resolution and appeals * Complete testing and validation Our experts have successfully helped hundreds of apps pass review! ## Keep going from iOS App Store Review Guidelines for IAP [Section titled “Keep going from iOS App Store Review Guidelines for IAP”](#keep-going-from-ios-app-store-review-guidelines-for-iap) If you are using **iOS App Store Review Guidelines for IAP** to plan store approval and distribution, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [@capgo/capacitor-in-app-review](/docs/plugins/in-app-review/) for the implementation detail in @capgo/capacitor-in-app-review, [Using @capgo/capacitor-in-app-review](/plugins/capacitor-in-app-review/) for the native capability in Using @capgo/capacitor-in-app-review, [@capgo/capacitor-native-market](/docs/plugins/native-market/) for the implementation detail in @capgo/capacitor-native-market, and [Using @capgo/capacitor-native-market](/plugins/capacitor-native-market/) for the native capability in Using @capgo/capacitor-native-market.
+
+# Create iOS Auto-Renewable Subscription
+
+> Step-by-step guide to creating auto-renewable subscriptions in App Store Connect for the native-purchases plugin.
+
+Auto-renewable subscriptions provide recurring access to content, services, or premium features in your iOS app. This guide walks you through creating subscriptions in App Store Connect. ## Overview [Section titled “Overview”](#overview) Auto-renewable subscriptions automatically renew at the end of each billing period until users cancel. They’re perfect for: * Premium content and features * Ad-free experiences * Cloud storage and sync * Streaming services * Professional tools and utilities ## Prerequisites [Section titled “Prerequisites”](#prerequisites) Before creating subscriptions, you must: 1. [Create a subscription group](/docs/plugins/native-purchases/ios-subscription-group/) to organize your subscriptions 2. Have an active Apple Developer Program membership 3. Complete banking and tax information in App Store Connect ## Creating a Subscription [Section titled “Creating a Subscription”](#creating-a-subscription) 1. **Navigate to Subscriptions** In App Store Connect, select your app and go to **Monetize > Subscriptions**. Select your subscription group or create a new one if needed. ![Navigate to subscriptions](/native-purchases/ios/create-subscription/navigate-to-subscriptions.webp) 2. **Create New Subscription** Click the **+** icon next to your subscription group to add a new subscription. 3. **Enter Basic Information** **Reference Name**: Descriptive name for your internal use (not shown to customers) * Examples: “Premium Monthly”, “Ultimate Annual”, “Basic Plan” **Product ID**: Unique identifier for this subscription (cannot be changed later) * Format: `com.yourcompany.yourapp.premium_monthly` * Use descriptive, lowercase names with underscores * Required for configuring the native-purchases plugin ![Enter subscription details](/native-purchases/ios/create-subscription/enter-subscription-info.webp) 4. **Configure Duration** Select the subscription duration from available options: * 1 week * 1 month * 2 months * 3 months * 6 months * 1 year The duration determines how often users are billed. 5. **Set Up Pricing** Click **Add Subscription Price** to configure pricing: **Base Territory**: Select your primary market (usually your country) **Price**: Set the subscription price * Apple automatically converts to other currencies * Choose from Apple’s price tiers * Consider perceived value and market rates ![Configure pricing](/native-purchases/ios/create-subscription/configure-pricing.webp) 6. **Family Sharing (Optional)** Decide whether to enable Family Sharing, which allows up to 6 family members to access the subscription. Caution Once Family Sharing is enabled, it cannot be turned off for this product. **Enable if:** * Content is appropriate for family use * You want to increase value proposition * Your business model supports it **Don’t enable if:** * Subscription is for individual use only * Content is personalized to the user * You want to maximize revenue per user 7. **Add Localizations** Add subscription display information in all languages your app supports: **Subscription Display Name**: Customer-facing name (e.g., “Premium Monthly”) **Description**: Brief description of what the subscription includes * Keep it concise and benefit-focused * Mention key features * Highlight value proposition ![Add localizations](/native-purchases/ios/create-subscription/add-localization.webp) 8. **App Store Promotional Image (Optional)** Upload a promotional image for this subscription (312x390 pixels): * Shows in the App Store subscription page * Should match your app’s design * Include subscription name for clarity 9. **Save and Submit** Click **Save** to create the subscription. **For First Subscription:** * Must be submitted with a new app version * Include in your next App Store submission * Cannot submit independently **For Subsequent Subscriptions:** * Can be submitted directly from the Subscriptions page * Don’t require a new app version * Available after first subscription is approved ## Subscription Status [Section titled “Subscription Status”](#subscription-status) Your subscription will have one of these statuses: | Status | Description | Can Test? | | ---------------------- | -------------------------- | ------------- | | **Missing Metadata** | Incomplete setup | Yes (sandbox) | | **Ready to Submit** | Complete but not submitted | Yes (sandbox) | | **Waiting for Review** | Submitted to Apple | Yes (sandbox) | | **In Review** | Being reviewed by Apple | Yes (sandbox) | | **Approved** | Available for purchase | Yes | | **Rejected** | Needs changes | Yes (sandbox) | ## Using in Your App [Section titled “Using in Your App”](#using-in-your-app) Once created, reference the subscription in your app using the product ID: 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+// Fetch subscription products direct from StoreKit
+const { products } = await NativePurchases.getProducts({
+  productIdentifiers: [
+    'com.yourcompany.yourapp.premium_monthly',
+    'com.yourcompany.yourapp.premium_annual',
+  ],
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+products.forEach((product) => {
+  console.log(`${product.title}: ${product.priceString}`);
+  console.log(`Duration: ${product.subscriptionPeriod}`);
+  console.log(`Description: ${product.description}`);
+});
+
+
+// Purchase a subscription (StoreKit 2 automatically handles intro pricing and offers)
+try {
+  const transaction = await NativePurchases.purchaseProduct({
+    productIdentifier: 'com.yourcompany.yourapp.premium_monthly',
+    productType: PURCHASE_TYPE.SUBS,
+  });
+
+
+  console.log('Transaction ID:', transaction.transactionId);
+
+
+  // StoreKit receipts are included on iOS for server-side validation
+  await sendReceiptToBackend(transaction.receipt);
+} catch (error) {
+  console.error('Purchase failed:', error);
+}
+
+
+// Check subscription status using the store's data
+const { purchases } = await NativePurchases.getPurchases({
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+const premium = purchases.find(
+  (purchase) => purchase.productIdentifier === 'com.yourcompany.yourapp.premium_monthly',
+);
+
+
+if (premium?.isActive) {
+  console.log('Expires:', premium.expirationDate);
+  console.log('Will renew:', premium.willCancel === false);
+  console.log('Store state:', premium.subscriptionState);
+  unlockPremiumFeatures();
+} else {
+  showPaywall();
+}
+```
+ ## Monthly with 12-Month Commitment Plans [Section titled “Monthly with 12-Month Commitment Plans”](#monthly-with-12-month-commitment-plans) If your App Store Connect subscription is configured with a monthly billing plan and 12-month commitment, StoreKit can return additional pricing terms for that product. Use those terms to show the monthly charge, total commitment price, and full commitment period before purchase. 
+```typescript
+const yearlyProduct = products.find(
+  (product) => product.identifier === 'com.yourcompany.yourapp.premium_annual',
+);
+
+
+const monthlyCommitment = yearlyProduct?.pricingTerms?.find(
+  (term) => term.billingPlanType === 'monthly',
+);
+
+
+if (yearlyProduct && monthlyCommitment) {
+  console.log('Monthly charge:', monthlyCommitment.billingDisplayPrice);
+  console.log('Total commitment:', monthlyCommitment.commitmentInfo?.priceString);
+
+
+  await NativePurchases.purchaseProduct({
+    productIdentifier: yearlyProduct.identifier,
+    productType: PURCHASE_TYPE.SUBS,
+    billingPlanType: 'monthly',
+  });
+}
+```
+ For the full paywall and entitlement flow, see [iOS monthly commitment billing plans](/docs/plugins/native-purchases/ios-monthly-commitment/). ## Best Practices [Section titled “Best Practices”](#best-practices) ### Pricing Strategy [Section titled “Pricing Strategy”](#pricing-strategy) * **Monthly plans**: Lower barrier to entry, builds habit * **Annual plans**: Better value, higher LTV, lower churn * **Multiple tiers**: Basic, Premium, Ultimate for different user segments * **Competitive analysis**: Research similar apps’ pricing ### Product IDs [Section titled “Product IDs”](#product-ids) * Use consistent naming: `company.app.tier_duration` * Include tier and duration in ID: `premium_monthly`, `ultimate_annual` * Avoid changing product IDs (they’re permanent) * Document all product IDs for your team ### Family Sharing [Section titled “Family Sharing”](#family-sharing) * Enable for family-oriented apps (games, educational, entertainment) * Consider impact on revenue * Test sharing behavior thoroughly * Communicate sharing capability in marketing ### Localization [Section titled “Localization”](#localization) * Translate all subscription names and descriptions * Consider regional pricing differences * Test display in all supported languages * Use culturally appropriate marketing language ### Promotional Images [Section titled “Promotional Images”](#promotional-images) * Maintain consistent visual style * Include subscription name and key benefit * Update for seasonal promotions * Match app’s overall design language ## Common Subscription Patterns [Section titled “Common Subscription Patterns”](#common-subscription-patterns) ### Single Tier (Freemium) [Section titled “Single Tier (Freemium)”](#single-tier-freemium) 
+```plaintext
+Free App + Premium Subscription
+- Basic: Free (limited features)
+- Premium Monthly: $4.99
+- Premium Annual: $39.99 (save 33%)
+```
+ ### Multi-Tier (Good, Better, Best) [Section titled “Multi-Tier (Good, Better, Best)”](#multi-tier-good-better-best) 
+```plaintext
+- Basic Monthly: $4.99
+- Premium Monthly: $9.99
+- Ultimate Monthly: $19.99
+
+
+- Basic Annual: $49.99
+- Premium Annual: $99.99
+- Ultimate Annual: $199.99
+```
+ ### Consumable + Subscription Hybrid [Section titled “Consumable + Subscription Hybrid”](#consumable--subscription-hybrid) 
+```plaintext
+- Credit packs (consumable)
+- Monthly subscription (unlimited credits)
+- Annual subscription (unlimited + bonus features)
+```
+ ## Troubleshooting [Section titled “Troubleshooting”](#troubleshooting) **Subscription not loading in app:** * Verify product ID matches exactly (case-sensitive) * Check subscription is in subscription group * Ensure bundle identifier matches App Store Connect * Wait 2-3 hours after creating product **Cannot submit subscription:** * Complete all required fields (name, description, price) * Add at least one localization * Verify banking/tax info is approved * Check if first subscription (requires app version) **Family Sharing toggle disabled:** * Already enabled (cannot be disabled) * Check in subscription details * Contact Apple Support if stuck **Price tier not available:** * May be restricted in some territories * Choose alternative tier * Contact Apple for pricing questions **“Invalid Product ID” error:** * Must be reverse domain format * Cannot contain spaces or special characters * Check for typos * Verify uniqueness across all products ## Next Steps [Section titled “Next Steps”](#next-steps) * [Create an introductory offer](/docs/plugins/native-purchases/ios-introductory-offer/) to attract new subscribers * [Merchandise monthly commitment billing plans](/docs/plugins/native-purchases/ios-monthly-commitment/) for supported annual subscription offers * [Configure sandbox testing](/docs/plugins/native-purchases/ios-sandbox-testing/) to test your subscriptions * Set up promotional offers for win-back and retention * Implement subscription analytics tracking ## Additional Resources [Section titled “Additional Resources”](#additional-resources) For more details, refer to the [official Apple documentation on auto-renewable subscriptions](https://developer.apple.com/documentation/storekit/in-app_purchase/subscriptions_and_offers). ## Keep going from Create iOS Auto-Renewable Subscription [Section titled “Keep going from Create iOS Auto-Renewable Subscription”](#keep-going-from-create-ios-auto-renewable-subscription) If you are using **Create iOS Auto-Renewable Subscription** to plan store approval and distribution, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [@capgo/capacitor-in-app-review](/docs/plugins/in-app-review/) for the implementation detail in @capgo/capacitor-in-app-review, [Using @capgo/capacitor-in-app-review](/plugins/capacitor-in-app-review/) for the native capability in Using @capgo/capacitor-in-app-review, [@capgo/capacitor-native-market](/docs/plugins/native-market/) for the implementation detail in @capgo/capacitor-native-market, and [Using @capgo/capacitor-native-market](/plugins/capacitor-native-market/) for the native capability in Using @capgo/capacitor-native-market.
+
+# Create iOS Subscription Introductory Offer
+
+> Learn how to create introductory offers for auto-renewable subscriptions on iOS to attract and convert new subscribers.
+
+Introductory offers allow you to provide eligible users with free trials or discounted introductory pricing to reduce barriers to entry and increase subscription conversions. ## Overview [Section titled “Overview”](#overview) Introductory offers are one of the most effective tools for growing your subscriber base. They allow users to: * Try your premium features risk-free * Experience value before committing * Start at a lower price point * Build confidence in your product ## Offer Types [Section titled “Offer Types”](#offer-types) iOS supports three types of introductory offers: ### 1. Free Trial [Section titled “1. Free Trial”](#1-free-trial) Customers get complimentary access for a specified duration. After the trial, they’re charged at standard rates if they don’t cancel. **Examples:** * 7 days free * 14 days free * 1 month free **Best for:** * High-value subscriptions * Feature-rich apps * Building user habit ### 2. Pay Up Front [Section titled “2. Pay Up Front”](#2-pay-up-front) Customers pay a single discounted price that covers the introductory period. **Examples:** * $1.99 for 2 months (then $9.99/month) * $9.99 for 3 months (then $19.99/month) **Best for:** * Commitment signals * Cash flow needs * Testing price sensitivity ### 3. Pay As You Go [Section titled “3. Pay As You Go”](#3-pay-as-you-go) Customers pay a reduced price for multiple billing cycles. **Examples:** * $1.99/month for 3 months (then $9.99/month) * $4.99/month for 6 months (then $14.99/month) **Best for:** * Gradual commitment * Long-term value demonstration * Reducing perceived risk ## Eligibility Requirements [Section titled “Eligibility Requirements”](#eligibility-requirements) Users can only receive introductory offers if they: * Haven’t previously received an introductory offer for the product * Haven’t received an introductory offer for any product in the same subscription group * Haven’t had an active subscription to the product ## Prerequisites [Section titled “Prerequisites”](#prerequisites) You must first [create an auto-renewable subscription](/docs/plugins/native-purchases/ios-create-subscription/) before adding an introductory offer. ## Creating an Introductory Offer [Section titled “Creating an Introductory Offer”](#creating-an-introductory-offer) 1. **Navigate to Subscription** In App Store Connect, go to your app’s **Monetize > Subscriptions** section and select the subscription you want to add an offer to. 2. **Add Subscription Price** Click the **+** icon next to “Subscription Prices” to open the pricing modal. 3. **Create Introductory Offer** Select **“Create introductory offer”** from the options. ![Create introductory offer](/native-purchases/ios/introductory-offer/create-introductory-offer.webp) 4. **Configure Countries and Start Date** **Countries and Regions**: Select where the offer will be available * Choose all countries for maximum reach * Or limit to specific markets for testing **Start Date**: When the offer becomes available * Can be immediate or scheduled for the future * Useful for coordinating with marketing campaigns **End Date (Optional)**: When the offer expires * Leave blank for ongoing availability * Set a date for limited-time promotions 5. **Select Offer Type** Choose one of the three offer types: **Free** (Free Trial) * Select duration (days, weeks, months) * Examples: 7 days, 2 weeks, 1 month **Pay Up Front** * Set single payment price * Set duration covered by payment * Example: $1.99 for 2 months **Pay As You Go** * Set discounted price per period * Set number of periods * Example: $2.99/month for 3 months 6. **Review and Confirm** Review the summary showing: * Offer type and duration * Pricing details * Regular price after intro period * Availability dates and countries 7. **Save** Click **Save** to create the introductory offer. It will be available for testing immediately in sandbox mode. ## Offer Configuration Examples [Section titled “Offer Configuration Examples”](#offer-configuration-examples) ### Example 1: Standard Free Trial [Section titled “Example 1: Standard Free Trial”](#example-1-standard-free-trial) 
+```plaintext
+Type: Free
+Duration: 7 days
+Then: $9.99/month
+```
+ **User Journey:** * Day 1-7: Free access * Day 8: First charge of $9.99 * Monthly charges continue ### Example 2: Upfront Discounted Period [Section titled “Example 2: Upfront Discounted Period”](#example-2-upfront-discounted-period) 
+```plaintext
+Type: Pay Up Front
+Price: $4.99
+Duration: 3 months
+Then: $9.99/month
+```
+ **User Journey:** * Day 1: Charged $4.99 * 90 days access * Day 91: Charged $9.99/month ### Example 3: Gradual Introduction [Section titled “Example 3: Gradual Introduction”](#example-3-gradual-introduction) 
+```plaintext
+Type: Pay As You Go
+Price: $2.99/month
+Periods: 6 months
+Then: $9.99/month
+```
+ **User Journey:** * Months 1-6: $2.99/month * Month 7+: $9.99/month ## Using in Your App [Section titled “Using in Your App”](#using-in-your-app) The native-purchases plugin automatically handles introductory offer presentation and eligibility: 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+// Fetch products with intro offer information
+const { products } = await NativePurchases.getProducts({
+  productIdentifiers: ['com.yourapp.premium_monthly'],
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+const product = products[0];
+
+
+// Display intro offer details (StoreKit sends localized metadata)
+if (product.introductoryPrice) {
+  console.log('Intro price:', product.introductoryPriceString);
+  console.log('Intro period:', product.introductoryPricePeriod);
+  console.log('Intro cycles:', product.introductoryPriceCycles);
+  console.log('Regular price:', product.priceString);
+} else {
+  console.log('No intro offer configured');
+}
+
+
+// Purchase (StoreKit automatically applies intro pricing if eligible)
+try {
+  const transaction = await NativePurchases.purchaseProduct({
+    productIdentifier: 'com.yourapp.premium_monthly',
+    productType: PURCHASE_TYPE.SUBS,
+  });
+
+
+  console.log('Subscription active, receipt length:', transaction.receipt?.length);
+  await validateReceiptOnServer(transaction.receipt);
+} catch (error) {
+  console.error('Purchase failed:', error);
+}
+```
+ ## Displaying Intro Offers to Users [Section titled “Displaying Intro Offers to Users”](#displaying-intro-offers-to-users) ### Best Practices for UI [Section titled “Best Practices for UI”](#best-practices-for-ui) **Clear Value Proposition:** 
+```plaintext
+Try Premium Free for 7 Days
+Then $9.99/month. Cancel anytime.
+```
+ **Emphasize Savings:** 
+```plaintext
+Start at Just $1.99
+Get 3 months of Premium for only $1.99
+Then $9.99/month
+```
+ **Transparent Communication:** 
+```plaintext
+Your Free Trial
+• Access all premium features
+• No charge for 7 days
+• $9.99/month after trial
+• Cancel anytime, even during trial
+```
+ ### Example Implementation [Section titled “Example Implementation”](#example-implementation) 
+```typescript
+function formatIntroOffer(product: any): string {
+  if (!product.introductoryPrice) {
+    return `${product.priceString} per ${product.subscriptionPeriod}`;
+  }
+
+
+  const intro = product.introductoryPrice;
+  const regular = product.priceString;
+
+
+  if (intro.price === 0) {
+    // Free trial
+    return `Try free for ${intro.periodString}, then ${regular}`;
+  } else if (intro.cycles === 1) {
+    // Pay up front
+    return `${intro.priceString} for ${intro.periodString}, then ${regular}`;
+  } else {
+    // Enterprise
+    return `${intro.priceString} for ${intro.cycles} ${intro.periodString}s, then ${regular}`;
+  }
+}
+```
+ ## Marketing Best Practices [Section titled “Marketing Best Practices”](#marketing-best-practices) ### Trial Length Strategy [Section titled “Trial Length Strategy”](#trial-length-strategy) * **3-7 days**: Quick decision apps, games * **7-14 days**: Standard for most apps * **14-30 days**: Complex tools, professional apps * **30+ days**: High-value B2B or enterprise ### Pricing Psychology [Section titled “Pricing Psychology”](#pricing-psychology) * **$0.99-$1.99**: Very low barrier, good for testing * **50% off**: Strong perceived value * **First month free**: Common, familiar pattern ### Communication Timing [Section titled “Communication Timing”](#communication-timing) * **Before trial ends**: Remind users of upcoming charge * **Highlight value**: Show usage stats, achievements * **Easy cancellation**: Build trust with transparent process ## Testing Intro Offers [Section titled “Testing Intro Offers”](#testing-intro-offers) Use sandbox testing to verify behavior: 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+// In sandbox mode, accelerated subscription durations apply:
+// - 3 days free trial = 3 minutes
+// - 1 week free trial = 3 minutes
+// - 1 month free trial = 5 minutes
+
+
+const { products } = await NativePurchases.getProducts({
+  productIdentifiers: ['premium_monthly'],
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+// Purchase with intro offer
+const transaction = await NativePurchases.purchaseProduct({
+  productIdentifier: 'premium_monthly',
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+console.log('Intro purchase transaction:', transaction.transactionId);
+
+
+// Wait for accelerated renewal
+setTimeout(async () => {
+  const { purchases } = await NativePurchases.getPurchases({
+    productType: PURCHASE_TYPE.SUBS,
+  });
+  const premium = purchases.find((purchase) => purchase.productIdentifier === 'premium_monthly');
+  console.log('After trial state:', premium?.subscriptionState);
+}, 180000); // 3 minutes for weekly trial
+```
+ ## Important Notes [Section titled “Important Notes”](#important-notes) ### Eligibility Rules [Section titled “Eligibility Rules”](#eligibility-rules) * One intro offer per user per subscription group (lifetime) * Applies to new subscribers only * Cannot be used again after cancellation * Not available for subscription upgrades/crossgrades ### StoreKit API [Section titled “StoreKit API”](#storekit-api) * `introductoryPrice` shows intro offer details * `eligibility` method checks if user qualifies * Automatically applied at purchase time * No special purchase method needed ### Limitations [Section titled “Limitations”](#limitations) * Only one intro offer active per subscription at a time * Cannot combine with other discount types * Cannot change eligibility rules * Apple controls eligibility checking ## Troubleshooting [Section titled “Troubleshooting”](#troubleshooting) **Intro offer not showing:** * Check if offer is activated in App Store Connect * Verify user hasn’t used an intro offer before * Ensure user hasn’t subscribed to anything in the group * Test with new sandbox account **Eligibility check failing:** * Wait for App Store sync (can take 2-3 hours) * Verify product ID is correct * Check subscription group configuration * Test in sandbox with fresh test account **Wrong price displaying:** * Check regional pricing settings * Verify currency conversion * Ensure offer dates are current * Refresh product information **Sandbox testing issues:** * Use accelerated durations (3 min = 1 week) * Create new test accounts for each test * Wait for trial to complete naturally * Check renewal count (max 6 in sandbox) ## Analytics and Optimization [Section titled “Analytics and Optimization”](#analytics-and-optimization) ### Track These Metrics [Section titled “Track These Metrics”](#track-these-metrics) * Intro offer acceptance rate * Trial-to-paid conversion rate * Cancellation during trial * Retention after first charge * Revenue impact ### A/B Testing Ideas [Section titled “A/B Testing Ideas”](#ab-testing-ideas) * Free trial vs. paid intro * Trial length variations * Discount percentage * Single payment vs. recurring discount ### Optimization Strategy [Section titled “Optimization Strategy”](#optimization-strategy) 
+```typescript
+// Track offer performance
+analytics.track('intro_offer_displayed', {
+  product_id: product.identifier,
+  offer_type: product.introductoryPriceType,
+  offer_duration: product.introductoryPricePeriod
+});
+
+
+analytics.track('intro_offer_accepted', {
+  product_id: product.identifier
+});
+
+
+// Monitor conversion
+NativePurchases.addListener('transactionUpdated', (transaction) => {
+  if (transaction.productIdentifier === product.identifier && transaction.isActive) {
+    analytics.track('trial_converted', {
+      transactionId: transaction.transactionId,
+      productId: transaction.productIdentifier,
+    });
+  }
+});
+```
+ ## Next Steps [Section titled “Next Steps”](#next-steps) * [Configure sandbox testing](/docs/plugins/native-purchases/ios-sandbox-testing/) to test your intro offers * Set up promotional offers for win-back campaigns * Implement subscription analytics * Create targeted marketing campaigns ## Additional Resources [Section titled “Additional Resources”](#additional-resources) For more details, refer to the [official Apple documentation on introductory offers](https://developer.apple.com/documentation/storekit/in-app_purchase/subscriptions_and_offers/implementing_introductory_offers_in_your_app). ## Keep going from Create iOS Subscription Introductory Offer [Section titled “Keep going from Create iOS Subscription Introductory Offer”](#keep-going-from-create-ios-subscription-introductory-offer) If you are using **Create iOS Subscription Introductory Offer** to plan payments and purchases, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [Capgo Pricing](/pricing/) for the product workflow in Capgo Pricing, [Payment system](/docs/webapp/payment/) for the implementation detail in Payment system, [@capgo/native-purchases](/docs/plugins/native-purchases/) for the implementation detail in @capgo/native-purchases, and [Getting Started](/docs/plugins/native-purchases/getting-started/) for the implementation detail in Getting Started.
+
+# iOS Monthly Commitment Billing Plans
+
+> Learn how to merchandise and purchase StoreKit monthly subscriptions with a 12-month commitment using @capgo/native-purchases.
+
+Apple supports subscriptions that bill monthly while committing the customer to a longer 12-month term. When StoreKit and the running OS support this billing plan, `@capgo/native-purchases` exposes the pricing terms, lets you select the monthly billing plan during purchase, and returns commitment metadata on transactions and renewal info. Use this for annual subscription offers where users prefer monthly payments but you still want the retention and predictability of a committed annual term. ## Requirements [Section titled “Requirements”](#requirements) * Configure the monthly with 12-month commitment billing plan in App Store Connect or in StoreKit Testing in Xcode. * Build the iOS app with an Xcode SDK that contains StoreKit `pricingTerms` and `billingPlanType`. * Run on an iOS version that supports StoreKit commitment billing plans. * Keep a standard billing option available for devices or storefronts that do not return commitment pricing terms. ## Load and Display Pricing Terms [Section titled “Load and Display Pricing Terms”](#load-and-display-pricing-terms) Call `getProducts()` as usual. For supported iOS subscription products, each product can include `pricingTerms`. 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+const { products } = await NativePurchases.getProducts({
+  productIdentifiers: ['com.example.app.premium.yearly'],
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+const premiumYearly = products.find(
+  (product) => product.identifier === 'com.example.app.premium.yearly',
+);
+const monthlyCommitment = premiumYearly?.pricingTerms?.find(
+  (term) => term.billingPlanType === 'monthly',
+);
+```
+ Render the store-provided values instead of hardcoded pricing: | Field | Use it for | | ---------------------------- | ------------------------------------------------------------------------------- | | `billingDisplayPrice` | The recurring billing amount shown to the user, for example the monthly charge. | | `billingPeriod` | The billing cadence for the displayed billing price. | | `commitmentInfo.priceString` | The total commitment price formatted for the user’s storefront. | | `commitmentInfo.period` | The full commitment period. | | `subscriptionOffers` | Introductory or promotional offers attached to the pricing term. | Example paywall copy: 
+```typescript
+function commitmentLabel(term: NonNullable<typeof monthlyCommitment>) {
+  const total = term.commitmentInfo?.priceString;
+  return total
+    ? `${term.billingDisplayPrice} billed monthly, ${total} total commitment`
+    : term.billingDisplayPrice;
+}
+```
+ ## Purchase the Monthly Commitment Plan [Section titled “Purchase the Monthly Commitment Plan”](#purchase-the-monthly-commitment-plan) When the user selects the monthly commitment plan, pass `billingPlanType: 'monthly'`. 
+```typescript
+const transaction = await NativePurchases.purchaseProduct({
+  productIdentifier: 'com.example.app.premium.yearly',
+  productType: PURCHASE_TYPE.SUBS,
+  billingPlanType: 'monthly',
+  appAccountToken: userStoreUuid,
+});
+```
+ Use `billingPlanType: 'upFront'` only when you need to explicitly select the standard up-front billing plan. If you omit `billingPlanType`, StoreKit uses its default purchase behavior for the product. ## Read Commitment Metadata [Section titled “Read Commitment Metadata”](#read-commitment-metadata) Transactions include the billing plan and commitment progress when StoreKit provides it: 
+```typescript
+if (transaction.billingPlanType === 'monthly') {
+  console.log('Current billing period:', transaction.commitmentInfo?.billingPeriodNumber);
+  console.log('Total billing periods:', transaction.commitmentInfo?.totalBillingPeriods);
+  console.log('Commitment ends:', transaction.commitmentInfo?.expirationDate);
+  console.log('Commitment total:', transaction.commitmentInfo?.price);
+}
+```
+ Renewal info can include the next commitment state: 
+```typescript
+const { purchases } = await NativePurchases.getPurchases({
+  productType: PURCHASE_TYPE.SUBS,
+  onlyCurrentEntitlements: true,
+});
+
+
+for (const purchase of purchases) {
+  const commitment = purchase.renewalInfo?.commitmentInfo;
+  if (!commitment) continue;
+
+
+  console.log('Renews into another commitment:', commitment.willAutoRenew);
+  console.log('Next billing plan:', commitment.renewalBillingPlanType);
+  console.log('Next renewal date:', commitment.renewalDate);
+}
+```
+ Use the top-level `expirationDate` and `isActive` fields for entitlement decisions. Use `commitmentInfo.expirationDate` to explain the full commitment timeline to the customer. ## App Store Review Notes [Section titled “App Store Review Notes”](#app-store-review-notes) * Show both the recurring billing price and the total commitment price before purchase. * Make the commitment length explicit near the purchase button. * Use `product.title`, `product.priceString`, `pricingTerms[].billingDisplayPrice`, and `pricingTerms[].commitmentInfo.priceString` from StoreKit instead of hardcoded prices. * Provide restore purchases and manage subscription actions on the paywall or account screen. ## Related Guides [Section titled “Related Guides”](#related-guides) * [Create iOS subscriptions](/docs/plugins/native-purchases/ios-create-subscription/) * [Configure iOS sandbox testing](/docs/plugins/native-purchases/ios-sandbox-testing/) * [iOS App Store review guidelines](/docs/plugins/native-purchases/ios-app-store-review/) ## Keep going from iOS Monthly Commitment Billing Plans [Section titled “Keep going from iOS Monthly Commitment Billing Plans”](#keep-going-from-ios-monthly-commitment-billing-plans) If you are using **iOS Monthly Commitment Billing Plans** to plan payments and purchases, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [Capgo Pricing](/pricing/) for the product workflow in Capgo Pricing, [Payment system](/docs/webapp/payment/) for the implementation detail in Payment system, [@capgo/native-purchases](/docs/plugins/native-purchases/) for the implementation detail in @capgo/native-purchases, and [Getting Started](/docs/plugins/native-purchases/getting-started/) for the implementation detail in Getting Started.
+
+# Configure iOS Sandbox Testing
+
+> Learn how to set up sandbox testing for in-app purchases on iOS using App Store Connect and Xcode.
+
+Testing in-app purchases on iOS requires proper configuration in App Store Connect and on your test devices. This guide covers everything you need to get started with sandbox testing. ## Prerequisites [Section titled “Prerequisites”](#prerequisites) * **Apple Developer Program**: Active membership with annual renewal * **Agreements**: Signed “Paid Applications Agreement” with banking and tax information completed * **Xcode Project**: Configured with proper bundle identifier and capabilities ## Setup Process [Section titled “Setup Process”](#setup-process) 1. **Sign Paid Applications Agreement** In App Store Connect, navigate to **Agreements, Tax, and Banking** and complete: * Sign the Paid Applications Agreement * Add your banking information * Complete tax forms Wait for Apple to approve your information (this can take 24-48 hours). 2. **Create Sandbox Test User** In App Store Connect, go to **Users and Access > Sandbox Testers**. Click the **+** button to create a new sandbox tester. **Important**: Use an email address that is NOT already associated with an Apple ID. You can use email aliases: * Gmail: `youremail+test@gmail.com` * iCloud: `youremail+test@icloud.com` ![Create sandbox tester](/native-purchases/ios/sandbox-testing/sandbox-tester-setup.webp) 3. **Configure Test Device (iOS 12+)** Starting with iOS 12, you no longer need to sign out of your iTunes account to test purchases. On your iOS device: 1. Open **Settings** 2. Tap **App Store** 3. Scroll to the bottom 4. Tap **Sandbox Account** 5. Sign in with your sandbox test account 4. **Configure Xcode Project** Ensure your Xcode project has: **Bundle Identifier** * Must match the identifier in your Developer Center * Must match the identifier in App Store Connect **In-App Purchase Capability** 1. Select your project in Xcode 2. Go to **Signing & Capabilities** 3. Click **+ Capability** 4. Add **In-App Purchase** 5. **Create In-App Purchase Products** In App Store Connect, navigate to your app and create your in-app purchase products (subscriptions, consumables, etc.). Products must be in at least “Ready to Submit” status for sandbox testing. 6. **Test Your Implementation** Build and run your app on a test device. When you attempt a purchase, you should see: > **\[Environment: Sandbox]** This confirmation indicates you’re in the sandbox environment and won’t be charged real money. ## Important Notes [Section titled “Important Notes”](#important-notes) ### Sandbox Environment Characteristics [Section titled “Sandbox Environment Characteristics”](#sandbox-environment-characteristics) * **No real charges**: All purchases are free in sandbox mode * **Accelerated subscriptions**: Subscription durations are shortened for faster testing * 1 week subscription = 3 minutes * 1 month subscription = 5 minutes * 2 months subscription = 10 minutes * 3 months subscription = 15 minutes * 6 months subscription = 30 minutes * 1 year subscription = 1 hour * **Auto-renewal limit**: Subscriptions auto-renew up to 6 times in sandbox * **Immediate cancellation**: Cancelled subscriptions expire immediately ### Sandbox Account Management [Section titled “Sandbox Account Management”](#sandbox-account-management) * Create multiple test accounts for different scenarios * Use test accounts only on test devices * Don’t use personal Apple ID for sandbox testing * Test accounts can purchase any product regardless of region ## Using Sandbox Testing [Section titled “Using Sandbox Testing”](#using-sandbox-testing) 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+const { isBillingSupported } = await NativePurchases.isBillingSupported();
+if (!isBillingSupported) {
+  throw new Error('StoreKit not supported on this device');
+}
+
+
+// Fetch products (automatically uses sandbox when available)
+const { products } = await NativePurchases.getProducts({
+  productIdentifiers: ['premium_monthly'],
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+// Make test purchase
+const transaction = await NativePurchases.purchaseProduct({
+  productIdentifier: 'premium_monthly',
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+console.log('Test purchase successful!', transaction.transactionId);
+```
+ ## Verification [Section titled “Verification”](#verification) When properly configured, you should observe: 1. **Sandbox banner** during purchase: “\[Environment: Sandbox]” 2. **Products load** successfully 3. **Purchases complete** without actual charges 4. **Receipts validate** correctly 5. **Subscriptions renew** automatically (at accelerated rate) ## Troubleshooting [Section titled “Troubleshooting”](#troubleshooting) **Products not loading:** * Verify bundle identifier matches App Store Connect * Check that agreements are signed and approved * Ensure products are at least “Ready to Submit” status * Wait 2-3 hours after creating products **“Cannot connect to iTunes Store”:** * Verify sandbox account is configured correctly * Check device is connected to internet * Try signing out and back into sandbox account * Restart the app **Purchases failing silently:** * Check Xcode console for error messages * Verify In-App Purchase capability is enabled * Ensure sandbox account email is not a real Apple ID * Try creating a new sandbox test account **Receipt validation errors:** * Use sandbox receipt validation endpoint in testing * Production endpoint: `https://buy.itunes.apple.com/verifyReceipt` * Sandbox endpoint: `https://sandbox.itunes.apple.com/verifyReceipt` * The native-purchases plugin handles this automatically **Wrong subscription duration:** * Remember subscriptions are accelerated in sandbox * Use the conversion chart above for expected durations * Subscriptions auto-renew max 6 times in sandbox **“This Apple ID has not yet been used in the iTunes Store”:** * This is normal for new sandbox accounts * Proceed with the purchase to activate the account * Only happens on first use ## Best Practices [Section titled “Best Practices”](#best-practices) 1. **Create multiple test accounts** for different test scenarios 2. **Test all subscription durations** to verify behavior 3. **Test cancellation and renewal** flows 4. **Verify receipt validation** works correctly 5. **Test restore purchases** functionality 6. **Check subscription upgrade/downgrade** behavior 7. **Test with poor network conditions** ## Production vs. Sandbox [Section titled “Production vs. Sandbox”](#production-vs-sandbox) | Feature | Sandbox | Production | | --------------------- | ----------- | -------------- | | Real charges | No | Yes | | Subscription duration | Accelerated | Normal | | Auto-renewal limit | 6 times | Unlimited | | Cancellation effect | Immediate | End of period | | Receipt endpoint | Sandbox URL | Production URL | | Test accounts only | Yes | No | ## Additional Resources [Section titled “Additional Resources”](#additional-resources) For more details, refer to the [official Apple StoreKit documentation](https://developer.apple.com/documentation/storekit/in-app_purchase/testing_in-app_purchases_with_sandbox) on sandbox testing. ## Keep going from Configure iOS Sandbox Testing [Section titled “Keep going from Configure iOS Sandbox Testing”](#keep-going-from-configure-ios-sandbox-testing) If you are using **Configure iOS Sandbox Testing** to plan store approval and distribution, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [@capgo/capacitor-in-app-review](/docs/plugins/in-app-review/) for the implementation detail in @capgo/capacitor-in-app-review, [Using @capgo/capacitor-in-app-review](/plugins/capacitor-in-app-review/) for the native capability in Using @capgo/capacitor-in-app-review, [@capgo/capacitor-native-market](/docs/plugins/native-market/) for the implementation detail in @capgo/capacitor-native-market, and [Using @capgo/capacitor-native-market](/plugins/capacitor-native-market/) for the native capability in Using @capgo/capacitor-native-market.
+
+# Create iOS Subscription Group
+
+> Learn how to create and configure subscription groups in App Store Connect for organizing your app's subscription offerings.
+
+Subscription groups are essential for organizing and managing multiple subscription levels in your iOS app. Understanding how they work is crucial for implementing upgrade, downgrade, and crossgrade functionality. ## What is a Subscription Group? [Section titled “What is a Subscription Group?”](#what-is-a-subscription-group) A subscription group is a collection of related subscriptions that users can choose between. Users can only subscribe to one subscription within a group at a time. When they switch subscriptions, Apple handles the transition automatically. ## Why Subscription Groups Matter [Section titled “Why Subscription Groups Matter”](#why-subscription-groups-matter) Subscription groups enable: * **Tiered pricing**: Offer basic, premium, and ultimate plans * **Different durations**: Monthly, yearly, and lifetime options * **Upgrade/downgrade logic**: Automatic handling of subscription changes * **Simplified management**: Group related subscriptions together ## Subscription Levels [Section titled “Subscription Levels”](#subscription-levels) Within a group, each subscription should be ranked from highest value (level 1) to lowest value. This ranking determines how subscription changes are classified: ![Subscription group hierarchy](/native-purchases/ios/subscription-group/subscription-group-hierarchy.webp) ### Level Examples [Section titled “Level Examples”](#level-examples) **Level 1** (Highest Value) * Premium Annual ($99.99/year) * Ultimate Monthly ($19.99/month) **Level 2** (Medium Value) * Standard Annual ($49.99/year) * Premium Monthly ($9.99/month) **Level 3** (Lowest Value) * Basic Annual ($29.99/year) * Standard Monthly ($4.99/month) ## Subscription Change Types [Section titled “Subscription Change Types”](#subscription-change-types) Apple automatically handles three types of subscription changes based on the level ranking: ### 1. Upgrade [Section titled “1. Upgrade”](#1-upgrade) Moving to a **higher-tier** subscription (e.g., level 2 → level 1). **Behavior:** * Takes effect **immediately** * User receives **prorated refund** for remaining time * New subscription starts right away **Example:** 
+```typescript
+// User currently has: Standard Monthly (Level 2)
+// User upgrades to: Premium Annual (Level 1)
+// Result: Immediate access to Premium, refund for unused Standard time
+```
+ ### 2. Downgrade [Section titled “2. Downgrade”](#2-downgrade) Moving to a **lower-tier** subscription (e.g., level 1 → level 2). **Behavior:** * Takes effect at **next renewal date** * User keeps current subscription until period ends * New subscription starts automatically after expiration **Example:** 
+```typescript
+// User currently has: Premium Annual (Level 1)
+// User downgrades to: Standard Monthly (Level 2)
+// Result: Premium access continues until annual renewal date, then switches
+```
+ ### 3. Crossgrade [Section titled “3. Crossgrade”](#3-crossgrade) Switching to another subscription **at the same tier level**. **Behavior depends on duration:** **Different Duration** → Behaves like **downgrade** * Takes effect at next renewal date * Example: Monthly Premium (Level 1) → Annual Premium (Level 1) **Same Duration** → Behaves like **upgrade** * Takes effect immediately * Example: Premium Monthly (Level 1) → Ultimate Monthly (Level 1) ## Creating a Subscription Group [Section titled “Creating a Subscription Group”](#creating-a-subscription-group) 1. **Navigate to Subscriptions** In App Store Connect, select your app and go to **Monetize > Subscriptions**. 2. **Create Group** Click **+** next to “Subscription Groups” to create a new group. 3. **Name the Group** Choose a descriptive name that reflects the subscriptions it contains: * “Premium Access” * “Cloud Storage Plans” * “Pro Features” 4. **Add Subscriptions** After creating the group, add individual subscriptions to it. Each subscription will have a level ranking. 5. **Set Level Rankings** Arrange subscriptions from highest value (1) to lowest value. Consider: * Annual plans typically rank higher than monthly * Higher-priced tiers rank above lower-priced ones * Ultimate/premium tiers rank highest ## Using in Your App [Section titled “Using in Your App”](#using-in-your-app) The native-purchases plugin automatically handles subscription group logic: 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+// Fetch all subscriptions in a group
+const { products } = await NativePurchases.getProducts({
+  productIdentifiers: ['premium_monthly', 'premium_annual', 'ultimate_monthly'],
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+// Display current subscription using StoreKit transactions
+const { purchases } = await NativePurchases.getPurchases({
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+const activeSubs = purchases.filter((purchase) => purchase.isActive);
+
+
+// Detect pending downgrade/cancellation (StoreKit sets willCancel === true)
+const pendingChange = purchases.find((purchase) => purchase.willCancel === true);
+if (pendingChange) {
+  console.log('Subscription will stop auto-renewing on', pendingChange.expirationDate);
+}
+
+
+// Purchase (StoreKit handles upgrades/downgrades automatically)
+await NativePurchases.purchaseProduct({
+  productIdentifier: 'premium_annual',
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+// Listen for StoreKit updates (fires on upgrades/downgrades/refunds)
+NativePurchases.addListener('transactionUpdated', (transaction) => {
+  console.log('Subscription updated:', transaction);
+});
+```
+ ## Handling Subscription Changes [Section titled “Handling Subscription Changes”](#handling-subscription-changes) ### Detecting Change Type [Section titled “Detecting Change Type”](#detecting-change-type) 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+// Get current subscription info
+const { purchases } = await NativePurchases.getPurchases({
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+const currentSubscription = purchases.find(
+  (purchase) => purchase.subscriptionState === 'subscribed',
+);
+
+
+if (currentSubscription) {
+  // StoreKit reports if user cancelled auto-renew
+  if (currentSubscription.willCancel) {
+    console.log(
+      `User cancelled. Access remains until ${currentSubscription.expirationDate}`,
+    );
+  }
+
+
+  if (currentSubscription.isUpgraded) {
+    console.log('User recently upgraded to this plan.');
+  }
+}
+
+
+// Listen for automatic upgrades/downgrades
+NativePurchases.addListener('transactionUpdated', (transaction) => {
+  console.log('Subscription changed!', transaction);
+  if (transaction.subscriptionState === 'revoked') {
+    revokeAccess();
+  } else if (transaction.isActive) {
+    unlockPremiumFeatures();
+  }
+});
+```
+ ### User Communication [Section titled “User Communication”](#user-communication) Always communicate the change behavior clearly: **For Upgrades:** > “You’ll get immediate access to Premium features. We’ll prorate your current subscription.” **For Downgrades:** > “You’ll keep Premium access until \[renewal date], then switch to Standard.” **For Crossgrades:** > “Your plan will change to Annual billing at the next renewal on \[date].” ## Server monitoring [Section titled “Server monitoring”](#server-monitoring) Use Apple’s App Store Server Notifications v2 or your own receipt-validation backend to mirror StoreKit changes in your database. Pair server notifications with the `transactionUpdated` listener so both client and backend stay in sync. ## Best Practices [Section titled “Best Practices”](#best-practices) ### Group Organization [Section titled “Group Organization”](#group-organization) * Keep related subscriptions in the same group * Don’t mix unrelated features (e.g., storage and ad removal) * Create separate groups for different feature sets ### Level Ranking Strategy [Section titled “Level Ranking Strategy”](#level-ranking-strategy) * Annual plans → Higher level than monthly (for same tier) * Higher-priced tiers → Higher level * Consider value, not just price ### User Experience [Section titled “User Experience”](#user-experience) * Show current subscription clearly * Display all available options in the group * Indicate which changes are immediate vs. at renewal * Allow easy switching between plans ### Testing [Section titled “Testing”](#testing) * Test all upgrade scenarios * Test all downgrade scenarios * Verify crossgrade behavior * Check webhook firing ## Common Scenarios [Section titled “Common Scenarios”](#common-scenarios) ### Scenario 1: Three-Tier Monthly Plans [Section titled “Scenario 1: Three-Tier Monthly Plans”](#scenario-1-three-tier-monthly-plans) 
+```plaintext
+Level 1: Ultimate Monthly ($19.99)
+Level 2: Premium Monthly ($9.99)
+Level 3: Basic Monthly ($4.99)
+```
+ * Basic → Premium: Upgrade (immediate) * Premium → Ultimate: Upgrade (immediate) * Ultimate → Premium: Downgrade (at renewal) * Basic → Ultimate: Upgrade (immediate) ### Scenario 2: Mixed Duration Plans [Section titled “Scenario 2: Mixed Duration Plans”](#scenario-2-mixed-duration-plans) 
+```plaintext
+Level 1: Premium Annual ($99.99/year)
+Level 2: Premium Monthly ($9.99/month)
+```
+ * Monthly → Annual: Crossgrade (at renewal) * Annual → Monthly: Downgrade (at renewal) ### Scenario 3: Multi-Tier Multi-Duration [Section titled “Scenario 3: Multi-Tier Multi-Duration”](#scenario-3-multi-tier-multi-duration) 
+```plaintext
+Level 1: Ultimate Annual ($199/year)
+Level 2: Ultimate Monthly ($19.99/month)
+Level 3: Premium Annual ($99/year)
+Level 4: Premium Monthly ($9.99/month)
+Level 5: Basic Annual ($49/year)
+Level 6: Basic Monthly ($4.99/month)
+```
+ This setup provides maximum flexibility while maintaining clear upgrade/downgrade logic. ## Troubleshooting [Section titled “Troubleshooting”](#troubleshooting) **Subscription not appearing in group:** * Verify it’s assigned to the correct group * Check that it’s in at least “Ready to Submit” status * Ensure product ID is correct **Wrong upgrade/downgrade behavior:** * Review level rankings (1 = highest) * Verify subscription tiers make sense * Check that levels are set correctly **Products from different groups:** * Users can subscribe to multiple groups simultaneously * This is intentional - keep related products in same group **getActiveProducts showing multiple subscriptions:** * Check if subscriptions are in different groups * Verify user isn’t subscribed via Family Sharing * Review subscription status in App Store Connect ## Additional Resources [Section titled “Additional Resources”](#additional-resources) For more details, refer to the [official Apple documentation on subscription groups](https://developer.apple.com/app-store/subscriptions/). ## Keep going from Create iOS Subscription Group [Section titled “Keep going from Create iOS Subscription Group”](#keep-going-from-create-ios-subscription-group) If you are using **Create iOS Subscription Group** to plan store approval and distribution, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [@capgo/capacitor-in-app-review](/docs/plugins/in-app-review/) for the implementation detail in @capgo/capacitor-in-app-review, [Using @capgo/capacitor-in-app-review](/plugins/capacitor-in-app-review/) for the native capability in Using @capgo/capacitor-in-app-review, [@capgo/capacitor-native-market](/docs/plugins/native-market/) for the implementation detail in @capgo/capacitor-native-market, and [Using @capgo/capacitor-native-market](/plugins/capacitor-native-market/) for the native capability in Using @capgo/capacitor-native-market.
+
+# Revenue Playbook
+
+> Learn how to turn a Capacitor app into revenue with a focused MVP, store discovery, paywall placement, pricing, analytics, and @capgo/native-purchases.
+
+![Revenue playbook for in-app purchases](/native-purchases/revenue-playbook.png) The purchase SDK is only one part of making money from an app. Revenue comes from a clear problem, a small product that users can try, reliable store billing, and a paywall that teaches you what people are willing to buy. Use this playbook when you are adding subscriptions or premium unlocks with `@capgo/native-purchases`. ## Start with a simple revenue target [Section titled “Start with a simple revenue target”](#start-with-a-simple-revenue-target) Make the first target concrete. For example: | Monthly price | Active subscribers needed for about $1K MRR | | ------------- | ------------------------------------------------- | | $4.99 | 201 | | $7.99 | 126 | | $9.99 | 101 | | $29.99 yearly | About 400 annual subscribers, depending on timing | These numbers are before store fees, taxes, refunds, and currency differences. They are still useful because they keep the launch plan practical: you need a few hundred motivated users, not a huge audience. ## Build the smallest paid product [Section titled “Build the smallest paid product”](#build-the-smallest-paid-product) 1. **Pick one painful use case** Build around one outcome users already search for. Examples: a workout plan for new parents, a budget tracker for couples, a receipt scanner for freelancers, or a language drill app for one exam. 2. **Check demand in the stores** Search App Store and Google Play for the core keyword. Read low and mid-score reviews of competing apps to find missing features, confusing onboarding, pricing complaints, and UI friction. 3. **Ship a narrow MVP** The first version should include onboarding, one useful core action, basic error handling, and enough analytics to see whether users reach the value moment. 4. **Add purchases early** Do not wait until the app feels complete. A basic paywall helps you learn whether users understand the value and whether your pricing is plausible. ## Instrument the funnel before optimizing [Section titled “Instrument the funnel before optimizing”](#instrument-the-funnel-before-optimizing) Track these events before you start changing prices or screens: | Event | Why it matters | | ----------------------------------------- | --------------------------------------- | | `install` or first open | Baseline traffic | | `onboarding_completed` | Whether users understand the setup | | `core_action_completed` | Whether the product delivers value | | `paywall_viewed` | Whether users reach monetization | | `trial_started` | Whether the offer is compelling | | `purchase_completed` | Paid conversion | | `restore_started` and `restore_completed` | Purchase recovery and review compliance | | `subscription_status_checked` | Entitlement reliability | | `cancel_feedback_submitted` | Churn reason | If many users do not see the paywall, fix onboarding before changing the paywall. If users see the paywall but do not start a trial, improve the offer, proof, or price presentation. ## Choose one monetization model [Section titled “Choose one monetization model”](#choose-one-monetization-model) Start with one model so the data is readable. | Model | Good fit | First version | | ----------------------- | ------------------------------------------------ | -------------------------------------------------------- | | Freemium | Daily utilities, trackers, tools with repeat use | Free core action, paid limits or premium features | | Paywall plus free trial | Apps that deliver quick value after onboarding | Paywall after onboarding with 3- to 14-day trial | | One-time unlock | Small tools with limited recurring value | Lifetime product plus optional future subscription later | Avoid shipping three tiers, many bundles, and complex upgrade paths on day one. Use one monthly plan and one annual plan when you need subscriptions. Add localized pricing after you see meaningful traffic from a country. ## Configure products for revenue learning [Section titled “Configure products for revenue learning”](#configure-products-for-revenue-learning) Keep product identifiers stable and readable: 
+```text
+com.example.app.premium.monthly
+com.example.app.premium.yearly
+com.example.app.premium.lifetime
+```
+ Use store product names that reinforce the value users are searching for, such as “Meal Planner Pro Monthly” instead of only “Monthly”. Store metadata and in-app purchase names can help discovery and clarity. Load product data from the stores so pricing, currency, and introductory offers are always accurate: 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+const { products } = await NativePurchases.getProducts({
+  productIdentifiers: [
+    'com.example.app.premium.monthly',
+    'com.example.app.premium.yearly',
+  ],
+  productType: PURCHASE_TYPE.SUBS,
+});
+
+
+const monthly = products.find((product) => product.identifier.endsWith('.monthly'));
+const yearly = products.find((product) => product.identifier.endsWith('.yearly'));
+```
+ Never hardcode store pricing in the UI. Render `product.priceString`, localized product title, billing period, and trial terms from store data whenever possible. ## Build a first paywall [Section titled “Build a first paywall”](#build-a-first-paywall) A first paywall should be clear, not clever: * Headline: the paid outcome, such as “Unlock unlimited workout plans”. * Benefits: 3 to 5 concrete improvements, not a long feature list. * Plans: monthly and annual, with real annual savings if offered. * Trial: exact trial length and what happens after it ends. * CTA: “Start free trial” or “Upgrade now”. * Links: terms, privacy policy, restore purchases, and manage subscriptions. Place the first paywall after onboarding, once the user understands what the app does. Later, test additional triggers such as usage limits, premium feature taps, or completed core actions. ## Purchase and restore flow [Section titled “Purchase and restore flow”](#purchase-and-restore-flow) 
+```typescript
+import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
+
+
+export async function buyYearly(appAccountToken: string) {
+  const transaction = await NativePurchases.purchaseProduct({
+    productIdentifier: 'com.example.app.premium.yearly',
+    planIdentifier: 'yearly-plan',
+    productType: PURCHASE_TYPE.SUBS,
+    appAccountToken,
+  });
+
+
+  await fetch('/api/purchases/validate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      transactionId: transaction.transactionId,
+      receipt: transaction.receipt,
+      purchaseToken: transaction.purchaseToken,
+      productIdentifier: transaction.productIdentifier,
+    }),
+  });
+
+
+  return transaction;
+}
+
+
+export async function restorePurchases() {
+  await NativePurchases.restorePurchases();
+
+
+  return NativePurchases.getPurchases({
+    productType: PURCHASE_TYPE.SUBS,
+  });
+}
+```
+ Always validate purchases on your backend before granting durable entitlements. Keep a local entitlement cache for fast UI, but treat the store and your backend as the source of truth. ## Bring in the first users [Section titled “Bring in the first users”](#bring-in-the-first-users) Revenue needs traffic. Start with channels that can work before you have a brand: * ASO: title, subtitle, keywords, screenshots, app description, icon, ratings, and in-app purchase names. * Short-form video: post quick demos, problem/solution clips, and before/after examples for the target country. * Reddit and communities: join the conversation first, then share what you built as a useful story instead of an ad. * Beta groups: TestFlight, Google Play internal testing, Discord, and niche forums. Each channel should send users into the same measured funnel so you can compare retention, paywall views, trials, and purchases. ## Read churn correctly [Section titled “Read churn correctly”](#read-churn-correctly) Some churn means users tried the app and decided it was not for them. That is normal. What matters is the pattern: * Cancels during trial: unclear value, poor onboarding, or wrong traffic. * Cancels after one cycle: not enough repeat value or weak habit loop. * Refunds: pricing mismatch, accidental purchase risk, or unclear terms. * No restores: broken entitlement handling or missing restore UI. Add a one-question cancellation survey when possible. Use the answers to improve onboarding, feature scope, store screenshots, and paywall copy. ## Launch checklist [Section titled “Launch checklist”](#launch-checklist) * Product solves one clear paid problem. * Store products are active and tested on iOS and Android. * Paywall displays store-loaded prices and terms. * Purchase, restore, manage subscription, and backend validation are implemented. * Funnel events are tracked from first open to purchase. * App store metadata explains the value in the first screenshots. * At least one acquisition channel is active before launch. * Churn feedback is collected from the first subscribers. ## Related guides [Section titled “Related guides”](#related-guides) * [Getting started](/docs/plugins/native-purchases/getting-started/) * [Create iOS subscriptions](/docs/plugins/native-purchases/ios-create-subscription/) * [Create Android subscriptions](/docs/plugins/native-purchases/android-create-subscription/) * [iOS sandbox testing](/docs/plugins/native-purchases/ios-sandbox-testing/) * [Android sandbox testing](/docs/plugins/native-purchases/android-sandbox-testing/) ## Keep going from Revenue Playbook [Section titled “Keep going from Revenue Playbook”](#keep-going-from-revenue-playbook) If you are using **Revenue Playbook** to plan payments and purchases, connect it with [Using @capgo/native-purchases](/plugins/capacitor-native-purchases/) for the native capability in Using @capgo/native-purchases, [Capgo Pricing](/pricing/) for the product workflow in Capgo Pricing, [Payment system](/docs/webapp/payment/) for the implementation detail in Payment system, [@capgo/native-purchases](/docs/plugins/native-purchases/) for the implementation detail in @capgo/native-purchases, and [Getting Started](/docs/plugins/native-purchases/getting-started/) for the implementation detail in Getting Started.

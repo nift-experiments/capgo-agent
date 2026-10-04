@@ -1,0 +1,81 @@
+<SYSTEM>Plugin Persistent UUID: persistent app-scoped UUID plugin</SYSTEM>
+
+# @capgo/capacitor-persistent-uuid
+
+> Persistent app UUID for Capacitor.
+
+## Overview [Section titled “Overview”](#overview) The Persistent UUID plugin creates a random RFC 4122 UUID once and stores it with native persistence. Use it when your app needs a stable, app-scoped identifier that can survive app reinstall flows, Android Studio reinstall cycles, app updates, and device OS updates. ## Core Capabilities [Section titled “Core Capabilities”](#core-capabilities) * getId - Read the stored UUID, creating one if none exists for the selected scope. * resetId - Rotate the UUID for logout, account reset, privacy reset, or test cleanup flows. * scope - Use a stable namespace when debug and production builds use different package identifiers but should share one identifier. ## Platform Storage [Section titled “Platform Storage”](#platform-storage) | Platform | Storage | Default scope | | -------- | -------------------------------------------------------- | ----------------- | | Android | AccountManager account owned by the plugin authenticator | App package name | | iOS | Keychain generic password, device-only accessibility | Bundle identifier | | Web | localStorage fallback | web | This is not a hardware identifier. It does not survive factory reset, manual account removal, Keychain clearing, browser storage clearing, or an explicit resetId call. ## Public API [Section titled “Public API”](#public-api) | Method | Description | | ---------------- | ----------------------------------------------- | | getId | Read or create the persistent UUID for a scope. | | resetId | Replace the stored UUID for a scope. | | getPluginVersion | Return the native plugin version marker. | ## Source Of Truth [Section titled “Source Of Truth”](#source-of-truth) This reference is synced from src/definitions.ts in [capacitor-persistent-uuid](https://github.com/Cap-go/capacitor-persistent-uuid/). ## Keep going from @capgo/capacitor-persistent-uuid [Section titled “Keep going from @capgo/capacitor-persistent-uuid”](#keep-going-from-capgocapacitor-persistent-uuid) If you are using **@capgo/capacitor-persistent-uuid** to identify an app install across reinstall flows, connect it with [Getting Started](/docs/plugins/persistent-uuid/getting-started/) for install and usage, [Android behavior](/docs/plugins/persistent-uuid/android/) for AccountManager details, [iOS behavior](/docs/plugins/persistent-uuid/ios/) for Keychain details, [Using @capgo/capacitor-persistent-uuid](/plugins/capacitor-persistent-uuid/) for the tutorial, and [@capgo/capacitor-persistent-account](/docs/plugins/persistent-account/) when you need to persist account data instead of an identifier.
+
+# Android Behavior
+
+> How @capgo/capacitor-persistent-uuid persists identifiers on Android.
+
+## Storage Model [Section titled “Storage Model”](#storage-model) On Android, the plugin stores the UUID in AccountManager under a plugin-owned authenticator account. The default account name uses the app package name as the scope. This lets the UUID survive common reinstall paths where app-private storage would be removed, including Android Studio uninstall/reinstall cycles and installs signed with different debug or Play signing keys when the package name stays the same. ## Stable Scope Rules [Section titled “Stable Scope Rules”](#stable-scope-rules) Use the default scope when the app package name is stable across builds. 
+```typescript
+const result = await PersistentUuid.getId();
+```
+ Use a custom scope when debug, staging, and production builds use different package identifiers but should share one persistent UUID. 
+```typescript
+const result = await PersistentUuid.getId({ scope: 'com.example.app' });
+```
+ ## Limits [Section titled “Limits”](#limits) The UUID can be lost if the user removes the account from Android settings, the device is factory reset, the package/scope changes, or the app calls resetId. ## Keep going from Android Behavior [Section titled “Keep going from Android Behavior”](#keep-going-from-android-behavior) If you are validating Android reinstall behavior, connect this page with [Getting Started](/docs/plugins/persistent-uuid/getting-started/) for API usage, [iOS behavior](/docs/plugins/persistent-uuid/ios/) for Apple platform differences, and [Using @capgo/capacitor-persistent-uuid](/plugins/capacitor-persistent-uuid/) for a complete walkthrough.
+
+# Getting Started
+
+> Install @capgo/capacitor-persistent-uuid and create a stable app UUID.
+
+## Install [Section titled “Install”](#install) You can use our AI-Assisted Setup to install the plugin. Add the Capgo skills to your AI tool using the following command: 
+```bash
+npx skills add https://github.com/Cap-go/capgo-skills --skill capacitor-plugins
+```
+ Then use the following prompt: 
+```text
+Use the `capacitor-plugins` skill from `Cap-go/capgo-skills` to install the `@capgo/capacitor-persistent-uuid` plugin in my project.
+```
+ If you prefer Manual Setup, install the plugin by running the following commands and follow the platform-specific instructions below: 
+```bash
+bun add @capgo/capacitor-persistent-uuid
+bunx cap sync
+```
+ ## Import [Section titled “Import”](#import) 
+```typescript
+import { PersistentUuid } from '@capgo/capacitor-persistent-uuid';
+```
+ ## Read Or Create The UUID [Section titled “Read Or Create The UUID”](#read-or-create-the-uuid) 
+```typescript
+import { PersistentUuid } from '@capgo/capacitor-persistent-uuid';
+
+
+const result = await PersistentUuid.getId();
+
+
+console.log(result.id);
+console.log(result.scope);
+console.log(result.created);
+```
+ The first call creates and stores a UUID. Later calls return the same UUID for the same scope. ## Use A Stable Custom Scope [Section titled “Use A Stable Custom Scope”](#use-a-stable-custom-scope) The native default scope is the package name on Android and the bundle identifier on iOS. If debug and production builds use different package identifiers but should share one UUID, pass a shared scope. 
+```typescript
+const result = await PersistentUuid.getId({
+  scope: 'com.example.app',
+});
+```
+ ## Reset The UUID [Section titled “Reset The UUID”](#reset-the-uuid) Call resetId when the user logs out, requests a privacy reset, or when automated tests need a new identifier. 
+```typescript
+const replacement = await PersistentUuid.resetId();
+console.log(replacement.id);
+```
+ ## Persistence Expectations [Section titled “Persistence Expectations”](#persistence-expectations) * Android can survive uninstall and reinstall, including Android Studio and Play installs with different signing keys, when the package name or custom scope is stable. * iOS survives app updates and iOS updates while Keychain access rules remain the same. * Web uses localStorage and is only a development fallback. ## Keep going from Getting Started [Section titled “Keep going from Getting Started”](#keep-going-from-getting-started) If you are using **Getting Started** to add persistent app identity, connect it with [@capgo/capacitor-persistent-uuid](/docs/plugins/persistent-uuid/) for the overview, [Android behavior](/docs/plugins/persistent-uuid/android/) for reinstall behavior, [iOS behavior](/docs/plugins/persistent-uuid/ios/) for Keychain behavior, [Using @capgo/capacitor-persistent-uuid](/plugins/capacitor-persistent-uuid/) for the tutorial, and [Capgo Plugin Directory](/plugins/) for other native plugins.
+
+# iOS Behavior
+
+> How @capgo/capacitor-persistent-uuid persists identifiers on iOS.
+
+## Storage Model [Section titled “Storage Model”](#storage-model) On iOS, the plugin stores the UUID in Keychain as a generic password item. The item is device-only and uses the bundle identifier as the default scope. This survives app updates and iOS updates. It also survives reinstall flows as long as iOS keeps the Keychain item and the app keeps compatible Keychain access through the same bundle and Apple team rules. ## Stable Scope Rules [Section titled “Stable Scope Rules”](#stable-scope-rules) Use the default scope when the bundle identifier is stable. 
+```typescript
+const result = await PersistentUuid.getId();
+```
+ Use a custom scope when multiple build variants should resolve to one app identifier. 
+```typescript
+const result = await PersistentUuid.getId({ scope: 'com.example.app' });
+```
+ ## Limits [Section titled “Limits”](#limits) The UUID can be lost if the user erases the device, Keychain data is cleared, Keychain access changes, the bundle/team access changes, or the app calls resetId. ## Keep going from iOS Behavior [Section titled “Keep going from iOS Behavior”](#keep-going-from-ios-behavior) If you are validating iOS persistence, connect this page with [Getting Started](/docs/plugins/persistent-uuid/getting-started/) for API usage, [Android behavior](/docs/plugins/persistent-uuid/android/) for Android reinstall behavior, and [Using @capgo/capacitor-persistent-uuid](/plugins/capacitor-persistent-uuid/) for a complete walkthrough.

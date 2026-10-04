@@ -1,0 +1,63 @@
+<SYSTEM>Plugin Permissions: unified runtime permission checks and requests for Capacitor</SYSTEM>
+
+# @capgo/capacitor-permissions
+
+> One TypeScript API to check and request runtime permissions on iOS, Android, and web with normalized status codes.
+
+## Overview [Section titled “Overview”](#overview) @capgo/capacitor-permissions gives Capacitor apps one API for camera, location, notifications, contacts, media, and more. Native manifests stay lean: the plugin does not inject Android `uses-permission` entries or iOS usage strings for you. ## Core Capabilities [Section titled “Core Capabilities”](#core-capabilities) * `check` - Read the current status of one permission without prompting. * `request` - Request one permission from the user. * `checkMultiple` - Check several permissions without prompting. * `requestMultiple` - Request several permissions sequentially. ## Public API [Section titled “Public API”](#public-api) | Method | Description | | ------------------------ | ----------------------------------------------------------------- | | `check` | Read the current status of one permission without prompting. | | `request` | Request one permission from the user. | | `checkMultiple` | Check several permissions without prompting. | | `requestMultiple` | Request several permissions sequentially. | | `shouldShowRationale` | Whether Android should show a rationale before requesting again. | | `openSettings` | Open application or notification settings when access is blocked. | | `requestPreciseLocation` | Upgrade to precise location on iOS and fine location on Android. | | `getPluginVersion` | Returns the platform implementation version marker. | ## Source Of Truth [Section titled “Source Of Truth”](#source-of-truth) This reference is synced from `src/definitions.ts` in [capacitor-permissions](https://github.com/Cap-go/capacitor-permissions/). ## Keep going from @capgo/capacitor-permissions [Section titled “Keep going from @capgo/capacitor-permissions”](#keep-going-from-capgocapacitor-permissions) If you are using **@capgo/capacitor-permissions** in your Capacitor app, connect it with [Using @capgo/capacitor-permissions](/plugins/capacitor-permissions/) for the SEO tutorial and related Capgo plugin docs.
+
+# Android setup
+
+> Declare Android uses-permission entries for @capgo/capacitor-permissions and request runtime access.
+
+The library `AndroidManifest.xml` declares no `<uses-permission>` entries. Add only what your app uses to `android/app/src/main/AndroidManifest.xml`. The plugin targets **minSdk 24** unless your project overrides `minSdkVersion`. | Permission | Typical `uses-permission` names | | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | | `camera` | `android.permission.CAMERA` | | `microphone`, `speechRecognition` | `android.permission.RECORD_AUDIO` | | `photoLibrary`, `mediaImages` | `android.permission.READ_MEDIA_IMAGES`, `android.permission.READ_MEDIA_VISUAL_USER_SELECTED`, `android.permission.READ_EXTERNAL_STORAGE` (legacy) | | `locationWhenInUse` | `android.permission.ACCESS_COARSE_LOCATION`, `android.permission.ACCESS_FINE_LOCATION` | | `locationAlways` | above plus `android.permission.ACCESS_BACKGROUND_LOCATION` | | `notifications` | `android.permission.POST_NOTIFICATIONS` (Android 13+) | | `activityRecognition` | `android.permission.ACTIVITY_RECOGNITION` | `reminders` and `appTrackingTransparency` return `unavailable` on Android. Use `scripts/apply-permissions.mjs` from the npm package to merge declarations into your app manifest, with the same `--project` and `--permissions` flags as on iOS.
+
+# Getting Started
+
+> Install @capgo/capacitor-permissions and start using its current Capacitor API.
+
+## Install [Section titled “Install”](#install) You can use our AI-Assisted Setup to install the plugin. Add the Capgo skills to your AI tool using the following command: 
+```bash
+npx skills add https://github.com/Cap-go/capgo-skills --skill capacitor-plugins
+```
+ Then use the following prompt: 
+```text
+Use the `capacitor-plugins` skill from `Cap-go/capgo-skills` to install the `@capgo/capacitor-permissions` plugin in my project.
+```
+ If you prefer Manual Setup, install the plugin by running the following commands and follow the platform-specific instructions below: 
+```bash
+npm install @capgo/capacitor-permissions
+npx cap sync
+```
+ ## Import [Section titled “Import”](#import) 
+```typescript
+import { Permissions } from '@capgo/capacitor-permissions';
+```
+ ## Platform setup [Section titled “Platform setup”](#platform-setup) * [iOS setup](/docs/plugins/permissions/ios/) for Info.plist usage strings per `PermissionName`. * [Android setup](/docs/plugins/permissions/android/) for `uses-permission` entries and minSdk 24. ## Usage [Section titled “Usage”](#usage) 
+```typescript
+import { Permissions } from '@capgo/capacitor-permissions';
+
+
+export async function ensureCamera(): Promise<boolean> {
+  const { status } = await Permissions.check({ permission: 'camera' });
+  if (status === 'granted') return true;
+  const { status: afterRequest } = await Permissions.request({ permission: 'camera' });
+  return afterRequest === 'granted';
+}
+```
+ When status is `blocked`, send the user to settings: 
+```typescript
+await Permissions.openSettings({ type: 'application' });
+```
+
+# iOS setup
+
+> Add Info.plist usage strings for each @capgo/capacitor-permissions PermissionName you request at runtime.
+
+The plugin does not inject usage descriptions. For each `PermissionName` you call, add matching keys to `ios/App/App/Info.plist`: | Permission | Info.plist keys | | ------------------------- | ------------------------------------------------------------------------------------- | | `camera` | `NSCameraUsageDescription` | | `microphone` | `NSMicrophoneUsageDescription` | | `photoLibrary` | `NSPhotoLibraryUsageDescription` | | `photoLibraryAddOnly` | `NSPhotoLibraryAddUsageDescription` | | `contacts` | `NSContactsUsageDescription` | | `calendar` | `NSCalendarsUsageDescription`, `NSCalendarsFullAccessUsageDescription` | | `reminders` | `NSRemindersUsageDescription`, `NSRemindersFullAccessUsageDescription` | | `locationWhenInUse` | `NSLocationWhenInUseUsageDescription` | | `locationAlways` | `NSLocationWhenInUseUsageDescription`, `NSLocationAlwaysAndWhenInUseUsageDescription` | | `bluetooth` | `NSBluetoothAlwaysUsageDescription` | | `motion` | `NSMotionUsageDescription` | | `speechRecognition` | `NSSpeechRecognitionUsageDescription`, `NSMicrophoneUsageDescription` | | `appTrackingTransparency` | `NSUserTrackingUsageDescription` | `notifications` uses the system notification permission flow. Android-only names such as `activityRecognition`, `phone`, and `sms` return `unavailable` on iOS. Apply keys from the plugin package: 
+```bash
+node node_modules/@capgo/capacitor-permissions/scripts/apply-permissions.mjs \
+  --project . \
+  --permissions camera,microphone,notifications,locationWhenInUse,photoLibrary
+```
+ Point `--project` at your Capacitor app root (the folder that contains `ios/` and `android/`).

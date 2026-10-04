@@ -1,0 +1,136 @@
+<SYSTEM>Plugin Passkey: browser-style WebAuthn passkey plugin that handles native calls and host patching</SYSTEM>
+
+# @capgo/capacitor-passkey
+
+> Keep your browser-style WebAuthn code in a Capacitor app while the plugin handles native passkey calls and native host patching.
+
+Browser-style API Keep `navigator.credentials.create()` and `navigator.credentials.get()` in your app instead of rewriting your passkey flow around a custom API. Minimal app changes Add plugin config once, call `CapacitorPasskey.autoShimWebAuthn()` during bootstrap, and keep the rest of your WebAuthn code close to the browser implementation. Build-time native wiring The plugin patches the generated iOS and Android host projects during sync so you do not need to keep hand-editing those files. Platform notes included Follow the [Getting Started](/docs/plugins/passkey/getting-started/), [iOS setup](/docs/plugins/passkey/ios/), [Android setup](/docs/plugins/passkey/android/), and [backend notes](/docs/plugins/passkey/backend/). ## Core API [Section titled “Core API”](#core-api) * `shimWebAuthn(options?)` installs the browser-style shim immediately, with an optional HTTPS origin override. * `getConfiguration()` reads the resolved runtime config from `plugins.CapacitorPasskey`. * `autoShimWebAuthn(options?)` reads that config and installs the shim in one step during app bootstrap. * `createCredential(options)` and `getCredential(options)` call the native passkey APIs directly with JSON-safe WebAuthn payloads. * `isSupported()` reports runtime availability and `getPluginVersion()` returns the native implementation version marker. ## Keep going from @capgo/capacitor-passkey [Section titled “Keep going from @capgo/capacitor-passkey”](#keep-going-from-capgocapacitor-passkey) If you are using **@capgo/capacitor-passkey** to plan authentication and account flows, connect it with [Using @capgo/capacitor-passkey](/plugins/capacitor-passkey/) for the native capability in Using @capgo/capacitor-passkey, [@capgo/capacitor-social-login](/docs/plugins/social-login/) for the implementation detail in @capgo/capacitor-social-login, [@capgo/capacitor-native-biometric](/docs/plugins/native-biometric/) for the implementation detail in @capgo/capacitor-native-biometric, [Two-factor authentication](/docs/webapp/mfa/) for the implementation detail in Two-factor authentication, and [SSO (Enterprise)](/docs/webapp/enterprise-sso/) for the implementation detail in SSO (Enterprise).
+
+# Android Setup
+
+> Configure passkeys on Android for @capgo/capacitor-passkey with Digital Asset Links and assetlinks.json.
+
+On Android, passkeys work with your website when the app and the relying-party domain are connected through Digital Asset Links. ## What the plugin handles [Section titled “What the plugin handles”](#what-the-plugin-handles) After you add the plugin config and run `bunx cap sync`, the plugin patches the generated Android host project: * injects the `asset_statements` manifest metadata * writes the generated string resource referenced by that metadata ## What you still need to host [Section titled “What you still need to host”](#what-you-still-need-to-host) You must publish `assetlinks.json` on the relying-party domain: 
+```text
+https://signin.example.com/.well-known/assetlinks.json
+```
+ Example: 
+```json
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.capgo.passkey.example",
+      "sha256_cert_fingerprints": [
+        "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99"
+      ]
+    }
+  }
+]
+```
+ ## Checklist [Section titled “Checklist”](#checklist) 1. Set `origin` and `domains` in `plugins.CapacitorPasskey` in `capacitor.config.*`. 2. Run `bunx cap sync`. 3. Use your real Android package name in `assetlinks.json`. 4. Add every signing certificate fingerprint you need, including debug or internal signing keys if you test those builds. 5. Host the file on the same domain you use as the relying-party ID. ## Important behavior difference from a browser [Section titled “Important behavior difference from a browser”](#important-behavior-difference-from-a-browser) With Digital Asset Links configured, Android can use the same relying party and passkeys as your website. The remaining difference is the literal origin reported in native `clientDataJSON`. * A normal Android app does not behave like a privileged browser. * The assertion origin can be tied to the Android app signature instead of your website origin. * If your backend strictly validates `clientDataJSON.origin`, accept the Android app origin alongside the website origin. ## Keep going from Android Setup [Section titled “Keep going from Android Setup”](#keep-going-from-android-setup) If you are using **Android Setup** to plan authentication and account flows, connect it with [Using @capgo/capacitor-passkey](/plugins/capacitor-passkey/) for the native capability in Using @capgo/capacitor-passkey, [@capgo/capacitor-social-login](/docs/plugins/social-login/) for the implementation detail in @capgo/capacitor-social-login, [@capgo/capacitor-passkey](/docs/plugins/passkey/) for the implementation detail in @capgo/capacitor-passkey, [@capgo/capacitor-native-biometric](/docs/plugins/native-biometric/) for the implementation detail in @capgo/capacitor-native-biometric, and [Two-factor authentication](/docs/webapp/mfa/) for the implementation detail in Two-factor authentication.
+
+# Backend Notes
+
+> Understand the backend contract for @capgo/capacitor-passkey, including WebAuthn challenge handling and Android origin validation.
+
+Your backend still owns the normal WebAuthn ceremony: * generate registration and authentication challenges * verify attestation and assertion responses * enforce relying-party ID and challenge validation * store credentials and counters the same way you would for a browser flow ## What stays the same [Section titled “What stays the same”](#what-stays-the-same) The plugin is designed to preserve the front-end shape of your existing WebAuthn code. * On the web, it forwards to the real browser WebAuthn API. * On native Capacitor, it returns browser-like credential objects backed by native passkey APIs. * Your backend can keep the same challenge and verification pipeline. ## What changes on Android [Section titled “What changes on Android”](#what-changes-on-android) Android native passkeys are not identical to a browser trust model. * Digital Asset Links let Android share the same relying party and credential ecosystem as your website. * The literal `clientDataJSON.origin` value can still differ from the website origin. * If your server rejects anything except `https://your-domain`, Android native assertions can fail even when the passkey is otherwise valid. ## Recommended backend rule [Section titled “Recommended backend rule”](#recommended-backend-rule) Allow the expected browser origin and the expected Android app origin for the same relying party when you support native Android passkeys. That gives you: * browser support for the website * native passkey support in the Capacitor app * one passkey ecosystem for the same relying-party domain ## If you need direct JSON-safe calls [Section titled “If you need direct JSON-safe calls”](#if-you-need-direct-json-safe-calls) If your backend already returns `PublicKeyCredentialCreationOptionsJSON` and `PublicKeyCredentialRequestOptionsJSON`, you can also use the direct plugin API instead of the browser-style shim: 
+```ts
+import { CapacitorPasskey } from '@capgo/capacitor-passkey';
+
+
+const registration = await CapacitorPasskey.createCredential({
+  origin: 'https://signin.example.com',
+  publicKey: registrationOptionsFromBackend,
+});
+
+
+const authentication = await CapacitorPasskey.getCredential({
+  origin: 'https://signin.example.com',
+  publicKey: requestOptionsFromBackend,
+});
+```
+ ## Keep going from Backend Notes [Section titled “Keep going from Backend Notes”](#keep-going-from-backend-notes) If you are using **Backend Notes** to plan authentication and account flows, connect it with [Using @capgo/capacitor-passkey](/plugins/capacitor-passkey/) for the native capability in Using @capgo/capacitor-passkey, [@capgo/capacitor-social-login](/docs/plugins/social-login/) for the implementation detail in @capgo/capacitor-social-login, [@capgo/capacitor-passkey](/docs/plugins/passkey/) for the implementation detail in @capgo/capacitor-passkey, [@capgo/capacitor-native-biometric](/docs/plugins/native-biometric/) for the implementation detail in @capgo/capacitor-native-biometric, and [Two-factor authentication](/docs/webapp/mfa/) for the implementation detail in Two-factor authentication.
+
+# Getting Started
+
+> Install @capgo/capacitor-passkey, configure the plugin once, and keep your browser-style WebAuthn code in a Capacitor app.
+
+## Installation [Section titled “Installation”](#installation) You can use our AI-Assisted Setup to install the plugin. Add the Capgo skills to your AI tool using the following command: 
+```bash
+npx skills add https://github.com/Cap-go/capgo-skills --skill capacitor-plugins
+```
+ Then use the following prompt: 
+```text
+Use the `capacitor-plugins` skill from `Cap-go/capgo-skills` to install the `@capgo/capacitor-passkey` plugin in my project.
+```
+ If you prefer Manual Setup, install the plugin by running the following commands and follow the platform-specific instructions below: 1. **Install the package** 
+   ```sh
+   bun add @capgo/capacitor-passkey
+   ```
+ 2. **Sync native projects** 
+   ```sh
+   bunx cap sync
+   ```
+ 3. **Add the plugin config** 
+   ```ts
+   import type { CapacitorConfig } from '@capacitor/cli';
+
+
+   const config: CapacitorConfig = {
+     appId: 'app.capgo.passkey.example',
+     appName: 'My App',
+     webDir: 'dist',
+     plugins: {
+       CapacitorPasskey: {
+         origin: 'https://signin.example.com',
+         autoShim: true,
+         domains: ['signin.example.com'],
+       },
+     },
+   };
+
+
+   export default config;
+   ```
+ 4. **Install the shim during bootstrap** 
+   ```ts
+   import { CapacitorPasskey } from '@capgo/capacitor-passkey';
+
+
+   await CapacitorPasskey.autoShimWebAuthn();
+   ```
+ 5. **Keep your normal WebAuthn flow** 
+   ```ts
+   const registration = await navigator.credentials.create({
+     publicKey: registrationOptions,
+   });
+
+
+   const authentication = await navigator.credentials.get({
+     publicKey: requestOptions,
+   });
+   ```
+ ## What the plugin config does [Section titled “What the plugin config does”](#what-the-plugin-config-does) The config is read from `plugins.CapacitorPasskey` in `capacitor.config.*`. * `origin`: primary HTTPS relying-party origin used by the shim and direct API * `domains`: extra relying-party hostnames to patch into native config during sync * `autoShim`: defaults to `true` and controls the native `cap sync` auto-configuration hook ## What sync patches for you [Section titled “What sync patches for you”](#what-sync-patches-for-you) When you run `bunx cap sync`, the plugin updates the generated native host project: * iOS: associated domains entitlements and Xcode entitlements wiring when needed * Android: `asset_statements` metadata and the generated resource used by the manifest The hook does not publish your website trust files for you. You still need to host: * `https://your-domain/.well-known/apple-app-site-association` * `https://your-domain/.well-known/assetlinks.json` ## Platform guides [Section titled “Platform guides”](#platform-guides) [ iOS setup](/docs/plugins/passkey/ios/) [Associated Domains and `apple-app-site-association`.](/docs/plugins/passkey/ios/) [ Android setup](/docs/plugins/passkey/android/) [Digital Asset Links and `assetlinks.json`.](/docs/plugins/passkey/android/) [ Backend notes](/docs/plugins/passkey/backend/) [Origin validation and Android caveats.](/docs/plugins/passkey/backend/) ## Keep going from Getting Started [Section titled “Keep going from Getting Started”](#keep-going-from-getting-started) If you are using **Getting Started** to plan authentication and account flows, connect it with [Using @capgo/capacitor-passkey](/plugins/capacitor-passkey/) for the native capability in Using @capgo/capacitor-passkey, [@capgo/capacitor-social-login](/docs/plugins/social-login/) for the implementation detail in @capgo/capacitor-social-login, [@capgo/capacitor-passkey](/docs/plugins/passkey/) for the implementation detail in @capgo/capacitor-passkey, [@capgo/capacitor-native-biometric](/docs/plugins/native-biometric/) for the implementation detail in @capgo/capacitor-native-biometric, and [Two-factor authentication](/docs/webapp/mfa/) for the implementation detail in Two-factor authentication.
+
+# iOS Setup
+
+> Configure passkeys on iOS for @capgo/capacitor-passkey with Associated Domains and the apple-app-site-association file.
+
+On iOS, passkeys only work when the app is associated with the same relying-party domain as the website. ## What the plugin handles [Section titled “What the plugin handles”](#what-the-plugin-handles) After you add the plugin config and run `bunx cap sync`, the plugin patches the generated iOS host project so you do not need to keep editing it manually: * adds the `webcredentials:` associated domains entries for the configured domains * wires `CODE_SIGN_ENTITLEMENTS` when the generated app target does not already point at an entitlements file ## What you still need to host [Section titled “What you still need to host”](#what-you-still-need-to-host) You must publish `apple-app-site-association` on the relying-party domain: 
+```text
+https://signin.example.com/.well-known/apple-app-site-association
+```
+ Example: 
+```json
+{
+  "webcredentials": {
+    "apps": ["ABCDE12345.app.capgo.passkey.example"]
+  }
+}
+```
+ ## Checklist [Section titled “Checklist”](#checklist) 1. Set `origin` and `domains` in `plugins.CapacitorPasskey` in `capacitor.config.*`. 2. Run `bunx cap sync`. 3. Confirm your Apple Team ID and app bundle ID, then build the `TEAMID.bundleId` value for the association file. 4. Host `apple-app-site-association` with HTTP `200` and no `.json` extension. 5. Make sure the relying-party ID used by your backend matches the associated domain. ## Notes [Section titled “Notes”](#notes) * The website file must be served from the exact passkey domain you use as the relying-party ID. * On iOS 17.4 and newer, the plugin uses the browser-style client-data API so the configured HTTPS origin is reflected in `clientDataJSON`. * The plugin can patch native project files during sync, but it cannot create or host the website association file on your domain. ## Keep going from iOS Setup [Section titled “Keep going from iOS Setup”](#keep-going-from-ios-setup) If you are using **iOS Setup** to plan authentication and account flows, connect it with [Using @capgo/capacitor-passkey](/plugins/capacitor-passkey/) for the native capability in Using @capgo/capacitor-passkey, [@capgo/capacitor-social-login](/docs/plugins/social-login/) for the implementation detail in @capgo/capacitor-social-login, [@capgo/capacitor-passkey](/docs/plugins/passkey/) for the implementation detail in @capgo/capacitor-passkey, [@capgo/capacitor-native-biometric](/docs/plugins/native-biometric/) for the implementation detail in @capgo/capacitor-native-biometric, and [Two-factor authentication](/docs/webapp/mfa/) for the implementation detail in Two-factor authentication.

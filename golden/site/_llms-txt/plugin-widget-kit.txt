@@ -1,0 +1,204 @@
+<SYSTEM>Plugin Widget Kit: WidgetKit and Live Activities template plugin</SYSTEM>
+
+# @capgo/capacitor-widget-kit
+
+> WidgetKit and Live Activities for Capacitor apps, with SVG-driven templates or full-native widget state sync.
+
+## Overview [Section titled “Overview”](#overview) `@capgo/capacitor-widget-kit` gives a Capacitor app two ways to drive widgets and Live Activities: * SVG template activities: define WidgetKit surfaces as SVG, switch named frames from taps, run pause/play timers, mutate JSON state, and collect action events in the app. * Full-native widget sessions: keep the widget UI fully in Swift/Kotlin/Java while Capacitor owns shared JSON state and app-to-widget or widget-to-app messages. Use SVG templates when your widget can be rendered from resolved SVG strings. Use full-native sessions when the widget needs a custom native UI but still has to start, stop, sync state, or ask the app to complete async work. ## Demo [Section titled “Demo”](#demo) ![Animated WidgetKit demo showing template widget state and controls driven from Capacitor](/plugins/demo/capacitor-widget-kit/demo.webp) Widget template flow ## Choose A Mode [Section titled “Choose A Mode”](#choose-a-mode) | Mode | Best for | Main APIs | | -------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------- | | SVG template activity | Live Activities or widget surfaces that render from SVG output | `startTemplateActivity`, `performTemplateAction`, `listTemplateEvents` | | Full-native widget session | Native-rendered widgets that need shared state and async jobs | `startWidgetSession`, `updateWidgetSession`, `sendWidgetMessage` | Both modes can live in the same app. For example, a workout app can use an SVG Live Activity for fast frame/timer controls and a full-native widget session for a home-screen widget with a richer native layout. ## SVG Template Capabilities [Section titled “SVG Template Capabilities”](#svg-template-capabilities) SVG templates include the pieces needed for interactive widget surfaces: * `frames` hold named SVG variants such as `summary`, `timer`, or `details`. * `frameMutations` switch, toggle, or step through frames after a hotspot action. * `timerMutations` start, pause, resume, toggle, reset, stop, or change timer duration. * `patches` update JSON state using literal values, templates, timestamps, increments, toggles, or unset operations. * `hotspots` map tap areas to action identifiers. * `listTemplateEvents` lets the app process widget-originated actions later. The runtime resolves placeholders like `{{state.title}}`, `{{timers.rest.remainingText}}`, and `{{meta.template.kind}}` before the native bridge returns a surface for rendering. ## Full-Native Bridge Capabilities [Section titled “Full-Native Bridge Capabilities”](#full-native-bridge-capabilities) Full-native sessions are for widgets that render their own UI natively: * `startWidgetSession` creates shared state and metadata for native widget code. * `updateWidgetSession` merges or replaces state and marks the session active again. * `stopWidgetSession` records a final state and marks the session stopped. * `sendWidgetMessage` queues app-to-widget or widget-to-app work. * `acknowledgeWidgetMessages` marks messages as received. * `completeWidgetMessage` stores a response or failure for async jobs. Messages are idempotent after completion: retrying a completed or failed message returns the existing result instead of overwriting it. ## Public API [Section titled “Public API”](#public-api) | Method | Description | | --------------------------- | --------------------------------------------------------------------------------- | | `areActivitiesSupported` | Check whether the native template activity bridge can run on the current device. | | `startTemplateActivity` | Persist an SVG template activity and start the native Live Activity bridge. | | `updateTemplateActivity` | Replace the activity definition, state, or open URL. | | `endTemplateActivity` | End a running activity and optionally persist one last state snapshot. | | `performTemplateAction` | Execute declarative patches, frame mutations, timer mutations, and event logging. | | `getTemplateActivity` | Read one stored template activity. | | `listTemplateActivities` | List every stored template activity. | | `listTemplateEvents` | Read action events emitted by template actions. | | `acknowledgeTemplateEvents` | Mark template events as processed. | | `startWidgetSession` | Start a full-native widget session backed by shared JSON state. | | `updateWidgetSession` | Merge or replace a full-native widget session state. | | `stopWidgetSession` | Stop a full-native widget session and optionally persist final state. | | `getWidgetSession` | Read one full-native widget session. | | `listWidgetSessions` | List every full-native widget session. | | `sendWidgetMessage` | Queue a message between the app and native widget code. | | `listWidgetMessages` | List queued bridge messages. | | `acknowledgeWidgetMessages` | Mark bridge messages as acknowledged. | | `completeWidgetMessage` | Complete or fail an async bridge message. | | `getPluginVersion` | Return the platform implementation version marker. | ## Native Pieces [Section titled “Native Pieces”](#native-pieces) The plugin also ships native helpers for widget targets: * `CapgoTemplateWidgetBridge` resolves an SVG template surface into `svg`, `frameId`, `hotspots`, and metadata. * `CapgoTemplateActionIntent` connects interactive iOS widget buttons to template actions. * `CapgoNativeWidgetBridge` loads full-native sessions and messages from native widget code. * Android template helpers provide matching action receiver and widget bridge behavior. ## Source Of Truth [Section titled “Source Of Truth”](#source-of-truth) The API reference is synced from [`src/definitions.ts`](https://github.com/Cap-go/capacitor-widget-kit/blob/main/src/definitions.ts) in the plugin repository. ## Keep going from @capgo/capacitor-widget-kit [Section titled “Keep going from @capgo/capacitor-widget-kit”](#keep-going-from-capgocapacitor-widget-kit) If you are using **@capgo/capacitor-widget-kit** to plan CI/CD automation, connect it with [Using @capgo/capacitor-widget-kit](/plugins/capacitor-widget-kit/) for the native capability in Using @capgo/capacitor-widget-kit, [Capgo CI/CD](/ci_cd/) for the product workflow in Capgo CI/CD, [Capgo Native Builds](/native-build/) for the product workflow in Capgo Native Builds, [Capgo Integrations](/integrations/) for the product workflow in Capgo Integrations, and [CI/CD Integration](/docs/getting-started/cicd-integration/) for the implementation detail in CI/CD Integration.
+
+# Getting Started
+
+> Install @capgo/capacitor-widget-kit, create SVG frame/timer widgets, or sync full-native widgets with the app.
+
+## Install [Section titled “Install”](#install) You can use our AI-Assisted Setup to install the plugin. Add the Capgo skills to your AI tool using the following command: 
+```bash
+npx skills add https://github.com/Cap-go/capgo-skills --skill capacitor-plugins
+```
+ Then use the following prompt: 
+```text
+Use the `capacitor-plugins` skill from `Cap-go/capgo-skills` to install the `@capgo/capacitor-widget-kit` plugin in my project.
+```
+ If you prefer Manual Setup, install the plugin by running the following commands and follow the platform-specific instructions below: 
+```bash
+bun add @capgo/capacitor-widget-kit
+bunx cap sync
+```
+ ## Import [Section titled “Import”](#import) 
+```typescript
+import { CapgoWidgetKit } from '@capgo/capacitor-widget-kit';
+```
+ ## iOS Setup [Section titled “iOS Setup”](#ios-setup) For Live Activities and WidgetKit extensions, configure the native app first: * Use iOS 17+ for interactive Live Activity buttons when possible. * Add `NSSupportsLiveActivities` to the app `Info.plist` when using ActivityKit. * Add the same App Group to the app target and the widget extension target. * Set `CapgoWidgetKitAppGroup` in both `Info.plist` files to the shared App Group identifier. 
+```xml
+<key>CapgoWidgetKitAppGroup</key>
+<string>group.app.capgo.widgetkit.exampleapp.widgetkit</string>
+```
+ ## Check Support [Section titled “Check Support”](#check-support) 
+```typescript
+const { supported, reason } = await CapgoWidgetKit.areActivitiesSupported();
+
+
+if (!supported) {
+  console.log('WidgetKit bridge unavailable:', reason);
+}
+```
+ ## Option 1: SVG Template Activity [Section titled “Option 1: SVG Template Activity”](#option-1-svg-template-activity) Use this mode when the widget can render resolved SVG. The plugin stores state, resolves placeholders, applies tap actions, switches SVG frames, and keeps timer state consistent. 
+```typescript
+const { activity } = await CapgoWidgetKit.startTemplateActivity({
+  activityId: 'workout-session-1',
+  openUrl: 'myapp://workout/session-1',
+  state: {
+    title: 'Chest Day',
+    frame: 'summary',
+    restDurationMs: 90000,
+  },
+  definition: {
+    id: 'workout-card',
+    timers: [
+      {
+        id: 'rest',
+        durationPath: 'state.restDurationMs',
+      },
+    ],
+    actions: [
+      {
+        id: 'next-frame',
+        eventName: 'widget.frame.changed',
+        frameMutations: [
+          {
+            op: 'next',
+            path: 'frame',
+            surface: 'lockScreen',
+          },
+        ],
+      },
+      {
+        id: 'toggle-rest',
+        eventName: 'widget.timer.toggled',
+        timerMutations: [
+          {
+            op: 'toggle',
+            timerId: 'rest',
+          },
+        ],
+      },
+    ],
+    layouts: {
+      lockScreen: {
+        width: 100,
+        height: 40,
+        frameIdPath: 'state.frame',
+        frames: [
+          {
+            id: 'summary',
+            hotspots: [{ id: 'switch', actionId: 'next-frame', x: 0, y: 0, width: 100, height: 40 }],
+            svg: `<svg viewBox="0 0 100 40"><text x="6" y="22">{{state.title}}</text></svg>`,
+          },
+          {
+            id: 'timer',
+            hotspots: [{ id: 'pause-play', actionId: 'toggle-rest', x: 0, y: 0, width: 100, height: 40 }],
+            svg: `<svg viewBox="0 0 100 40"><text x="6" y="22">{{timers.rest.remainingText}}</text></svg>`,
+          },
+        ],
+      },
+    },
+  },
+});
+```
+ ### Run Actions From The App [Section titled “Run Actions From The App”](#run-actions-from-the-app) Native widgets can trigger the same actions through their hotspot/action wiring. The app can also run them directly: 
+```typescript
+await CapgoWidgetKit.performTemplateAction({
+  activityId: activity.activityId,
+  actionId: 'toggle-rest',
+  sourceId: 'app-pause-play-button',
+});
+```
+ ### Process Widget Events [Section titled “Process Widget Events”](#process-widget-events) Actions emit events so the app can process widget interactions after launch or resume: 
+```typescript
+const { events } = await CapgoWidgetKit.listTemplateEvents({
+  activityId: activity.activityId,
+  unacknowledgedOnly: true,
+});
+
+
+for (const event of events) {
+  console.log('Widget event:', event.eventName, event.state, event.timers);
+}
+
+
+await CapgoWidgetKit.acknowledgeTemplateEvents({
+  activityId: activity.activityId,
+});
+```
+ ### Update Or End The Activity [Section titled “Update Or End The Activity”](#update-or-end-the-activity) 
+```typescript
+await CapgoWidgetKit.updateTemplateActivity({
+  activityId: activity.activityId,
+  state: {
+    title: 'Back Day',
+    frame: 'summary',
+    restDurationMs: 120000,
+  },
+});
+
+
+await CapgoWidgetKit.endTemplateActivity({
+  activityId: activity.activityId,
+  state: { title: 'Workout complete', frame: 'summary' },
+});
+```
+ ## Frame Mutations [Section titled “Frame Mutations”](#frame-mutations) Frame mutations write the active frame id into state. A layout can then read it with `frameIdPath`. | Operation | Behavior | | ---------- | ---------------------------------------------------------------------------------------------------------------- | | `set` | Set a specific frame id. Plain strings are treated as literal frame ids; `{{...}}` templates are resolved first. | | `next` | Move to the next frame from `frameIds` or the frames declared on `surface`. | | `previous` | Move to the previous frame. | | `toggle` | Toggle between the first two available frames, or between the current frame and `frameId`. | Invalid frame ids are ignored when the mutation has a known selectable frame list, so state stays aligned with the rendered surface. ## Timer Mutations [Section titled “Timer Mutations”](#timer-mutations) Timer mutations target a named timer from `definition.timers`. | Operation | Behavior | | ------------------- | ------------------------------------------------------------------------------------------ | | `start` / `restart` | Start from zero using the current duration. | | `pause` | Store elapsed time and clear `startedAt`. | | `resume` | Resume only paused timers. Stopped timers stay stopped until an explicit start or restart. | | `toggle` | Pause a running timer or resume a paused timer. | | `reset` | Clear elapsed time and return to idle. | | `stop` | Clear runtime progress and mark the timer stopped. | | `setDuration` | Recompute status after a duration change. | Timer bindings are available to SVG as `{{timers.<id>.remainingText}}`, `{{timers.<id>.elapsedMs}}`, `{{timers.<id>.status}}`, and related fields. ## Option 2: Full-Native Widget Session [Section titled “Option 2: Full-Native Widget Session”](#option-2-full-native-widget-session) Use this mode when the widget UI is built in native code. The plugin gives the app and widget a shared session record and a message queue. 
+```typescript
+const { session } = await CapgoWidgetKit.startWidgetSession({
+  widgetId: 'native-session-1',
+  kind: 'workout-controls',
+  state: { isRunning: true, selectedSetId: 'set-1' },
+  metadata: { accent: '#00d69c' },
+});
+
+
+await CapgoWidgetKit.updateWidgetSession({
+  widgetId: session.widgetId,
+  merge: true,
+  state: { isRunning: false },
+});
+
+
+const { sessions } = await CapgoWidgetKit.listWidgetSessions();
+console.log('Known widget sessions:', sessions);
+```
+ ## Async Widget Messages [Section titled “Async Widget Messages”](#async-widget-messages) Messages cover work that needs a later response, such as a widget asking the app to sync data. 
+```typescript
+const { message } = await CapgoWidgetKit.sendWidgetMessage({
+  widgetId: session.widgetId,
+  direction: 'widgetToApp',
+  name: 'syncWorkoutSet',
+  payload: { setId: 'set-1' },
+  expectsResponse: true,
+});
+
+
+await CapgoWidgetKit.acknowledgeWidgetMessages({
+  messageIds: [message.messageId],
+});
+
+
+await CapgoWidgetKit.completeWidgetMessage({
+  messageId: message.messageId,
+  response: { synced: true },
+});
+```
+ To fail the job, pass `error` instead of `response`: 
+```typescript
+await CapgoWidgetKit.completeWidgetMessage({
+  messageId: message.messageId,
+  error: 'Network unavailable',
+});
+```
+ `completeWidgetMessage` is idempotent. If the message is already completed or failed, repeated calls return the existing message snapshot. ## Stop A Native Session [Section titled “Stop A Native Session”](#stop-a-native-session) 
+```typescript
+await CapgoWidgetKit.stopWidgetSession({
+  widgetId: session.widgetId,
+  state: { isRunning: false },
+});
+```
+ ## API Groups [Section titled “API Groups”](#api-groups) | Group | APIs | | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- | | Capability | `areActivitiesSupported`, `getPluginVersion` | | SVG activity lifecycle | `startTemplateActivity`, `updateTemplateActivity`, `endTemplateActivity`, `getTemplateActivity`, `listTemplateActivities` | | SVG actions and events | `performTemplateAction`, `listTemplateEvents`, `acknowledgeTemplateEvents` | | Native widget sessions | `startWidgetSession`, `updateWidgetSession`, `stopWidgetSession`, `getWidgetSession`, `listWidgetSessions` | | Native widget messages | `sendWidgetMessage`, `listWidgetMessages`, `acknowledgeWidgetMessages`, `completeWidgetMessage` | ## Source Of Truth [Section titled “Source Of Truth”](#source-of-truth) The full type reference lives in the plugin repository at [`src/definitions.ts`](https://github.com/Cap-go/capacitor-widget-kit/blob/main/src/definitions.ts). ## Keep going from Getting Started [Section titled “Keep going from Getting Started”](#keep-going-from-getting-started) If you are using **Getting Started** to plan native plugin work, connect it with [Using @capgo/capacitor-widget-kit](/plugins/capacitor-widget-kit/) for the native capability in Using @capgo/capacitor-widget-kit, [Capgo Plugin Directory](/plugins/) for the product workflow in Capgo Plugin Directory, [Capacitor Plugins by Capgo](/docs/plugins/) for the implementation detail in Capacitor Plugins by Capgo, [Adding or Updating Plugins](/docs/contributing/adding-plugins/) for the implementation detail in Adding or Updating Plugins, and [Ionic Enterprise Plugin Alternatives](/ionic-enterprise-plugins/) for the product workflow in Ionic Enterprise Plugin Alternatives.

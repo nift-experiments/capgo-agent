@@ -1,0 +1,55 @@
+---
+title: "@capgo/capacitor-health"
+description: "Capacitor plugin to interact with data from Apple HealthKit and Health Connect."
+tableOfContents: false
+next: false
+prev: false
+sidebar:
+  order: 1
+  label: "Introduction"
+hero:
+  tagline: "Capacitor plugin to interact with data from Apple HealthKit and Health Connect."
+  actions:
+    - text: Get started
+      link: /docs/plugins/health/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/Cap-go/capacitor-health/
+      icon: external
+      variant: minimal
+---
+
+## Overview
+
+Capacitor plugin to interact with data from Apple HealthKit and Health Connect.
+
+## Core Capabilities
+
+- `isAvailable` - Returns whether the current platform supports the native health SDK.
+- `requestAuthorization` - Requests read/write access to the provided data types.
+- `checkAuthorization` - Checks authorization status for the provided data types without prompting the user.
+- `readSamples` - Reads samples for the given data type within the specified time frame.
+
+## Public API
+
+| Method | Description |
+| --- | --- |
+| `isAvailable` | Returns whether the current platform supports the native health SDK. |
+| `requestAuthorization` | Requests read/write access to the provided data types. |
+| `checkAuthorization` | Checks authorization status for the provided data types without prompting the user. |
+| `readSamples` | Reads samples for the given data type within the specified time frame. |
+| `saveSample` | Writes a single sample to the native health store. |
+| `getPluginVersion` | Get the native Capacitor plugin version. |
+| `openHealthConnectSettings` | Opens the Health Connect settings screen (Android only). On iOS, this method does nothing. |
+| `showPrivacyPolicy` | Shows the app's privacy policy for Health Connect (Android only). On iOS, this method does nothing. |
+| `queryWorkouts` | Queries workout sessions from the native health store. Supported on iOS (HealthKit) and Android (Health Connect). |
+| `queryAggregated` | Queries aggregated health data from the native health store. Aggregates data into time buckets (hour, day, week, month) with operations like sum, average, min, or max. This is more efficient than fetching individual samples for large date ranges. |
+
+## Source Of Truth
+
+This reference is synced from `src/definitions.ts` in [capacitor-health](https://github.com/Cap-go/capacitor-health/).
+
+## Keep going from @capgo/capacitor-health
+
+If you are using **@capgo/capacitor-health** to plan native plugin work, connect it with [Using @capgo/capacitor-health](/plugins/capacitor-health/) for the native capability in Using @capgo/capacitor-health, [Capgo Plugin Directory](/plugins/) for the product workflow in Capgo Plugin Directory, [Capacitor Plugins by Capgo](/docs/plugins/) for the implementation detail in Capacitor Plugins by Capgo, [Adding or Updating Plugins](/docs/contributing/adding-plugins/) for the implementation detail in Adding or Updating Plugins, and [Ionic Enterprise Plugin Alternatives](/ionic-enterprise-plugins/) for the product workflow in Ionic Enterprise Plugin Alternatives.

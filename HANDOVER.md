@@ -11,3 +11,5 @@ capgo first reproduces the complete compiled output through Nift, retains fronte
 Useful preserved work includes source provenance, normalized importer, generic MDX integration, component inventories, runtime contract, public snapshots, build logs, and incomplete adapters. Browser/runtime/production certification is pending. Old progress is archived in docs/prototype.
 
 Phase 0 complete: useful prototype preserved in Git and superseded explicitly. Full pinned production build succeeds with recorded anonymous public API responses, including upstream Kotlin 404. See evidence/checkpoints/PHASE00.json and the build log. Phase 1 snapshot copied; inventory review and verification pending. No visual-parity claim yet.
+
+Phase 1 complete: immutable full production snapshot, 3,876 files / 1,347 HTML routes. Every merged and original per-app file hash verified; four root collisions retain their original docs bytes. Metadata, scripts/styles, headings and complete per-app inventories are recorded. Use tools/golden.mjs to verify before migration builds. Phase 2 responsive/browser references underway; no final migration claim.

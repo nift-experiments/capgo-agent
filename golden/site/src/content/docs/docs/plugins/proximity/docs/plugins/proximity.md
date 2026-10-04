@@ -1,0 +1,73 @@
+---
+title: "@capgo/capacitor-proximity"
+description: Enable native proximity monitoring in your Capacitor app for near-ear, face-down, and sensor-covered flows.
+tableOfContents: false
+next: false
+prev: false
+sidebar:
+  order: 1
+  label: "Introduction"
+hero:
+  tagline: Enable native proximity monitoring so your app can react when the device is held to the ear, covered by a hand, or placed face down.
+  image:
+    file: ~public/icons/plugins/proximity.svg
+  actions:
+    - text: Get started
+      link: /docs/plugins/proximity/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/Cap-go/capacitor-proximity/
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Overview
+
+Capacitor plugin for enabling proximity monitoring in mobile apps.
+
+<CardGrid stagger>
+  <Card title="Simple Control" icon="rocket">
+    Turn proximity monitoring on when a flow starts and disable it cleanly when it ends.
+  </Card>
+  <Card title="Native iOS Behavior" icon="device-mobile">
+    Uses `UIDevice.isProximityMonitoringEnabled` so iOS handles the screen behavior natively.
+  </Card>
+  <Card title="Android Sensor Support" icon="setting">
+    Listens to `Sensor.TYPE_PROXIMITY` and dims the current app window while the sensor is covered.
+  </Card>
+  <Card title="Availability Checks" icon="magnifier">
+    Verify whether the current device exposes a usable proximity sensor before enabling the feature.
+  </Card>
+  <Card title="Version Reporting" icon="open-book">
+    Read the native plugin version at runtime for debugging, support, and diagnostics.
+  </Card>
+  <Card title="Comprehensive Documentation" icon="puzzle">
+    Check the [Getting Started](/docs/plugins/proximity/getting-started/) guide to install and integrate the plugin quickly.
+  </Card>
+</CardGrid>
+
+## Core Capabilities
+
+- `enable` - Enable proximity monitoring.
+- `disable` - Disable proximity monitoring.
+- `getStatus` - Get the current sensor availability and plugin enabled state.
+
+## Public API
+
+| Method | Description |
+| --- | --- |
+| `enable` | Enable proximity monitoring. |
+| `disable` | Disable proximity monitoring. |
+| `getStatus` | Get the current sensor availability and plugin enabled state. |
+| `getPluginVersion` | Get the current native plugin version. |
+
+## Source Of Truth
+
+This reference is synced from `src/definitions.ts` in [capacitor-proximity](https://github.com/Cap-go/capacitor-proximity/).
+
+## Keep going from @capgo/capacitor-proximity
+
+If you are using **@capgo/capacitor-proximity** to plan native plugin work, connect it with [Using @capgo/capacitor-proximity](/plugins/capacitor-proximity/) for the native capability in Using @capgo/capacitor-proximity, [Capgo Plugin Directory](/plugins/) for the product workflow in Capgo Plugin Directory, [Capacitor Plugins by Capgo](/docs/plugins/) for the implementation detail in Capacitor Plugins by Capgo, [Adding or Updating Plugins](/docs/contributing/adding-plugins/) for the implementation detail in Adding or Updating Plugins, and [Ionic Enterprise Plugin Alternatives](/ionic-enterprise-plugins/) for the product workflow in Ionic Enterprise Plugin Alternatives.

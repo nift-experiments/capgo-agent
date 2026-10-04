@@ -1,0 +1,156 @@
+---
+title: Getting Started
+description: "Install @capgo/capacitor-media-session and start using its current Capacitor API."
+sidebar:
+  order: 2
+---
+
+## Install
+
+You can use our AI-Assisted Setup to install the plugin. Add the Capgo skills to your AI tool using the following command:
+
+```bash
+npx skills add https://github.com/Cap-go/capgo-skills --skill capacitor-plugins
+```
+
+Then use the following prompt:
+
+```text
+Use the `capacitor-plugins` skill from `Cap-go/capgo-skills` to install the `@capgo/capacitor-media-session` plugin in my project.
+```
+
+If you prefer Manual Setup, install the plugin by running the following commands and follow the platform-specific instructions below:
+
+```bash
+bun add @capgo/capacitor-media-session
+bunx cap sync
+```
+
+## Import
+
+```typescript
+import { MediaSession } from '@capgo/capacitor-media-session';
+```
+
+## API Overview
+
+### `setMetadata`
+
+Sets metadata of the currently playing media.
+
+```typescript
+import { MediaSession } from '@capgo/capacitor-media-session';
+
+await MediaSession.setMetadata({ album: 'album' });
+```
+
+### `setPlaybackState`
+
+Updates the playback state of the media session.
+
+```typescript
+import { MediaSession } from '@capgo/capacitor-media-session';
+
+await MediaSession.setPlaybackState({ playbackState: 'none' });
+```
+
+### `setActionHandler`
+
+Registers a handler for a media session action.
+
+```typescript
+import { MediaSession } from '@capgo/capacitor-media-session';
+
+await MediaSession.setActionHandler({ action: 'play' }, (details) => {
+  console.log(details);
+});
+```
+
+### `setPositionState`
+
+Updates position state for the active media session.
+
+```typescript
+import { MediaSession } from '@capgo/capacitor-media-session';
+
+await MediaSession.setPositionState({
+  duration: 1000,
+  playbackRate: 1,
+  position: 10,
+});
+```
+
+## Type Reference
+
+### `MetadataOptions`
+```typescript
+export interface MetadataOptions {
+  album?: string;
+  artist?: string;
+  artwork?: MediaImage[];
+  title?: string;
+}
+```
+
+### `PlaybackStateOptions`
+```typescript
+export interface PlaybackStateOptions {
+  playbackState: MediaSessionPlaybackState;
+}
+```
+
+### `ActionHandlerOptions`
+```typescript
+export interface ActionHandlerOptions {
+  action: MediaSessionAction;
+}
+```
+
+### `ActionHandler`
+```typescript
+export type ActionHandler = (details: ActionDetails) => void;
+```
+
+### `PositionStateOptions`
+```typescript
+export interface PositionStateOptions {
+  duration?: number;
+  playbackRate?: number;
+  position?: number;
+}
+```
+
+### `MediaImage`
+```typescript
+export interface MediaImage {
+  src: string;
+  sizes?: string;
+  type?: string;
+}
+```
+
+### `MediaSessionPlaybackState`
+```typescript
+export type MediaSessionPlaybackState = 'none' | 'paused' | 'playing';
+```
+
+### `MediaSessionAction`
+```typescript
+export type MediaSessionAction =
+  | 'play'
+  | 'pause'
+  | 'seekbackward'
+  | 'seekforward'
+  | 'previoustrack'
+  | 'nexttrack'
+  | 'seekto'
+  | 'stop';
+```
+
+## Source Of Truth
+
+This page is generated from the plugin's `src/definitions.ts`. Re-run the sync when the public API changes upstream.
+
+## Keep going from Getting Started
+
+If you are using **Getting Started** to plan dashboard and API operations, connect it with [Using @capgo/capacitor-media-session](/plugins/capacitor-media-session/) for the native capability in Using @capgo/capacitor-media-session, [API Overview](/docs/public-api/) for the implementation detail in API Overview, [Introduction](/docs/webapp/) for the implementation detail in Introduction, [API Keys](/docs/public-api/api-keys/) for the implementation detail in API Keys, and [Devices](/docs/public-api/devices/) for the implementation detail in Devices.

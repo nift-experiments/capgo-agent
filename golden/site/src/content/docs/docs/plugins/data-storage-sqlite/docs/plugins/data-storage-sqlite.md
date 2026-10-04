@@ -1,0 +1,67 @@
+---
+title: "@capgo/capacitor-data-storage-sqlite"
+description: "SQLite Storage of key/value strings pair."
+tableOfContents: false
+next: false
+prev: false
+sidebar:
+  order: 1
+  label: "Introduction"
+hero:
+  tagline: "SQLite Storage of key/value strings pair."
+  actions:
+    - text: Get started
+      link: /docs/plugins/data-storage-sqlite/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/Cap-go/capacitor-data-storage-sqlite/
+      icon: external
+      variant: minimal
+---
+
+## Overview
+
+SQLite Storage of key/value strings pair.
+
+## Core Capabilities
+
+- `openStore` - Open a store.
+- `closeStore` - Close the Store.
+- `isStoreOpen` - Check if the Store is opened.
+- `isStoreExists` - Check if the Store exists.
+
+## Public API
+
+| Method | Description |
+| --- | --- |
+| `openStore` | Open a store. |
+| `closeStore` | Close the Store. |
+| `isStoreOpen` | Check if the Store is opened. |
+| `isStoreExists` | Check if the Store exists. |
+| `deleteStore` | Delete a store. |
+| `setTable` | Set or Add a table to an existing store. |
+| `set` | Store a data with given key and value. |
+| `get` | Retrieve a data value for a given data key. |
+| `remove` | Remove a data with given key. |
+| `clear` | Clear the Data Store (delete all keys). |
+| `iskey` | Check if a data key exists. |
+| `keys` | Get the data key list. |
+| `values` | Get the data value list. |
+| `filtervalues` | Get the data value list for filter keys. |
+| `keysvalues` | Get the data key/value pair list. |
+| `isTable` | Check if a table exists. |
+| `tables` | Get the table list for the current store. |
+| `deleteTable` | Delete a table. |
+| `importFromJson` | Import a database From a JSON. |
+| `isJsonValid` | Check the validity of a JSON Object. |
+| `exportToJson` | Export the given database to a JSON Object. |
+| `getPluginVersion` | Get the native Capacitor plugin version. |
+
+## Source Of Truth
+
+This reference is synced from `src/definitions.ts` in [capacitor-data-storage-sqlite](https://github.com/Cap-go/capacitor-data-storage-sqlite/).
+
+## Keep going from @capgo/capacitor-data-storage-sqlite
+
+If you are using **@capgo/capacitor-data-storage-sqlite** to plan storage and file handling, connect it with [Using @capgo/capacitor-data-storage-sqlite](/plugins/capacitor-data-storage-sqlite/) for the native capability in Using @capgo/capacitor-data-storage-sqlite, [@capgo/capacitor-file](/docs/plugins/file/) for the implementation detail in @capgo/capacitor-file, [Using @capgo/capacitor-file](/plugins/capacitor-file/) for the native capability in Using @capgo/capacitor-file, [@capgo/capacitor-uploader](/docs/plugins/uploader/) for the implementation detail in @capgo/capacitor-uploader, and [Using @capgo/capacitor-uploader](/plugins/capacitor-uploader/) for the native capability in Using @capgo/capacitor-uploader.

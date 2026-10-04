@@ -1,0 +1,188 @@
+<SYSTEM>Plugin Intune: Microsoft Intune MAM and MSAL plugin</SYSTEM>
+
+# @capgo/capacitor-intune
+
+> Capacitor plugin for Microsoft Intune MAM enrollment, app protection policies, app config, and MSAL authentication.
+
+## Overview [Section titled “Overview”](#overview) Capacitor plugin for Microsoft Intune MAM enrollment, app protection policies, app config, and MSAL authentication. ## Core Capabilities [Section titled “Core Capabilities”](#core-capabilities) * `acquireToken` - Present the Microsoft sign-in flow and return an access token plus the account metadata. * `acquireTokenSilent` - Acquire a token from the MSAL cache for a previously signed-in user. * `registerAndEnrollAccount` - Register a previously authenticated account with Intune and start enrollment. * `loginAndEnrollAccount` - Ask Intune to authenticate and enroll a user without first requesting an app token. ## Public API [Section titled “Public API”](#public-api) | Method | Description | | ------------------------------ | ---------------------------------------------------------------------------------------- | | `acquireToken` | Present the Microsoft sign-in flow and return an access token plus the account metadata. | | `acquireTokenSilent` | Acquire a token from the MSAL cache for a previously signed-in user. | | `registerAndEnrollAccount` | Register a previously authenticated account with Intune and start enrollment. | | `loginAndEnrollAccount` | Ask Intune to authenticate and enroll a user without first requesting an app token. | | `enrolledAccount` | Return the currently enrolled Intune account, if one is available. | | `deRegisterAndUnenrollAccount` | Deregister the account from Intune and trigger selective wipe when applicable. | | `logoutOfAccount` | Sign the user out of MSAL without unenrolling the Intune account. | | `appConfig` | Fetch the remote Intune app configuration for a managed account. | | `getPolicy` | Fetch the currently effective Intune app protection policy for a managed account. | | `groupName` | Convenience helper that resolves the `GroupName` app configuration value when present. | | `sdkVersion` | Return the native Intune and MSAL SDK versions bundled by this plugin. | | `displayDiagnosticConsole` | Show the native Intune diagnostics UI. | | `addListener` | Listen for remote app configuration refreshes. | | `addListener` | Listen for remote app protection policy refreshes. | | `removeAllListeners` | Remove all registered listeners for this plugin instance. | ## Source Of Truth [Section titled “Source Of Truth”](#source-of-truth) This reference is synced from `src/definitions.ts` in [capacitor-intune](https://github.com/Cap-go/capacitor-intune/). ## Keep going from @capgo/capacitor-intune [Section titled “Keep going from @capgo/capacitor-intune”](#keep-going-from-capgocapacitor-intune) If you are using **@capgo/capacitor-intune** to plan authentication and account flows, connect it with [Using @capgo/capacitor-intune](/plugins/capacitor-intune/) for the native capability in Using @capgo/capacitor-intune, [@capgo/capacitor-social-login](/docs/plugins/social-login/) for the implementation detail in @capgo/capacitor-social-login, [@capgo/capacitor-passkey](/docs/plugins/passkey/) for the implementation detail in @capgo/capacitor-passkey, [@capgo/capacitor-native-biometric](/docs/plugins/native-biometric/) for the implementation detail in @capgo/capacitor-native-biometric, and [Two-factor authentication](/docs/webapp/mfa/) for the implementation detail in Two-factor authentication.
+
+# Android Setup
+
+> Configure Microsoft Intune MAM and MSAL on Android for @capgo/capacitor-intune.
+
+## 1. Add the Intune Gradle plugin [Section titled “1. Add the Intune Gradle plugin”](#1-add-the-intune-gradle-plugin) In your app project’s top-level `android/build.gradle`, add the Intune Gradle plugin JAR to the `buildscript` classpath. The plugin package includes: * `android/ms-intune-app-sdk-android/GradlePlugin/com.microsoft.intune.mam.build.jar` Also include the Duo Maven feed that Ionic documents for current Intune Android SDK releases: 
+```kotlin
+maven {
+  url 'https://pkgs.dev.azure.com/MicrosoftDeviceSDK/DuoSDK-Public/_packaging/Duo-SDK-Feed/maven/v1'
+  name 'Duo-SDK-Feed'
+}
+```
+ ## 2. Update the app module [Section titled “2. Update the app module”](#2-update-the-app-module) In `android/app/build.gradle`: 
+```kotlin
+apply plugin: 'com.microsoft.intune.mam'
+```
+ And keep resource optimization disabled: 
+```properties
+android.enableResourceOptimizations=false
+```
+ ## 3. Provide `auth_config.json` [Section titled “3. Provide auth\_config.json”](#3-provide-auth_configjson) Create `android/app/src/main/res/raw/auth_config.json`: 
+```json
+{
+  "client_id": "YOUR_CLIENT_ID",
+  "authorization_user_agent": "BROWSER",
+  "redirect_uri": "msauth://YOUR_PACKAGE/YOUR_SIGNATURE_HASH",
+  "broker_redirect_uri_registered": true,
+  "account_mode": "MULTIPLE",
+  "authorities": [
+    {
+      "type": "AAD",
+      "audience": {
+        "type": "AzureADMyOrg"
+      }
+    }
+  ]
+}
+```
+ The plugin expects that file at runtime for both MSAL and the Intune auth callback. ## 4. Configure the `<application>` tag [Section titled “4. Configure the \<application> tag”](#4-configure-the-application-tag) If your app does not already define a custom `Application`, set: 
+```xml
+<application
+  android:name="app.capgo.intune.IntuneApplication"
+  android:enableOnBackInvokedCallback="false">
+```
+ If you already have a custom `Application`, extend `MAMApplication` and register `IntuneMamServiceAuthenticationCallback` in `onMAMCreate()`. ## 5. Add broker auth queries and redirect handling [Section titled “5. Add broker auth queries and redirect handling”](#5-add-broker-auth-queries-and-redirect-handling) Add the package visibility queries Ionic documents for: * `com.azure.authenticator` * `com.microsoft.windowsintune.companyportal` * browser detection intents Also add `BrowserTabActivity` with your `msauth://` redirect URI host/path so MSAL can complete the sign-in round trip. ## 6. Use the plugin [Section titled “6. Use the plugin”](#6-use-the-plugin) Once the app-level native setup is complete, the Capacitor API is the same as on iOS: 
+```ts
+import { IntuneMAM } from '@capgo/capacitor-intune';
+
+
+const auth = await IntuneMAM.acquireToken({
+  scopes: ['https://graph.microsoft.com/.default'],
+});
+
+
+await IntuneMAM.registerAndEnrollAccount({
+  accountId: auth.accountId,
+});
+```
+ ## Keep going from Android Setup [Section titled “Keep going from Android Setup”](#keep-going-from-android-setup) If you are using **Android Setup** to plan native plugin work, connect it with [Using @capgo/capacitor-intune](/plugins/capacitor-intune/) for the native capability in Using @capgo/capacitor-intune, [Capgo Plugin Directory](/plugins/) for the product workflow in Capgo Plugin Directory, [Capacitor Plugins by Capgo](/docs/plugins/) for the implementation detail in Capacitor Plugins by Capgo, [Adding or Updating Plugins](/docs/contributing/adding-plugins/) for the implementation detail in Adding or Updating Plugins, and [Ionic Enterprise Plugin Alternatives](/ionic-enterprise-plugins/) for the product workflow in Ionic Enterprise Plugin Alternatives.
+
+# Getting Started
+
+> Install and use Microsoft Intune MAM, policy, app config, and MSAL support in your Capacitor app.
+
+## Installation [Section titled “Installation”](#installation) You can use our AI-Assisted Setup to install the plugin. Add the Capgo skills to your AI tool using the following command: 
+```bash
+npx skills add https://github.com/Cap-go/capgo-skills --skill capacitor-plugins
+```
+ Then use the following prompt: 
+```text
+Use the `capacitor-plugins` skill from `Cap-go/capgo-skills` to install the `@capgo/capacitor-intune` plugin in my project.
+```
+ If you prefer Manual Setup, install the plugin by running the following commands and follow the platform-specific instructions below: 1. **Install the package** 
+   ```sh
+   bun add @capgo/capacitor-intune
+   ```
+ 2. **Sync native projects** 
+   ```sh
+   bunx cap sync
+   ```
+ 3. **Complete native Intune setup** Follow the dedicated [iOS setup](/docs/plugins/intune/ios/) and [Android setup](/docs/plugins/intune/android/) pages. Intune still requires host-app native configuration for brokered auth, redirect URIs, manifests, entitlements, and MSAL config. ## Requirements [Section titled “Requirements”](#requirements) * Capacitor 8+ * Android with Intune Android SDK `12.0.3` * iOS with Intune iOS SDK `21.5.1` * iOS deployment target `17.0+` Ionic’s Intune docs currently call out a January 19, 2026 cutoff for apps built with Xcode 26, requiring Intune iOS SDK `21.1.0+`. This plugin already uses `21.5.1`. ## Basic Usage [Section titled “Basic Usage”](#basic-usage) 
+```ts
+import { IntuneMAM } from '@capgo/capacitor-intune';
+
+
+await IntuneMAM.addListener('appConfigChange', (result) => {
+  console.log('App config changed', result.accountId);
+});
+
+
+await IntuneMAM.addListener('policyChange', (result) => {
+  console.log('Policy changed', result.accountId);
+});
+
+
+const auth = await IntuneMAM.acquireToken({
+  scopes: ['https://graph.microsoft.com/.default'],
+  loginHint: 'alex@example.com',
+});
+
+
+await IntuneMAM.registerAndEnrollAccount({
+  accountId: auth.accountId,
+});
+
+
+const appConfig = await IntuneMAM.appConfig({
+  accountId: auth.accountId,
+});
+
+
+const policy = await IntuneMAM.getPolicy({
+  accountId: auth.accountId,
+});
+
+
+console.log({ auth, appConfig, policy });
+```
+ ## Common Flows [Section titled “Common Flows”](#common-flows) ### Interactive sign-in and enrollment [Section titled “Interactive sign-in and enrollment”](#interactive-sign-in-and-enrollment) 
+```ts
+const auth = await IntuneMAM.acquireToken({
+  scopes: ['https://graph.microsoft.com/.default'],
+});
+
+
+await IntuneMAM.registerAndEnrollAccount({
+  accountId: auth.accountId,
+});
+```
+ ### Silent token refresh [Section titled “Silent token refresh”](#silent-token-refresh) 
+```ts
+const token = await IntuneMAM.acquireTokenSilent({
+  accountId: 'AAD_OBJECT_ID',
+  scopes: ['https://graph.microsoft.com/.default'],
+  forceRefresh: true,
+});
+```
+ ### Read the currently enrolled account [Section titled “Read the currently enrolled account”](#read-the-currently-enrolled-account) 
+```ts
+const user = await IntuneMAM.enrolledAccount();
+```
+ ### Sign out or selectively wipe [Section titled “Sign out or selectively wipe”](#sign-out-or-selectively-wipe) 
+```ts
+await IntuneMAM.logoutOfAccount({ accountId: 'AAD_OBJECT_ID' });
+await IntuneMAM.deRegisterAndUnenrollAccount({ accountId: 'AAD_OBJECT_ID' });
+```
+ ## API Summary [Section titled “API Summary”](#api-summary) * `acquireToken(options)`: Start Microsoft sign-in and return token plus account metadata. * `acquireTokenSilent(options)`: Read a cached token for an existing account. * `registerAndEnrollAccount(options)`: Register the MSAL account with Intune and trigger enrollment. * `loginAndEnrollAccount()`: Let Intune drive the login and enrollment flow. * `appConfig(user)`: Read Intune app configuration values for the account. * `getPolicy(user)`: Read the current Intune app protection policy for the account. * `groupName(user)`: Read the common `GroupName` config helper value when present. * `sdkVersion()`: Inspect bundled Intune and MSAL versions. ## Platform Notes [Section titled “Platform Notes”](#platform-notes) * Web is not supported. * iOS and Android both require native project configuration beyond `cap sync`. * Your Azure registration, Intune policy assignment, redirect URIs, and entitlements remain app-specific. ## Keep going from Getting Started [Section titled “Keep going from Getting Started”](#keep-going-from-getting-started) If you are using **Getting Started** to plan migration and enterprise operations, connect it with [Using @capgo/capacitor-intune](/plugins/capacitor-intune/) for the native capability in Using @capgo/capacitor-intune, [Capgo Enterprise](/enterprise/) for the product workflow in Capgo Enterprise, [Ionic Enterprise Plugin Alternatives](/ionic-enterprise-plugins/) for the product workflow in Ionic Enterprise Plugin Alternatives, [Capgo Alternatives](/alternatives/) for the product workflow in Capgo Alternatives, and [Capgo Consulting](/consulting/) for the product workflow in Capgo Consulting.
+
+# iOS Setup
+
+> Configure Microsoft Intune MAM and MSAL on iOS for @capgo/capacitor-intune.
+
+## iOS Support Matrix [Section titled “iOS Support Matrix”](#ios-support-matrix) * Intune iOS SDK bundled by this plugin: `21.5.1` * Minimum iOS version: `17.0` * Recommended Xcode line: `26.x` Ionic’s Intune docs currently note that apps built with Xcode 26 must use Intune iOS SDK `21.1.0+` starting on January 19, 2026. This plugin is already on that newer SDK line. ## 1. Add Intune and MSAL settings to `Info.plist` [Section titled “1. Add Intune and MSAL settings to Info.plist”](#1-add-intune-and-msal-settings-to-infoplist) Add an `IntuneMAMSettings` dictionary: 
+```xml
+<key>IntuneMAMSettings</key>
+<dict>
+  <key>ADALClientId</key>
+  <string>YOUR_CLIENT_ID</string>
+  <key>ADALRedirectUri</key>
+  <string>msauth.com.example.app://auth</string>
+  <key>ADALAuthority</key>
+  <string>https://login.microsoftonline.com/common</string>
+</dict>
+```
+ The plugin reads: * `ADALClientId` * `ADALRedirectUri` * `ADALRedirectScheme` as a fallback if you prefer storing only the scheme * `ADALAuthority` as an optional authority override ## 2. Forward the MSAL callback in `AppDelegate` [Section titled “2. Forward the MSAL callback in AppDelegate”](#2-forward-the-msal-callback-in-appdelegate) 
+```swift
+import MSAL
+
+
+func application(
+  _ app: UIApplication,
+  open url: URL,
+  options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+) -> Bool {
+  return MSALPublicClientApplication.handleMSALResponse(
+    url,
+    sourceApplication: options[.sourceApplication] as? String
+  )
+}
+```
+ ## 3. Configure URL schemes and entitlements [Section titled “3. Configure URL schemes and entitlements”](#3-configure-url-schemes-and-entitlements) Follow Microsoft’s and Ionic’s Intune guidance for: * the `msauth...` redirect URI scheme * keychain sharing / keychain access groups * `LSApplicationQueriesSchemes` * `NSFaceIDUsageDescription` if your flow needs biometrics These are app-specific and cannot be inferred by the plugin. ## 4. Run `IntuneMAMConfigurator` [Section titled “4. Run IntuneMAMConfigurator”](#4-run-intunemamconfigurator) Microsoft requires running `IntuneMAMConfigurator` against your final app `Info.plist` and entitlements. Use the latest configurator from the official Intune iOS SDK and rerun it whenever those files materially change. ## 5. Keep the deployment target aligned [Section titled “5. Keep the deployment target aligned”](#5-keep-the-deployment-target-aligned) Because the bundled Intune iOS SDK is on the current `21.x` line, your app target should remain at iOS `17.0` or later. ## Keep going from iOS Setup [Section titled “Keep going from iOS Setup”](#keep-going-from-ios-setup) If you are using **iOS Setup** to plan native plugin work, connect it with [Using @capgo/capacitor-intune](/plugins/capacitor-intune/) for the native capability in Using @capgo/capacitor-intune, [Capgo Plugin Directory](/plugins/) for the product workflow in Capgo Plugin Directory, [Capacitor Plugins by Capgo](/docs/plugins/) for the implementation detail in Capacitor Plugins by Capgo, [Adding or Updating Plugins](/docs/contributing/adding-plugins/) for the implementation detail in Adding or Updating Plugins, and [Ionic Enterprise Plugin Alternatives](/ionic-enterprise-plugins/) for the product workflow in Ionic Enterprise Plugin Alternatives.

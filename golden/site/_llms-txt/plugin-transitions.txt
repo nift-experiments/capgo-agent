@@ -1,0 +1,237 @@
+<SYSTEM>Plugin Transitions: framework-agnostic Ionic-style page transitions and iOS edge swipe-back gesture for Capacitor apps</SYSTEM>
+
+# @capgo/capacitor-transitions
+
+> Add native-feeling route transitions and optional iOS edge swipe-back to Capacitor apps without adopting Ionic UI.
+
+Ionic-style motion Use iOS and Android route animations modeled after mobile navigation patterns without shipping Ionic components. Swipe back Enable an iOS edge gesture that follows the finger and can auto-enable only inside native Capacitor iOS. Framework agnostic Use web components directly or helpers for React, Vue, Angular, Svelte, and Solid. No UI lock-in Bring your own toolbar, content, footer, and router while the library coordinates transition layers. ## When To Use It [Section titled “When To Use It”](#when-to-use-it) `@capgo/capacitor-transitions` is for apps that want Ionic-quality page motion without adopting Ionic’s component system. It keeps navigation in your existing web router and animates page elements inside the Capacitor WebView. Use it when you need: * push, pop, and root route transitions that feel close to platform conventions * coordinated header, content, and footer motion * page caching for fast back navigation * an optional iOS edge swipe-back gesture that follows the user’s finger * framework-specific setup helpers without a framework-specific router ## Demo [Section titled “Demo”](#demo) ![Animated React page transition demo showing forward and back navigation in a Capacitor-style shell](/plugins/demo/capacitor-transitions/react-transition-demo.webp) React transition flow ## Core API [Section titled “Core API”](#core-api) * `<cap-router-outlet>` owns the animated route stack. * `<cap-page>` wraps each page. * `<cap-header>`, `<cap-content>`, and `<cap-footer>` identify the regions that should move together. * `initTransitions(options?)` initializes framework bindings. * `setDirection('forward' | 'back' | 'root' | 'none')` tells the next router update which animation to run. * `setupRouterOutlet(element, options?)` connects an outlet to lifecycle and gesture behavior. * `setupPage(element, callbacks?)` registers page lifecycle callbacks. ## Platform Model [Section titled “Platform Model”](#platform-model) `platform="auto"` chooses the iOS or Android animation profile from the runtime environment. You can force `platform="ios"` or `platform="android"` when testing. `swipe-gesture="auto"` uses Capacitor runtime helpers and enables the edge gesture only in native iOS Capacitor apps. Use `true` to force it on or `false` to disable it. The gesture is implemented in the web layer. It is designed to feel like Ionic’s iOS swipe-back transition by driving animation progress from the pointer position, then finishing or cancelling based on distance and velocity. ## Keep going from @capgo/capacitor-transitions [Section titled “Keep going from @capgo/capacitor-transitions”](#keep-going-from-capgocapacitor-transitions) If you are using **@capgo/capacitor-transitions** to plan native media and interface behavior, connect it with [Using @capgo/capacitor-transitions](/plugins/capacitor-transitions/) for the native capability in Using @capgo/capacitor-transitions, [Using @capgo/capacitor-live-activities](/plugins/capacitor-live-activities/) for the native capability in Using @capgo/capacitor-live-activities, [@capgo/capacitor-live-activities](/docs/plugins/live-activities/) for the implementation detail in @capgo/capacitor-live-activities, [Using @capgo/capacitor-video-player](/plugins/capacitor-video-player/) for the native capability in Using @capgo/capacitor-video-player, and [@capgo/capacitor-video-player](/docs/plugins/video-player/) for the implementation detail in @capgo/capacitor-video-player.
+
+# Getting Started
+
+> Install @capgo/capacitor-transitions and add Ionic-style route transitions to a Capacitor app.
+
+## Installation [Section titled “Installation”](#installation) You can use our AI-Assisted Setup to install the plugin. Add the Capgo skills to your AI tool using the following command: 
+```bash
+npx skills add https://github.com/Cap-go/capgo-skills --skill capacitor-plugins
+```
+ Then use the following prompt: 
+```text
+Use the `capacitor-plugins` skill from `Cap-go/capgo-skills` to install the `@capgo/capacitor-transitions` plugin in my project.
+```
+ If you prefer Manual Setup, install the plugin by running the following commands and follow the platform-specific instructions below: 1. **Install the package** 
+   ```bash
+   npm install @capgo/capacitor-transitions
+   ```
+ 2. **Register the web components** 
+   ```ts
+   import '@capgo/capacitor-transitions';
+   ```
+ 3. **Wrap routed pages** 
+   ```html
+   <cap-router-outlet platform="auto" swipe-gesture="auto">
+     <cap-page>
+       <cap-header slot="header">
+         <h1>Inbox</h1>
+       </cap-header>
+
+
+       <cap-content slot="content">
+         <button>Open message</button>
+       </cap-content>
+
+
+       <cap-footer slot="footer">
+         <nav>Tabs</nav>
+       </cap-footer>
+     </cap-page>
+   </cap-router-outlet>
+   ```
+ 4. **Set the direction before your router changes route** 
+   ```ts
+   import { setDirection } from '@capgo/capacitor-transitions/react';
+
+
+   setDirection('forward');
+   router.push('/message/42');
+
+
+   setDirection('back');
+   router.back();
+   ```
+ ## React Setup [Section titled “React Setup”](#react-setup) 
+```tsx
+import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { initTransitions, setDirection, setupPage, setupRouterOutlet } from '@capgo/capacitor-transitions/react';
+import '@capgo/capacitor-transitions';
+
+
+initTransitions({ platform: 'auto' });
+
+
+export function AppShell() {
+  const outletRef = useRef<HTMLElement>(null);
+
+
+  useEffect(() => {
+    if (!outletRef.current) return;
+
+
+    setupRouterOutlet(outletRef.current, {
+      platform: 'auto',
+      swipeGesture: 'auto',
+    });
+  }, []);
+
+
+  return (
+    <cap-router-outlet ref={outletRef}>
+      {/* Your router renders cap-page children here. */}
+    </cap-router-outlet>
+  );
+}
+
+
+export function InboxPage() {
+  const navigate = useNavigate();
+  const pageRef = useRef<HTMLElement>(null);
+
+
+  useEffect(() => {
+    if (!pageRef.current) return;
+
+
+    return setupPage(pageRef.current, {
+      onDidEnter: () => console.log('Inbox visible'),
+    });
+  }, []);
+
+
+  return (
+    <cap-page ref={pageRef}>
+      <cap-header slot="header">
+        <h1>Inbox</h1>
+      </cap-header>
+
+
+      <cap-content slot="content">
+        <button
+          onClick={() => {
+            setDirection('forward');
+            navigate('/message/42');
+          }}
+        >
+          Open message
+        </button>
+      </cap-content>
+    </cap-page>
+  );
+}
+```
+ ### React JSX TypeScript [Section titled “React JSX TypeScript”](#react-jsx-typescript) Importing from `@capgo/capacitor-transitions/react` includes JSX typings for `cap-router-outlet`, `cap-page`, `cap-header`, `cap-content`, and `cap-footer`. In most React projects, that import makes the custom elements valid in TSX automatically. If TypeScript still reports `Property 'cap-router-outlet' does not exist on type 'JSX.IntrinsicElements'`, add a project declaration file: src/capgo-transitions.d.ts 
+```ts
+import '@capgo/capacitor-transitions/react';
+```
+ For Vite, Create React App, and most webpack React apps, placing that file inside `src/` is enough. For Next.js, put it in `src/` or the project root and make sure `tsconfig.json` includes it: 
+```json
+{
+  "include": ["src", "src/capgo-transitions.d.ts"]
+}
+```
+ For custom TypeScript or webpack setups that use a separate `types/` folder, include that folder instead: 
+```json
+{
+  "include": ["src", "types"]
+}
+```
+ ## Swipe Back [Section titled “Swipe Back”](#swipe-back) Enable or disable the iOS edge gesture from markup: 
+```html
+<cap-router-outlet swipe-gesture="auto"></cap-router-outlet>
+<cap-router-outlet swipe-gesture="true"></cap-router-outlet>
+<cap-router-outlet swipe-gesture="false"></cap-router-outlet>
+```
+ Or from JavaScript: 
+```ts
+const outlet = document.querySelector('cap-router-outlet');
+
+
+outlet?.setSwipeGesture('auto');
+outlet?.setSwipeGesture(true);
+outlet?.setSwipeGesture(false);
+```
+ `auto` enables the gesture only when Capacitor reports a native iOS runtime. During the gesture, the page transition follows the finger. When the user releases, the transition either completes and asks the browser history to go back, or cancels and restores the current page. To keep an element from starting the gesture, add `data-swipe-gesture-ignore`: 
+```html
+<button data-swipe-gesture-ignore>Open drawer</button>
+```
+ ## With Native Navigation [Section titled “With Native Navigation”](#with-native-navigation) Use `@capgo/capacitor-transitions` with `@capgo/native-navigation` when native should own the top and bottom bars while web content keeps Ionic-style page motion. 1. Install and sync the native navigation package: 
+   ```bash
+   npm install @capgo/native-navigation
+   npx cap sync
+   ```
+ 2. Configure native chrome: 
+   ```ts
+   import { NativeNavigation } from '@capgo/native-navigation';
+
+
+   await NativeNavigation.configure({
+     contentInsetMode: 'css',
+   });
+
+
+   await NativeNavigation.setNavbar({
+     title: 'Inbox',
+     backButton: { visible: false },
+   });
+   ```
+ 3. Keep the web transition outlet responsible for pages only: 
+   ```html
+   <cap-router-outlet platform="auto" swipe-gesture="auto">
+     <cap-page>
+       <cap-content slot="content" fullscreen>
+         <main class="native-page">Inbox content</main>
+       </cap-content>
+     </cap-page>
+   </cap-router-outlet>
+   ```
+ 
+   ```css
+   .native-page {
+     padding-top: var(--cap-native-navigation-top);
+     padding-bottom: var(--cap-native-navigation-bottom);
+   }
+   ```
+ 4. Drive both systems from the same router events: 
+   ```ts
+   import { NativeNavigation } from '@capgo/native-navigation';
+   import { setDirection } from '@capgo/capacitor-transitions/react';
+   import { router } from './router';
+
+
+   await NativeNavigation.addListener('navbarBack', () => {
+     setDirection('back');
+     router.back();
+   });
+
+
+   async function openMessage(id: string) {
+     setDirection('forward');
+     router.push(`/message/${id}`);
+
+
+     await NativeNavigation.setNavbar({
+       title: 'Message',
+       backButton: { visible: true, title: 'Inbox' },
+     });
+   }
+   ```
+ Do not render the native top bar again as a moving `<cap-header>`. Let `@capgo/native-navigation` keep the bar native and use `@capgo/capacitor-transitions` for the WebView page content underneath it. ## Components [Section titled “Components”](#components) ### `<cap-router-outlet>` [Section titled “\<cap-router-outlet>”](#cap-router-outlet) | Attribute | Type | Default | Description | | --------------- | ------------------------------ | ---------------- | ------------------------------------------------------ | | `platform` | `'ios' \| 'android' \| 'auto'` | `'auto'` | Animation style | | `duration` | `number` | Platform default | Animation duration in milliseconds | | `keep-in-dom` | `boolean` | `true` | Keep inactive pages in the DOM | | `max-cached` | `number` | `10` | Maximum cached pages | | `swipe-gesture` | `boolean \| 'auto'` | `'auto'` | Enable, disable, or native-detect the iOS edge gesture | Methods: * `push(element, config?)` * `pop(config?)` * `setRoot(element, config?)` * `setSwipeGesture(true | false | 'auto')` ### `<cap-page>` [Section titled “\<cap-page>”](#cap-page) Wraps one page and emits lifecycle events: * `cap-will-enter` * `cap-did-enter` * `cap-will-leave` * `cap-did-leave` ### `<cap-content>` [Section titled “\<cap-content>”](#cap-content) | Attribute | Type | Default | Description | | ------------ | --------- | ------- | ------------------------------------ | | `fullscreen` | `boolean` | `false` | Let content scroll behind the header | | `scroll-x` | `boolean` | `true` | Enable horizontal scrolling | | `scroll-y` | `boolean` | `true` | Enable vertical scrolling | ## Framework Helpers [Section titled “Framework Helpers”](#framework-helpers) The framework entrypoints expose the same core helpers: 
+```ts
+import { initTransitions, setDirection, setupPage, setupRouterOutlet } from '@capgo/capacitor-transitions/react';
+
+
+initTransitions({ platform: 'auto' });
+setDirection('forward');
+setupRouterOutlet(element, { platform: 'auto', swipeGesture: 'auto' });
+setupPage(element, { onWillEnter, onDidEnter, onWillLeave, onDidLeave });
+```
+ Available entrypoints: * `@capgo/capacitor-transitions/react` * `@capgo/capacitor-transitions/vue` * `@capgo/capacitor-transitions/angular` * `@capgo/capacitor-transitions/svelte` * `@capgo/capacitor-transitions/solid` ## Keep going from Getting Started [Section titled “Keep going from Getting Started”](#keep-going-from-getting-started) If you are using **Getting Started** to plan migration and enterprise operations, connect it with [Using @capgo/capacitor-transitions](/plugins/capacitor-transitions/) for the native capability in Using @capgo/capacitor-transitions, [Capgo Enterprise](/enterprise/) for the product workflow in Capgo Enterprise, [Ionic Enterprise Plugin Alternatives](/ionic-enterprise-plugins/) for the product workflow in Ionic Enterprise Plugin Alternatives, [Capgo Alternatives](/alternatives/) for the product workflow in Capgo Alternatives, and [Capgo Consulting](/consulting/) for the product workflow in Capgo Consulting.

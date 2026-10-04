@@ -1,0 +1,139 @@
+<SYSTEM>Plugin Network Diagnostics: native network diagnostics plugin for URL reachability, TCP ports, WebSocket handshakes, speed, and packet loss checks</SYSTEM>
+
+# @capgo/capacitor-network-diagnostics
+
+> Native diagnostics for blocked ports, captive portals, WebSockets, download speed, and packet loss.
+
+## Overview [Section titled “Overview”](#overview) `@capgo/capacitor-network-diagnostics` helps support teams diagnose restricted Wi-Fi, access point, carrier, firewall, captive portal, DNS, and proxy problems from the same native network stack used by the app. Use it when a user can open the app but cannot reach a specific API, TCP port, WebSocket endpoint, or download URL from a locked-down network. ## Core Capabilities [Section titled “Core Capabilities”](#core-capabilities) * `getNetworkStatus` - Read the native connection type and platform network flags. * `testUrl` - Check HTTP or HTTPS URL reachability with status code and latency. * `testPort` - Open a native TCP socket to a host and port. * `testWebSocket` - Validate a `ws://` or `wss://` handshake. * `testDownloadSpeed` - Measure native download throughput from your own test file endpoint. * `testPacketLoss` - Estimate application-level packet loss with repeated TCP or HTTP probes. * `runDiagnostics` - Run a combined diagnostic pass and return a compact issue list. Raw ICMP ping is not consistently available to App Store and Play Store apps, so packet loss uses repeated TCP or HTTP probes. ## Public API [Section titled “Public API”](#public-api) | Method | Description | | ------------------- | ------------------------------------------------------------------------ | | `getNetworkStatus` | Read the current native connection type and platform network flags. | | `testUrl` | Test whether an HTTP or HTTPS URL can be reached from native networking. | | `testPort` | Test whether a TCP host and port can be opened from native networking. | | `testWebSocket` | Test whether a WebSocket URL can complete its native handshake. | | `testDownloadSpeed` | Measure download throughput from a native HTTP request. | | `testPacketLoss` | Estimate application-level packet loss with repeated TCP or HTTP probes. | | `runDiagnostics` | Run several diagnostics and return a compact issue list. | | `getPluginVersion` | Return the native plugin version marker. | ## Source Of Truth [Section titled “Source Of Truth”](#source-of-truth) This reference is synced from `src/definitions.ts` in [capacitor-network-diagnostics](https://github.com/Cap-go/capacitor-network-diagnostics/).
+
+# Android Setup
+
+> Android behavior and setup notes for @capgo/capacitor-network-diagnostics.
+
+The plugin declares the required Android permissions automatically: 
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+```
+ ## Native behavior [Section titled “Native behavior”](#native-behavior) * Connection status uses `ConnectivityManager` and `NetworkCapabilities`. * URL and download tests use native `HttpURLConnection`. * TCP port tests use native sockets. * WebSocket tests perform a native WebSocket upgrade handshake over TCP or TLS. ## Captive portal and validated internet [Section titled “Captive portal and validated internet”](#captive-portal-and-validated-internet) Android can expose whether the active network is internet validated or marked as captive portal capable. These flags help explain cases where the device is connected to Wi-Fi but the app cannot reach your backend. ## Cleartext traffic [Section titled “Cleartext traffic”](#cleartext-traffic) Prefer `https://` and `wss://` targets. If you need to diagnose a plain `http://` or `ws://` endpoint on Android 9 or later, the host app may need a Network Security Config or `android:usesCleartextTraffic="true"` for that diagnostic target.
+
+# Getting Started
+
+> Install @capgo/capacitor-network-diagnostics and run native network checks from your Capacitor app.
+
+## Install [Section titled “Install”](#install) You can use our AI-Assisted Setup to install the plugin. Add the Capgo skills to your AI tool using the following command: 
+```bash
+npx skills add https://github.com/Cap-go/capgo-skills --skill capacitor-plugins
+```
+ Then use the following prompt: 
+```text
+Use the `capacitor-plugins` skill from `Cap-go/capgo-skills` to install the `@capgo/capacitor-network-diagnostics` plugin in my project.
+```
+ If you prefer Manual Setup, install the plugin by running the following commands and follow the platform-specific instructions below: 
+```bash
+bun add @capgo/capacitor-network-diagnostics
+bunx cap sync
+```
+ ## Import [Section titled “Import”](#import) 
+```typescript
+import { NetworkDiagnostics } from '@capgo/capacitor-network-diagnostics';
+```
+ ## Run a complete diagnostic report [Section titled “Run a complete diagnostic report”](#run-a-complete-diagnostic-report) `runDiagnostics` is the fastest way to collect a support report for a user on a restricted network. 
+```typescript
+const report = await NetworkDiagnostics.runDiagnostics({
+  urls: [{ url: 'https://api.example.com/health', method: 'HEAD' }],
+  ports: [{ host: 'api.example.com', port: 443 }],
+  websockets: [{ url: 'wss://ws.example.com/socket' }],
+  download: {
+    url: 'https://speed.example.com/5mb.bin',
+    maxBytes: 5 * 1024 * 1024,
+  },
+  packetLoss: {
+    mode: 'tcp',
+    host: 'api.example.com',
+    port: 443,
+    count: 10,
+  },
+});
+
+
+console.log(report.status.connectionType);
+console.log(report.issues);
+```
+ ## Check current network status [Section titled “Check current network status”](#check-current-network-status) 
+```typescript
+const status = await NetworkDiagnostics.getNetworkStatus();
+
+
+console.log(status.connected);
+console.log(status.connectionType);
+console.log(status.internetReachable);
+console.log(status.captivePortal);
+```
+ The exact flags depend on the platform. Android can report validated internet and captive portal state. iOS reports path status, interface type, expensive paths, and constrained paths through `Network.framework`. ## Test API reachability [Section titled “Test API reachability”](#test-api-reachability) 
+```typescript
+const result = await NetworkDiagnostics.testUrl({
+  url: 'https://api.example.com/health',
+  method: 'HEAD',
+  timeoutMs: 5000,
+  followRedirects: true,
+});
+
+
+if (!result.reachable) {
+  console.warn(result.errorCode, result.errorMessage);
+}
+```
+ Use a real health endpoint from your backend. A browser-only check can be hidden by WebView, CORS, proxy, or captive portal behavior, while this plugin uses native networking. ## Test a TCP port [Section titled “Test a TCP port”](#test-a-tcp-port) 
+```typescript
+const port = await NetworkDiagnostics.testPort({
+  host: 'api.example.com',
+  port: 443,
+  timeoutMs: 3000,
+});
+
+
+console.log(port.open, port.durationMs);
+```
+ This is useful when a Wi-Fi access point blocks non-standard ports, MQTT, custom gateways, or a private backend while still allowing normal browsing. ## Test WebSocket connectivity [Section titled “Test WebSocket connectivity”](#test-websocket-connectivity) 
+```typescript
+const socket = await NetworkDiagnostics.testWebSocket({
+  url: 'wss://ws.example.com/socket',
+  timeoutMs: 5000,
+});
+
+
+console.log(socket.open, socket.statusCode);
+```
+ Use this when proxies or captive portals allow HTTPS pages but block WebSocket upgrade requests. ## Measure download speed [Section titled “Measure download speed”](#measure-download-speed) 
+```typescript
+const speed = await NetworkDiagnostics.testDownloadSpeed({
+  url: 'https://speed.example.com/5mb.bin',
+  maxBytes: 5 * 1024 * 1024,
+  timeoutMs: 30000,
+});
+
+
+console.log(speed.mbps);
+```
+ Use your own static file endpoint so the result reflects the network path your app needs. ## Estimate packet loss [Section titled “Estimate packet loss”](#estimate-packet-loss) 
+```typescript
+const loss = await NetworkDiagnostics.testPacketLoss({
+  mode: 'tcp',
+  host: 'api.example.com',
+  port: 443,
+  count: 10,
+  timeoutMs: 3000,
+  intervalMs: 250,
+});
+
+
+console.log(loss.lossPercent);
+```
+ Raw ICMP ping is not portable in App Store and Play Store apps. This method measures application-level packet loss by repeating TCP or HTTP probes. ## Web fallback [Section titled “Web fallback”](#web-fallback) The web implementation is meant for development. Browsers cannot open raw TCP sockets, and URL checks may be limited by CORS. Use iOS or Android builds for real support diagnostics.
+
+# iOS Setup
+
+> iOS behavior and setup notes for @capgo/capacitor-network-diagnostics.
+
+No extra iOS permissions are required. ## Native behavior [Section titled “Native behavior”](#native-behavior) * Connection status uses `Network.framework`. * URL and download tests use native `URLSession`. * TCP port tests use `NWConnection`. * WebSocket tests use `URLSessionWebSocketTask`. ## App Transport Security [Section titled “App Transport Security”](#app-transport-security) Prefer `https://` and `wss://` targets. If you need to diagnose a plain `http://` or `ws://` endpoint, configure App Transport Security exceptions in the host app’s `Info.plist`. ## Interpreting constrained paths [Section titled “Interpreting constrained paths”](#interpreting-constrained-paths) iOS can mark a path as constrained or expensive. Treat those flags as context for support reports, not as hard failure states. A constrained path can still pass URL, port, and WebSocket checks.

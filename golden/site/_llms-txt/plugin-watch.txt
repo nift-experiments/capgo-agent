@@ -1,0 +1,1252 @@
+<SYSTEM>Plugin Watch: Apple Watch and Wear OS integration plugin</SYSTEM>
+
+# @capgo/capacitor-watch
+
+> Apple Watch communication plugin for Capacitor. Provides bidirectional messaging between iPhone and Apple Watch using WatchConnectivity.
+
+## Overview [Section titled “Overview”](#overview) Apple Watch communication plugin for Capacitor. Provides bidirectional messaging between iPhone and Apple Watch using WatchConnectivity. ## Core Capabilities [Section titled “Core Capabilities”](#core-capabilities) * `sendMessage` - Send an interactive message to the watch. The watch must be reachable for this to succeed. Use this for time-sensitive, interactive communication. * `updateApplicationContext` - Update the application context shared with the watch. Only the latest context is kept - this overwrites any previous context. Use this for syncing app state that the watch needs to display. * `transferUserInfo` - Transfer user info to the watch. Transfers are queued and delivered in order, even if the watch is not currently reachable. Use this for important data that must be delivered reliably. * `replyToMessage` - Reply to a message from the watch that requested a reply. Use this in response to the messageReceivedWithReply event. ## Public API [Section titled “Public API”](#public-api) | Method | Description | | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | | `sendMessage` | Send an interactive message to the watch. The watch must be reachable for this to succeed. Use this for time-sensitive, interactive communication. | | `updateApplicationContext` | Update the application context shared with the watch. Only the latest context is kept - this overwrites any previous context. Use this for syncing app state that the watch needs to display. | | `transferUserInfo` | Transfer user info to the watch. Transfers are queued and delivered in order, even if the watch is not currently reachable. Use this for important data that must be delivered reliably. | | `replyToMessage` | Reply to a message from the watch that requested a reply. Use this in response to the messageReceivedWithReply event. | | `getInfo` | Get information about the watch connectivity status. | | `getPluginVersion` | Get the native Capacitor plugin version. | | `addListener` | Listen for messages received from the watch. | | `addListener` | Listen for messages from the watch that require a reply. | | `addListener` | Listen for application context updates from the watch. | | `addListener` | Listen for user info transfers from the watch. | | `addListener` | Listen for watch reachability changes. | | `addListener` | Listen for session activation state changes. | | `removeAllListeners` | Remove all listeners for this plugin. | ## Source Of Truth [Section titled “Source Of Truth”](#source-of-truth) This reference is synced from `src/definitions.ts` in [capacitor-watch](https://github.com/Cap-go/capacitor-watch/). ## Keep going from @capgo/capacitor-watch [Section titled “Keep going from @capgo/capacitor-watch”](#keep-going-from-capgocapacitor-watch) If you are using **@capgo/capacitor-watch** to plan migration and enterprise operations, connect it with [Using @capgo/capacitor-watch](/plugins/capacitor-watch/) for the native capability in Using @capgo/capacitor-watch, [Capgo Enterprise](/enterprise/) for the product workflow in Capgo Enterprise, [Ionic Enterprise Plugin Alternatives](/ionic-enterprise-plugins/) for the product workflow in Ionic Enterprise Plugin Alternatives, [Capgo Alternatives](/alternatives/) for the product workflow in Capgo Alternatives, and [Capgo Consulting](/consulting/) for the product workflow in Capgo Consulting.
+
+# Examples & Use Cases
+
+> Real-world examples and patterns for building Apple Watch apps with Capacitor.
+
+This guide provides practical examples for common Apple Watch app patterns using `@capgo/capacitor-watch`. ## Example 1: Health & Fitness Tracker [Section titled “Example 1: Health & Fitness Tracker”](#example-1-health--fitness-tracker) Sync workout data between watch and phone. * Watch (SwiftUI) 
+  ```swift
+  import SwiftUI
+  import CapgoWatchSDK
+
+
+  struct WorkoutView: View {
+      @ObservedObject var connector = WatchConnector.shared
+      @State private var heartRate: Double = 0
+      @State private var calories: Double = 0
+      @State private var isTracking = false
+
+
+      var body: some View {
+          VStack(spacing: 12) {
+              // Heart Rate Display
+              HStack {
+                  Image(systemName: "heart.fill")
+                      .foregroundColor(.red)
+                  Text("\(Int(heartRate)) BPM")
+                      .font(.title2)
+              }
+
+
+              // Calories
+              HStack {
+                  Image(systemName: "flame.fill")
+                      .foregroundColor(.orange)
+                  Text("\(Int(calories)) cal")
+              }
+
+
+              // Start/Stop Button
+              Button(isTracking ? "Stop" : "Start") {
+                  toggleTracking()
+              }
+              .buttonStyle(.borderedProminent)
+              .tint(isTracking ? .red : .green)
+          }
+          .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+              if isTracking {
+                  updateMetrics()
+              }
+          }
+      }
+
+
+      private func toggleTracking() {
+          isTracking.toggle()
+          if isTracking {
+              // Notify phone that workout started
+              connector.sendMessage([
+                  "event": "workoutStarted",
+                  "timestamp": Date().timeIntervalSince1970
+              ])
+          } else {
+              // Send final summary to phone
+              do {
+                  try connector.updateApplicationContext([
+                      "workoutComplete": true,
+                      "totalCalories": calories,
+                      "avgHeartRate": heartRate,
+                      "endTime": Date().timeIntervalSince1970
+                  ])
+              } catch {
+                  print("Failed to update context: \(error)")
+              }
+          }
+      }
+
+
+      private func updateMetrics() {
+          // Simulate heart rate (in real app, use HealthKit)
+          heartRate = Double.random(in: 120...160)
+          calories += Double.random(in: 0.1...0.3)
+
+
+          // Send real-time updates if phone is reachable
+          if connector.isReachable {
+              connector.sendMessage([
+                  "heartRate": heartRate,
+                  "calories": calories,
+                  "timestamp": Date().timeIntervalSince1970
+              ])
+          }
+      }
+  }
+  ```
+ * Phone (Capacitor) 
+  ```typescript
+  import { CapgoWatch } from '@capgo/capacitor-watch';
+
+
+  class WorkoutTracker {
+    private heartRateData: number[] = [];
+    private totalCalories = 0;
+
+
+    async initialize() {
+      // Listen for real-time workout updates
+      await CapgoWatch.addListener('messageReceived', (event) => {
+        const { heartRate, calories, timestamp } = event.message;
+
+
+        if (heartRate) {
+          this.heartRateData.push(heartRate);
+          this.updateUI(heartRate, calories);
+        }
+
+
+        if (event.message.event === 'workoutStarted') {
+          this.onWorkoutStarted(timestamp);
+        }
+      });
+
+
+      // Listen for workout completion via context
+      await CapgoWatch.addListener('applicationContextReceived', (event) => {
+        if (event.context.workoutComplete) {
+          this.onWorkoutComplete(event.context);
+        }
+      });
+    }
+
+
+    private onWorkoutStarted(timestamp: number) {
+      console.log('Workout started at:', new Date(timestamp * 1000));
+      this.heartRateData = [];
+      this.totalCalories = 0;
+    }
+
+
+    private onWorkoutComplete(data: any) {
+      const avgHeartRate = data.avgHeartRate;
+      const totalCalories = data.totalCalories;
+
+
+      // Save to your backend
+      this.saveWorkout({
+        avgHeartRate,
+        totalCalories,
+        endTime: data.endTime,
+        heartRateHistory: this.heartRateData
+      });
+    }
+
+
+    private updateUI(heartRate: number, calories: number) {
+      // Update your app's UI
+      document.getElementById('heart-rate')!.textContent = `${Math.round(heartRate)} BPM`;
+      document.getElementById('calories')!.textContent = `${Math.round(calories)} cal`;
+    }
+
+
+    private async saveWorkout(data: any) {
+      // Save to your backend
+      console.log('Saving workout:', data);
+    }
+  }
+
+
+  const tracker = new WorkoutTracker();
+  tracker.initialize();
+  ```
+ ## Example 2: Smart Home Remote [Section titled “Example 2: Smart Home Remote”](#example-2-smart-home-remote) Control smart home devices from your watch. * Watch (SwiftUI) 
+  ```swift
+  import SwiftUI
+  import CapgoWatchSDK
+
+
+  struct SmartHomeView: View {
+      @ObservedObject var connector = WatchConnector.shared
+      @State private var devices: [SmartDevice] = []
+      @State private var isLoading = false
+
+
+      var body: some View {
+          NavigationView {
+              Group {
+                  if isLoading {
+                      ProgressView("Loading...")
+                  } else if devices.isEmpty {
+                      Text("No devices")
+                          .foregroundColor(.secondary)
+                  } else {
+                      List(devices) { device in
+                          DeviceRow(device: device, onToggle: { toggleDevice(device) })
+                      }
+                  }
+              }
+              .navigationTitle("Home")
+              .toolbar {
+                  Button(action: refreshDevices) {
+                      Image(systemName: "arrow.clockwise")
+                  }
+              }
+          }
+          .onAppear {
+              refreshDevices()
+          }
+          .onChange(of: connector.lastMessage) { message in
+              handleMessage(message)
+          }
+      }
+
+
+      private func refreshDevices() {
+          guard connector.isReachable else {
+              // Load from cached context
+              loadFromContext()
+              return
+          }
+
+
+          isLoading = true
+          connector.sendMessage(["action": "getDevices"]) { reply in
+              DispatchQueue.main.async {
+                  isLoading = false
+                  if let deviceList = reply["devices"] as? [[String: Any]] {
+                      devices = deviceList.compactMap { SmartDevice(from: $0) }
+                  }
+              }
+          }
+      }
+
+
+      private func toggleDevice(_ device: SmartDevice) {
+          connector.sendMessage([
+              "action": "toggleDevice",
+              "deviceId": device.id,
+              "newState": !device.isOn
+          ]) { reply in
+              DispatchQueue.main.async {
+                  if reply["success"] as? Bool == true {
+                      // Update local state
+                      if let index = devices.firstIndex(where: { $0.id == device.id }) {
+                          devices[index].isOn.toggle()
+                      }
+                  }
+              }
+          }
+      }
+
+
+      private func loadFromContext() {
+          if let deviceList = connector.applicationContext["devices"] as? [[String: Any]] {
+              devices = deviceList.compactMap { SmartDevice(from: $0) }
+          }
+      }
+
+
+      private func handleMessage(_ message: [String: Any]) {
+          // Handle push updates from phone
+          if let update = message["deviceUpdate"] as? [String: Any],
+             let deviceId = update["id"] as? String,
+             let isOn = update["isOn"] as? Bool {
+              if let index = devices.firstIndex(where: { $0.id == deviceId }) {
+                  devices[index].isOn = isOn
+              }
+          }
+      }
+  }
+
+
+  struct SmartDevice: Identifiable {
+      let id: String
+      let name: String
+      let type: String
+      var isOn: Bool
+
+
+      init?(from dict: [String: Any]) {
+          guard let id = dict["id"] as? String,
+                let name = dict["name"] as? String,
+                let type = dict["type"] as? String,
+                let isOn = dict["isOn"] as? Bool else {
+              return nil
+          }
+          self.id = id
+          self.name = name
+          self.type = type
+          self.isOn = isOn
+      }
+  }
+
+
+  struct DeviceRow: View {
+      let device: SmartDevice
+      let onToggle: () -> Void
+
+
+      var body: some View {
+          HStack {
+              Image(systemName: iconName)
+                  .foregroundColor(device.isOn ? .yellow : .gray)
+              Text(device.name)
+              Spacer()
+              Toggle("", isOn: .constant(device.isOn))
+                  .labelsHidden()
+                  .onTapGesture { onToggle() }
+          }
+      }
+
+
+      var iconName: String {
+          switch device.type {
+          case "light": return device.isOn ? "lightbulb.fill" : "lightbulb"
+          case "thermostat": return "thermometer"
+          case "lock": return device.isOn ? "lock.fill" : "lock.open"
+          default: return "power"
+          }
+      }
+  }
+  ```
+ * Phone (Capacitor) 
+  ```typescript
+  import { CapgoWatch } from '@capgo/capacitor-watch';
+
+
+  interface SmartDevice {
+    id: string;
+    name: string;
+    type: string;
+    isOn: boolean;
+  }
+
+
+  class SmartHomeController {
+    private devices: SmartDevice[] = [];
+
+
+    async initialize() {
+      // Handle requests from watch
+      await CapgoWatch.addListener('messageReceivedWithReply', async (event) => {
+        const { action, deviceId, newState } = event.message;
+
+
+        let response: any = { success: false };
+
+
+        switch (action) {
+          case 'getDevices':
+            response = { devices: this.devices };
+            break;
+
+
+          case 'toggleDevice':
+            const success = await this.toggleDevice(deviceId, newState);
+            response = { success };
+            break;
+        }
+
+
+        await CapgoWatch.replyToMessage({
+          callbackId: event.callbackId,
+          data: response
+        });
+      });
+
+
+      // Load initial devices
+      await this.loadDevices();
+
+
+      // Keep watch updated with device states
+      await this.syncDevicesToWatch();
+    }
+
+
+    private async loadDevices() {
+      // Load from your smart home API
+      this.devices = [
+        { id: '1', name: 'Living Room', type: 'light', isOn: true },
+        { id: '2', name: 'Bedroom', type: 'light', isOn: false },
+        { id: '3', name: 'Thermostat', type: 'thermostat', isOn: true },
+        { id: '4', name: 'Front Door', type: 'lock', isOn: true }
+      ];
+    }
+
+
+    private async toggleDevice(deviceId: string, newState: boolean): Promise<boolean> {
+      try {
+        // Call your smart home API
+        const device = this.devices.find(d => d.id === deviceId);
+        if (device) {
+          device.isOn = newState;
+
+
+          // Push update to watch
+          const info = await CapgoWatch.getInfo();
+          if (info.isReachable) {
+            await CapgoWatch.sendMessage({
+              data: {
+                deviceUpdate: { id: deviceId, isOn: newState }
+              }
+            });
+          }
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.error('Failed to toggle device:', error);
+        return false;
+      }
+    }
+
+
+    private async syncDevicesToWatch() {
+      // Update application context for offline access
+      await CapgoWatch.updateApplicationContext({
+        context: { devices: this.devices }
+      });
+    }
+
+
+    // Call this when devices change on the phone
+    async onDeviceStateChanged(deviceId: string, isOn: boolean) {
+      const device = this.devices.find(d => d.id === deviceId);
+      if (device) {
+        device.isOn = isOn;
+        await this.syncDevicesToWatch();
+      }
+    }
+  }
+
+
+  const controller = new SmartHomeController();
+  controller.initialize();
+  ```
+ ## Example 3: Notification Center [Section titled “Example 3: Notification Center”](#example-3-notification-center) Send custom notifications to the watch. * Phone (Capacitor) 
+  ```typescript
+  import { CapgoWatch } from '@capgo/capacitor-watch';
+
+
+  class NotificationService {
+    async sendNotification(title: string, body: string, data?: any) {
+      const info = await CapgoWatch.getInfo();
+
+
+      if (info.isReachable) {
+        // Send immediately if watch is reachable
+        await CapgoWatch.sendMessage({
+          data: {
+            type: 'notification',
+            title,
+            body,
+            data,
+            timestamp: Date.now()
+          }
+        });
+      } else {
+        // Queue for later delivery
+        await CapgoWatch.transferUserInfo({
+          userInfo: {
+            type: 'notification',
+            title,
+            body,
+            data,
+            timestamp: Date.now()
+          }
+        });
+      }
+    }
+
+
+    async sendUrgentAlert(message: string) {
+      // Use sendMessage for urgent alerts (requires watch to be reachable)
+      const info = await CapgoWatch.getInfo();
+
+
+      if (!info.isReachable) {
+        console.warn('Watch not reachable for urgent alert');
+        return false;
+      }
+
+
+      await CapgoWatch.sendMessage({
+        data: {
+          type: 'urgentAlert',
+          message,
+          haptic: 'warning',
+          timestamp: Date.now()
+        }
+      });
+
+
+      return true;
+    }
+  }
+
+
+  // Usage
+  const notifications = new NotificationService();
+
+
+  // Regular notification (queued if watch unavailable)
+  await notifications.sendNotification(
+    'Order Update',
+    'Your order has shipped!',
+    { orderId: '12345' }
+  );
+
+
+  // Urgent alert (requires watch to be active)
+  const sent = await notifications.sendUrgentAlert('Security alert: New login detected');
+  ```
+ * Watch (SwiftUI) 
+  ```swift
+  import SwiftUI
+  import WatchKit
+  import CapgoWatchSDK
+
+
+  struct NotificationView: View {
+      @ObservedObject var connector = WatchConnector.shared
+      @State private var notifications: [WatchNotification] = []
+      @State private var showAlert = false
+      @State private var alertMessage = ""
+
+
+      var body: some View {
+          NavigationView {
+              List(notifications) { notification in
+                  NotificationRow(notification: notification)
+              }
+              .navigationTitle("Notifications")
+          }
+          .onReceive(connector.$lastMessage) { message in
+              handleMessage(message)
+          }
+          .alert("Alert", isPresented: $showAlert) {
+              Button("OK") { }
+          } message: {
+              Text(alertMessage)
+          }
+      }
+
+
+      private func handleMessage(_ message: [String: Any]) {
+          guard let type = message["type"] as? String else { return }
+
+
+          switch type {
+          case "notification":
+              let notification = WatchNotification(
+                  id: UUID().uuidString,
+                  title: message["title"] as? String ?? "",
+                  body: message["body"] as? String ?? "",
+                  timestamp: Date(timeIntervalSince1970: (message["timestamp"] as? Double ?? 0) / 1000)
+              )
+              notifications.insert(notification, at: 0)
+
+
+              // Play haptic
+              WKInterfaceDevice.current().play(.notification)
+
+
+          case "urgentAlert":
+              alertMessage = message["message"] as? String ?? "Alert"
+              showAlert = true
+
+
+              // Play strong haptic for urgent alerts
+              if let hapticType = message["haptic"] as? String {
+                  switch hapticType {
+                  case "warning":
+                      WKInterfaceDevice.current().play(.notification)
+                      DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                          WKInterfaceDevice.current().play(.notification)
+                      }
+                  default:
+                      WKInterfaceDevice.current().play(.notification)
+                  }
+              }
+
+
+          default:
+              break
+          }
+      }
+  }
+
+
+  struct WatchNotification: Identifiable {
+      let id: String
+      let title: String
+      let body: String
+      let timestamp: Date
+  }
+
+
+  struct NotificationRow: View {
+      let notification: WatchNotification
+
+
+      var body: some View {
+          VStack(alignment: .leading, spacing: 4) {
+              Text(notification.title)
+                  .font(.headline)
+              Text(notification.body)
+                  .font(.caption)
+                  .foregroundColor(.secondary)
+              Text(notification.timestamp, style: .relative)
+                  .font(.caption2)
+                  .foregroundColor(.secondary)
+          }
+          .padding(.vertical, 4)
+      }
+  }
+  ```
+ ## Example 4: Data Sync Service [Section titled “Example 4: Data Sync Service”](#example-4-data-sync-service) Keep data synchronized between phone and watch. 
+```typescript
+import { CapgoWatch } from '@capgo/capacitor-watch';
+
+
+class DataSyncService {
+  private syncQueue: any[] = [];
+  private isSyncing = false;
+
+
+  async initialize() {
+    // Listen for sync requests from watch
+    await CapgoWatch.addListener('messageReceivedWithReply', async (event) => {
+      if (event.message.action === 'sync') {
+        const data = await this.getDataForSync(event.message.lastSyncTime);
+        await CapgoWatch.replyToMessage({
+          callbackId: event.callbackId,
+          data: { items: data, syncTime: Date.now() }
+        });
+      }
+    });
+
+
+    // Listen for data from watch
+    await CapgoWatch.addListener('userInfoReceived', (event) => {
+      this.handleWatchData(event.userInfo);
+    });
+
+
+    // Monitor connectivity for sync opportunities
+    await CapgoWatch.addListener('reachabilityChanged', (event) => {
+      if (event.isReachable && this.syncQueue.length > 0) {
+        this.processSyncQueue();
+      }
+    });
+  }
+
+
+  // Push important data to watch (guaranteed delivery)
+  async pushToWatch(data: any) {
+    await CapgoWatch.transferUserInfo({
+      userInfo: {
+        type: 'dataUpdate',
+        data,
+        timestamp: Date.now()
+      }
+    });
+  }
+
+
+  // Update shared state (latest value only)
+  async updateSharedState(state: any) {
+    await CapgoWatch.updateApplicationContext({
+      context: {
+        ...state,
+        lastUpdated: Date.now()
+      }
+    });
+  }
+
+
+  // Queue data for sync when watch becomes available
+  queueForSync(data: any) {
+    this.syncQueue.push(data);
+    this.attemptSync();
+  }
+
+
+  private async attemptSync() {
+    const info = await CapgoWatch.getInfo();
+    if (info.isReachable) {
+      await this.processSyncQueue();
+    }
+  }
+
+
+  private async processSyncQueue() {
+    if (this.isSyncing || this.syncQueue.length === 0) return;
+
+
+    this.isSyncing = true;
+
+
+    while (this.syncQueue.length > 0) {
+      const item = this.syncQueue.shift();
+      await CapgoWatch.transferUserInfo({ userInfo: item });
+    }
+
+
+    this.isSyncing = false;
+  }
+
+
+  private async getDataForSync(lastSyncTime: number): Promise<any[]> {
+    // Return data modified since lastSyncTime
+    // This would query your database/API
+    return [];
+  }
+
+
+  private handleWatchData(data: any) {
+    console.log('Received from watch:', data);
+    // Process and save data from watch
+  }
+}
+```
+ ## Best Practices [Section titled “Best Practices”](#best-practices) ### 1. Choose the Right Transfer Method [Section titled “1. Choose the Right Transfer Method”](#1-choose-the-right-transfer-method) | Method | Use Case | Delivery | | -------------------------- | --------------------------- | -------------------------------- | | `sendMessage` | Interactive, time-sensitive | Immediate (fails if unreachable) | | `updateApplicationContext` | Current app state | Latest value only | | `transferUserInfo` | Important data | Queued, guaranteed | ### 2. Handle Offline Gracefully [Section titled “2. Handle Offline Gracefully”](#2-handle-offline-gracefully) 
+```typescript
+async function smartSend(data: any, important: boolean) {
+  const info = await CapgoWatch.getInfo();
+
+
+  if (info.isReachable) {
+    // Send immediately
+    await CapgoWatch.sendMessage({ data });
+  } else if (important) {
+    // Queue for later
+    await CapgoWatch.transferUserInfo({ userInfo: data });
+  } else {
+    // Update context (will be available when watch opens app)
+    await CapgoWatch.updateApplicationContext({ context: data });
+  }
+}
+```
+ ### 3. Minimize Data Size [Section titled “3. Minimize Data Size”](#3-minimize-data-size) 
+```swift
+// Bad - sending large objects
+connector.sendMessage(["user": fullUserObject])
+
+
+// Good - send only what's needed
+connector.sendMessage([
+    "userId": user.id,
+    "name": user.displayName,
+    "avatarUrl": user.avatarUrl
+])
+```
+ ### 4. Use Haptics Appropriately [Section titled “4. Use Haptics Appropriately”](#4-use-haptics-appropriately) 
+```swift
+import WatchKit
+
+
+// Success feedback
+WKInterfaceDevice.current().play(.success)
+
+
+// Failure feedback
+WKInterfaceDevice.current().play(.failure)
+
+
+// Navigation feedback
+WKInterfaceDevice.current().play(.click)
+
+
+// Notification
+WKInterfaceDevice.current().play(.notification)
+```
+ ### 5. Cache on Watch [Section titled “5. Cache on Watch”](#5-cache-on-watch) 
+```swift
+class DataCache {
+    private let defaults = UserDefaults.standard
+
+
+    func save(_ data: [String: Any], forKey key: String) {
+        if let encoded = try? JSONSerialization.data(withJSONObject: data) {
+            defaults.set(encoded, forKey: key)
+        }
+    }
+
+
+    func load(forKey key: String) -> [String: Any]? {
+        guard let data = defaults.data(forKey: key),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        return dict
+    }
+}
+```
+ ## Next Steps [Section titled “Next Steps”](#next-steps) * [Watch App Setup](/docs/plugins/watch/watch-app-setup/) - Create your first watch app * [API Reference](/docs/plugins/watch/getting-started/#api-reference) - Complete API documentation * [GitHub Repository](https://github.com/Cap-go/capacitor-watch) - Source code and issues ## Keep going from Examples & Use Cases [Section titled “Keep going from Examples & Use Cases”](#keep-going-from-examples--use-cases) If you are using **Examples & Use Cases** to plan native plugin work, connect it with [Using @capgo/capacitor-watch](/plugins/capacitor-watch/) for the native capability in Using @capgo/capacitor-watch, [Capgo Plugin Directory](/plugins/) for the product workflow in Capgo Plugin Directory, [Capacitor Plugins by Capgo](/docs/plugins/) for the implementation detail in Capacitor Plugins by Capgo, [Adding or Updating Plugins](/docs/contributing/adding-plugins/) for the implementation detail in Adding or Updating Plugins, and [Ionic Enterprise Plugin Alternatives](/ionic-enterprise-plugins/) for the product workflow in Ionic Enterprise Plugin Alternatives.
+
+# Getting Started
+
+> Learn how to install and configure the Capacitor Watch plugin for bidirectional communication between iPhone and Apple Watch.
+
+## Installation [Section titled “Installation”](#installation) You can use our AI-Assisted Setup to install the plugin. Add the Capgo skills to your AI tool using the following command: 
+```bash
+npx skills add https://github.com/Cap-go/capgo-skills --skill capacitor-plugins
+```
+ Then use the following prompt: 
+```text
+Use the `capacitor-plugins` skill from `Cap-go/capgo-skills` to install the `@capgo/capacitor-watch` plugin in my project.
+```
+ If you prefer Manual Setup, install the plugin by running the following commands and follow the platform-specific instructions below: 1. **Install the package** 
+   ```sh
+   bun add @capgo/capacitor-watch
+   ```
+ 2. **Sync with native projects** 
+   ```sh
+   bunx cap sync
+   ```
+ 3. **Configure the plugin** **Basic Usage Example:** 
+   ```typescript
+   import { CapgoWatch } from '@capgo/capacitor-watch';
+
+
+   // Check watch connectivity status
+   const info = await CapgoWatch.getInfo();
+   console.log('Watch paired:', info.isPaired);
+   console.log('Watch reachable:', info.isReachable);
+
+
+   // Listen for messages from watch
+   await CapgoWatch.addListener('messageReceived', (event) => {
+     console.log('Message from watch:', event.message);
+   });
+   ```
+ **Send a Message to Watch:** 
+   ```typescript
+   // Check if watch is reachable first
+   const info = await CapgoWatch.getInfo();
+   if (info.isReachable) {
+     await CapgoWatch.sendMessage({
+       data: { action: 'refresh', timestamp: Date.now() }
+     });
+   }
+   ```
+ * iOS **Required iOS Setup:** 1. Add the WatchConnectivity capability to your iOS app in Xcode 2. Create a watchOS app target in your Xcode project 3. Implement WatchConnectivity in your watchOS app (see Watch App Implementation below) The plugin automatically activates the WCSession when the plugin loads. * Android Apple Watch is only supported on iOS. On Android, all methods will reject with “Apple Watch is only supported on iOS” error. The `getInfo()` method returns `isSupported: false`. 4. **Handle messages that require a reply** 
+   ```typescript
+   // Listen for messages that need a response
+   await CapgoWatch.addListener('messageReceivedWithReply', async (event) => {
+     console.log('Request from watch:', event.message);
+
+
+     // Process the request
+     const result = await processWatchRequest(event.message);
+
+
+     // Send reply back to watch
+     await CapgoWatch.replyToMessage({
+       callbackId: event.callbackId,
+       data: { result }
+     });
+   });
+   ```
+ 5. **Sync application state** 
+   ```typescript
+   // Update application context (latest value only)
+   await CapgoWatch.updateApplicationContext({
+     context: {
+       theme: 'dark',
+       userId: '123',
+       lastSync: Date.now()
+     }
+   });
+
+
+   // Listen for context updates from watch
+   await CapgoWatch.addListener('applicationContextReceived', (event) => {
+     console.log('Context from watch:', event.context);
+   });
+   ```
+ 6. **Transfer user info reliably** 
+   ```typescript
+   // Queue data for reliable delivery (even when watch is offline)
+   await CapgoWatch.transferUserInfo({
+     userInfo: {
+       recordId: '456',
+       action: 'created',
+       data: { name: 'Item 1' }
+     }
+   });
+
+
+   // Listen for user info transfers
+   await CapgoWatch.addListener('userInfoReceived', (event) => {
+     console.log('User info from watch:', event.userInfo);
+   });
+   ```
+ 7. **Monitor connectivity** 
+   ```typescript
+   // Track reachability changes
+   await CapgoWatch.addListener('reachabilityChanged', (event) => {
+     console.log('Watch reachable:', event.isReachable);
+     if (event.isReachable) {
+       // Watch is now available for interactive messaging
+     }
+   });
+
+
+   // Track session activation state
+   await CapgoWatch.addListener('activationStateChanged', (event) => {
+     // 0 = notActivated, 1 = inactive, 2 = activated
+     console.log('Session state:', event.state);
+   });
+   ```
+ ## Watch App Implementation [Section titled “Watch App Implementation”](#watch-app-implementation) Your watchOS app needs to implement WatchConnectivity. Here’s a SwiftUI example: 
+```swift
+import SwiftUI
+import WatchConnectivity
+
+
+@main
+struct MyWatchApp: App {
+    init() {
+        WatchViewModel.shared.activate()
+    }
+
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+
+
+class WatchViewModel: NSObject, ObservableObject, WCSessionDelegate {
+    static let shared = WatchViewModel()
+
+
+    @Published var lastMessage: [String: Any] = [:]
+
+
+    func activate() {
+        guard WCSession.isSupported() else { return }
+        WCSession.default.delegate = self
+        WCSession.default.activate()
+    }
+
+
+    // Send message to iPhone
+    func sendToPhone(_ data: [String: Any]) {
+        guard WCSession.default.isReachable else {
+            print("iPhone not reachable")
+            return
+        }
+        WCSession.default.sendMessage(data, replyHandler: nil)
+    }
+
+
+    // Send message with reply
+    func sendToPhoneWithReply(_ data: [String: Any], completion: @escaping ([String: Any]) -> Void) {
+        guard WCSession.default.isReachable else { return }
+        WCSession.default.sendMessage(data, replyHandler: completion)
+    }
+
+
+    // Receive message from iPhone
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        DispatchQueue.main.async {
+            self.lastMessage = message
+        }
+    }
+
+
+    // Receive application context
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        DispatchQueue.main.async {
+            self.lastMessage = applicationContext
+        }
+    }
+
+
+    // Required delegate methods
+    func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+        print("Watch session activated: \(activationState.rawValue)")
+    }
+}
+```
+ ## API Reference [Section titled “API Reference”](#api-reference) ### Methods [Section titled “Methods”](#methods) #### `sendMessage(options: SendMessageOptions)` [Section titled “sendMessage(options: SendMessageOptions)”](#sendmessageoptions-sendmessageoptions) Send an interactive message to the watch. Requires watch to be reachable. **Parameters:** * `data`: Object - The data to send to the watch #### `updateApplicationContext(options: UpdateContextOptions)` [Section titled “updateApplicationContext(options: UpdateContextOptions)”](#updateapplicationcontextoptions-updatecontextoptions) Update application context. Only latest value is kept. **Parameters:** * `context`: Object - The context data to sync #### `transferUserInfo(options: TransferUserInfoOptions)` [Section titled “transferUserInfo(options: TransferUserInfoOptions)”](#transferuserinfooptions-transferuserinfooptions) Queue user info for reliable delivery. **Parameters:** * `userInfo`: Object - The user info to transfer #### `replyToMessage(options: ReplyMessageOptions)` [Section titled “replyToMessage(options: ReplyMessageOptions)”](#replytomessageoptions-replymessageoptions) Reply to a message that requested a response. **Parameters:** * `callbackId`: string - The callback ID from messageReceivedWithReply event * `data`: Object - The reply data #### `getInfo()` [Section titled “getInfo()”](#getinfo) Get watch connectivity status. **Returns:** `WatchInfo` object with: * `isSupported`: boolean - Whether WatchConnectivity is available * `isPaired`: boolean - Whether a watch is paired * `isWatchAppInstalled`: boolean - Whether watch app is installed * `isReachable`: boolean - Whether watch is reachable * `activationState`: number - Session state (0/1/2) #### `getPluginVersion()` [Section titled “getPluginVersion()”](#getpluginversion) Get the native plugin version. ### Events [Section titled “Events”](#events) | Event | Description | | ---------------------------- | ----------------------------------------------- | | `messageReceived` | Simple message from watch | | `messageReceivedWithReply` | Message expecting a reply (includes callbackId) | | `applicationContextReceived` | Context update from watch | | `userInfoReceived` | User info transfer from watch | | `reachabilityChanged` | Watch connectivity changed | | `activationStateChanged` | Session activation state changed | ## Communication Patterns [Section titled “Communication Patterns”](#communication-patterns) ### Immediate Messaging (`sendMessage`) [Section titled “Immediate Messaging (sendMessage)”](#immediate-messaging-sendmessage) * Requires watch to be reachable * Best for interactive, time-sensitive communication * Fails immediately if watch is not available ### Application Context (`updateApplicationContext`) [Section titled “Application Context (updateApplicationContext)”](#application-context-updateapplicationcontext) * Latest value only - previous values are overwritten * Best for syncing current app state * Delivered when watch becomes available ### User Info Transfer (`transferUserInfo`) [Section titled “User Info Transfer (transferUserInfo)”](#user-info-transfer-transferuserinfo) * Queued and delivered in order * Best for important data that must be delivered * Works even when watch is temporarily unreachable ## Platform Notes [Section titled “Platform Notes”](#platform-notes) ### iOS [Section titled “iOS”](#ios) * Requires iOS 15.0 or later * Uses WatchConnectivity framework * Session automatically activates on plugin load * Supports background delivery for context and user info ### Android [Section titled “Android”](#android) * Not supported (Apple Watch is iOS-only) * All methods reject with appropriate error * `getInfo()` returns `isSupported: false` ### Web [Section titled “Web”](#web) * Not supported * All methods reject with unavailable error * `getInfo()` returns `isSupported: false` ## Common Use Cases [Section titled “Common Use Cases”](#common-use-cases) 1. **Data Sync**: Keep watch and phone data in sync 2. **Remote Control**: Control phone features from watch 3. **Notifications**: Send custom notifications to watch 4. **Health Data**: Share fitness and health metrics 5. **Media Control**: Control music playback from watch 6. **Smart Home**: Control devices from your wrist ## Troubleshooting [Section titled “Troubleshooting”](#troubleshooting) **Watch not reachable:** * Ensure watch is within Bluetooth range * Check that both apps are running * Verify WCSession is activated on both sides **Messages not received:** * Check that listeners are registered before sending * Verify the watch app implements WCSessionDelegate * Use `transferUserInfo` for guaranteed delivery **Session not activating:** * Ensure WatchConnectivity capability is added in Xcode * Check that watch app has the companion bundle ID * Verify both apps target compatible OS versions ## Keep going from Getting Started [Section titled “Keep going from Getting Started”](#keep-going-from-getting-started) If you are using **Getting Started** to plan native plugin work, connect it with [Using @capgo/capacitor-watch](/plugins/capacitor-watch/) for the native capability in Using @capgo/capacitor-watch, [Capgo Plugin Directory](/plugins/) for the product workflow in Capgo Plugin Directory, [Capacitor Plugins by Capgo](/docs/plugins/) for the implementation detail in Capacitor Plugins by Capgo, [Adding or Updating Plugins](/docs/contributing/adding-plugins/) for the implementation detail in Adding or Updating Plugins, and [Ionic Enterprise Plugin Alternatives](/ionic-enterprise-plugins/) for the product workflow in Ionic Enterprise Plugin Alternatives.
+
+# Creating a watchOS App
+
+> Complete step-by-step guide to creating an Apple Watch app for your Capacitor iOS project with bidirectional communication.
+
+This guide walks you through creating a watchOS companion app from scratch, including project setup in Xcode, integrating the CapgoWatchSDK, and building a functional watch app with SwiftUI. ## Prerequisites [Section titled “Prerequisites”](#prerequisites) Before you begin, ensure you have: * **Xcode 15 or later** (download from Mac App Store) * **macOS Sonoma or later** (for latest watchOS SDK) * **An existing Capacitor iOS project** (run `npx cap add ios` if you haven’t) * **Apple Developer account** (free account works for development) ## Project Structure Overview [Section titled “Project Structure Overview”](#project-structure-overview) After completing this guide, your project will have this structure: ## Step 1: Open Your iOS Project in Xcode [Section titled “Step 1: Open Your iOS Project in Xcode”](#step-1-open-your-ios-project-in-xcode) 1. Navigate to your Capacitor project’s `ios/App` folder 2. Open `App.xcworkspace` (not `.xcodeproj`) by double-clicking it 3. Wait for Xcode to index the project Caution Always open the `.xcworkspace` file, not `.xcodeproj`. The workspace includes CocoaPods dependencies that your project needs. ## Step 2: Add a watchOS Target [Section titled “Step 2: Add a watchOS Target”](#step-2-add-a-watchos-target) 1. In Xcode, go to **File → New → Target…** 2. In the template chooser: * Select **watchOS** tab at the top * Choose **App** * Click **Next** 3. Configure your watch app: * **Product Name**: `MyWatch` (or your preferred name) * **Team**: Select your Apple Developer team * **Organization Identifier**: Should match your iOS app (e.g., `app.capgo`) * **Bundle Identifier**: Will be auto-generated (e.g., `app.capgo.myapp.watchkitapp`) * **Language**: Swift * **User Interface**: SwiftUI * **Watch App Type**: App (not App for Existing iOS App) * Uncheck **Include Notification Scene** (unless you need it) * Uncheck **Include Complication** (unless you need it) 4. Click **Finish** 5. When prompted “Activate ‘MyWatch’ scheme?”, click **Activate** ## Step 3: Configure Watch App Settings [Section titled “Step 3: Configure Watch App Settings”](#step-3-configure-watch-app-settings) 1. In the Project Navigator (left sidebar), select your project (the blue icon at the top) 2. Select your watch target (e.g., “MyWatch”) from the targets list 3. Go to the **General** tab: * **Display Name**: The name shown under the app icon (e.g., “My App”) * **Bundle Identifier**: Should end with `.watchkitapp` * **Version**: Match your iOS app version * **Build**: Match your iOS app build number 4. Go to **Signing & Capabilities** tab: * Enable **Automatically manage signing** * Select your **Team** * Xcode will create provisioning profiles automatically 5. Set **Deployment Info**: * **Minimum Deployments**: watchOS 9.0 or later ## Step 4: Add CapgoWatchSDK via Swift Package Manager [Section titled “Step 4: Add CapgoWatchSDK via Swift Package Manager”](#step-4-add-capgowatchsdk-via-swift-package-manager) The CapgoWatchSDK provides a ready-to-use `WatchConnector` class for communication. 1. In Xcode, go to **File → Add Package Dependencies…** 2. In the search field, enter: 
+   ```plaintext
+   https://github.com/Cap-go/capacitor-watch.git
+   ```
+ 3. Press Enter and wait for Xcode to fetch the package 4. Configure the package: * **Dependency Rule**: “Up to Next Major Version” with “8.0.0” * Click **Add Package** 5. Choose which products to add: * **IMPORTANT**: Only select `CapgoWatchSDK` * Make sure it’s added to your **watch target** (e.g., “MyWatch”), not the iOS app * Click **Add Package** ## Step 5: Implement the Watch App [Section titled “Step 5: Implement the Watch App”](#step-5-implement-the-watch-app) Now let’s create the watch app code. Replace the auto-generated files with the following: ### 5.1 Create the App Entry Point [Section titled “5.1 Create the App Entry Point”](#51-create-the-app-entry-point) Edit `MyWatch/MyWatchApp.swift`: 
+```swift
+import SwiftUI
+import CapgoWatchSDK
+
+
+@main
+struct MyWatchApp: App {
+    init() {
+        // Activate WatchConnectivity when app launches
+        WatchConnector.shared.activate()
+    }
+
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+```
+ ### 5.2 Create the Main View [Section titled “5.2 Create the Main View”](#52-create-the-main-view) Edit `MyWatch/ContentView.swift`: 
+```swift
+import SwiftUI
+import CapgoWatchSDK
+
+
+struct ContentView: View {
+    // Observe the WatchConnector for automatic UI updates
+    @ObservedObject var connector = WatchConnector.shared
+
+
+    // Local state
+    @State private var messageText = ""
+    @State private var statusMessage = "Ready"
+
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                // Connection Status
+                ConnectionStatusView(connector: connector)
+
+
+                Divider()
+
+
+                // Message Input
+                TextField("Message", text: $messageText)
+                    .textFieldStyle(.roundedBorder)
+
+
+                // Send Buttons
+                HStack {
+                    Button("Send") {
+                        sendMessage()
+                    }
+                    .disabled(!connector.isReachable || messageText.isEmpty)
+
+
+                    Button("Request") {
+                        sendWithReply()
+                    }
+                    .disabled(!connector.isReachable || messageText.isEmpty)
+                }
+
+
+                Divider()
+
+
+                // Status
+                Text(statusMessage)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+
+                // Last Received Message
+                if !connector.lastMessage.isEmpty {
+                    VStack(alignment: .leading) {
+                        Text("Last Message:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(formatMessage(connector.lastMessage))
+                            .font(.caption2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding()
+        }
+    }
+
+
+    private func sendMessage() {
+        connector.sendMessage(["text": messageText, "timestamp": Date().timeIntervalSince1970])
+        statusMessage = "Message sent"
+        messageText = ""
+    }
+
+
+    private func sendWithReply() {
+        connector.sendMessage(["text": messageText, "needsReply": true]) { reply in
+            DispatchQueue.main.async {
+                statusMessage = "Reply: \(formatMessage(reply))"
+            }
+        }
+        messageText = ""
+    }
+
+
+    private func formatMessage(_ message: [String: Any]) -> String {
+        message.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
+    }
+}
+
+
+// Separate view for connection status
+struct ConnectionStatusView: View {
+    @ObservedObject var connector: WatchConnector
+
+
+    var body: some View {
+        HStack {
+            Circle()
+                .fill(connector.isReachable ? Color.green : Color.red)
+                .frame(width: 12, height: 12)
+
+
+            Text(connector.isReachable ? "Connected" : "Disconnected")
+                .font(.headline)
+
+
+            Spacer()
+
+
+            if connector.isActivated {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+            }
+        }
+    }
+}
+
+
+#Preview {
+    ContentView()
+}
+```
+ ## Step 6: Configure iOS App for WatchConnectivity [Section titled “Step 6: Configure iOS App for WatchConnectivity”](#step-6-configure-ios-app-for-watchconnectivity) Your iOS app also needs WatchConnectivity capability. 1. In the Project Navigator, select your project 2. Select your **iOS App target** (not the watch target) 3. Go to **Signing & Capabilities** tab 4. Click **+ Capability** 5. Search for and add **WatchConnectivity** (if available) or it may be added automatically 6. The Capacitor plugin handles the iOS side automatically, but ensure your Info.plist has: 
+   ```xml
+   <key>WKCompanionAppBundleIdentifier</key>
+   <string>app.capgo.myapp.watchkitapp</string>
+   ```
+ ## Step 7: Build and Run [Section titled “Step 7: Build and Run”](#step-7-build-and-run) ### Run on Simulator [Section titled “Run on Simulator”](#run-on-simulator) 1. Select your watch scheme from the scheme selector (top of Xcode window) 2. Choose a watch simulator: * Click on the device selector next to the scheme * Select an Apple Watch simulator (e.g., “Apple Watch Series 9 (45mm)”) 3. Click the **Run** button (▶️) or press `Cmd + R` 4. The iOS Simulator will launch with both iPhone and Apple Watch ### Run on Physical Device [Section titled “Run on Physical Device”](#run-on-physical-device) 1. Connect your iPhone via USB 2. Ensure your Apple Watch is paired with that iPhone 3. Select your watch scheme 4. Select your physical Apple Watch from the device list 5. Click **Run** 6. First time: You may need to trust your computer on both devices ## Step 8: Test Communication [Section titled “Step 8: Test Communication”](#step-8-test-communication) ### From iPhone (Capacitor) to Watch [Section titled “From iPhone (Capacitor) to Watch”](#from-iphone-capacitor-to-watch) In your Capacitor app: 
+```typescript
+import { CapgoWatch } from '@capgo/capacitor-watch';
+
+
+// Check connection
+const info = await CapgoWatch.getInfo();
+console.log('Watch reachable:', info.isReachable);
+
+
+// Send a message
+if (info.isReachable) {
+  await CapgoWatch.sendMessage({
+    data: { action: 'update', value: 'Hello from iPhone!' }
+  });
+}
+```
+ ### From Watch to iPhone [Section titled “From Watch to iPhone”](#from-watch-to-iphone) The watch app uses `WatchConnector`: 
+```swift
+// Send message (fire and forget)
+WatchConnector.shared.sendMessage(["action": "buttonTapped"])
+
+
+// Send message with reply
+WatchConnector.shared.sendMessage(["request": "getData"]) { reply in
+    print("Got reply: \(reply)")
+}
+```
+ ### Handle Messages on iPhone [Section titled “Handle Messages on iPhone”](#handle-messages-on-iphone) 
+```typescript
+// Listen for messages from watch
+await CapgoWatch.addListener('messageReceived', (event) => {
+  console.log('Message from watch:', event.message);
+  // { action: 'buttonTapped' }
+});
+
+
+// Handle messages that need a reply
+await CapgoWatch.addListener('messageReceivedWithReply', async (event) => {
+  console.log('Request from watch:', event.message);
+
+
+  // Send reply back
+  await CapgoWatch.replyToMessage({
+    callbackId: event.callbackId,
+    data: { status: 'success', items: ['item1', 'item2'] }
+  });
+});
+```
+ ## Advanced: Custom Delegate for More Control [Section titled “Advanced: Custom Delegate for More Control”](#advanced-custom-delegate-for-more-control) If you need more control, implement `WatchConnectorDelegate`: 
+```swift
+import SwiftUI
+import CapgoWatchSDK
+
+
+class WatchHandler: WatchConnectorDelegate {
+    func didReceiveMessage(_ message: [String: Any]) {
+        print("Received: \(message)")
+        // Handle incoming message
+    }
+
+
+    func didReceiveMessageWithReply(_ message: [String: Any],
+                                     replyHandler: @escaping ([String: Any]) -> Void) {
+        print("Received request: \(message)")
+        // Process and send reply
+        replyHandler(["status": "processed"])
+    }
+
+
+    func didReceiveApplicationContext(_ context: [String: Any]) {
+        print("Context updated: \(context)")
+    }
+
+
+    func didReceiveUserInfo(_ userInfo: [String: Any]) {
+        print("User info received: \(userInfo)")
+    }
+
+
+    func reachabilityDidChange(_ isReachable: Bool) {
+        print("Reachability changed: \(isReachable)")
+    }
+
+
+    func activationDidComplete(with state: WCSessionActivationState) {
+        print("Activation completed: \(state.rawValue)")
+    }
+}
+
+
+// In your app setup:
+let handler = WatchHandler()
+WatchConnector.shared.delegate = handler
+WatchConnector.shared.activate()
+```
+ ## Troubleshooting [Section titled “Troubleshooting”](#troubleshooting) ### Watch App Not Appearing on Watch [Section titled “Watch App Not Appearing on Watch”](#watch-app-not-appearing-on-watch) 1. Ensure bundle IDs are correctly related (watch app bundle ID should be iOS app bundle ID + `.watchkitapp`) 2. Check that both apps are signed with the same team 3. On physical device: Open Watch app on iPhone → My Watch → scroll to find your app → toggle ON ### Messages Not Being Received [Section titled “Messages Not Being Received”](#messages-not-being-received) 1. Verify both apps have WCSession activated 2. Check `isReachable` before sending messages 3. For guaranteed delivery, use `transferUserInfo` instead of `sendMessage` 4. Ensure listeners are registered before the other device sends messages ### “Session Not Activated” Error [Section titled ““Session Not Activated” Error”](#session-not-activated-error) 1. Call `WatchConnector.shared.activate()` early in app lifecycle 2. On iOS, the plugin activates automatically - ensure plugin is imported 3. Check that WatchConnectivity capability is added to iOS target ### Build Errors with CapgoWatchSDK [Section titled “Build Errors with CapgoWatchSDK”](#build-errors-with-capgowatchsdk) 1. Ensure the package is added to the **watch target**, not iOS target 2. Clean build folder: **Product → Clean Build Folder** (Cmd + Shift + K) 3. Reset package caches: **File → Packages → Reset Package Caches** ### Simulator Issues [Section titled “Simulator Issues”](#simulator-issues) 1. Reset the simulators: **Device → Erase All Content and Settings** 2. Ensure iOS and watchOS simulators are compatible pairs 3. Both simulators need to be running for communication to work ## Next Steps [Section titled “Next Steps”](#next-steps) * [API Reference](/docs/plugins/watch/getting-started/#api-reference) - Complete API documentation * [Communication Patterns](/docs/plugins/watch/getting-started/#communication-patterns) - When to use each method * [Example App](https://github.com/Cap-go/capacitor-watch/tree/main/example-app) - Full working example ## Keep going from Creating a watchOS App [Section titled “Keep going from Creating a watchOS App”](#keep-going-from-creating-a-watchos-app) If you are using **Creating a watchOS App** to plan native plugin work, connect it with [Using @capgo/capacitor-watch](/plugins/capacitor-watch/) for the native capability in Using @capgo/capacitor-watch, [Capgo Plugin Directory](/plugins/) for the product workflow in Capgo Plugin Directory, [Capacitor Plugins by Capgo](/docs/plugins/) for the implementation detail in Capacitor Plugins by Capgo, [Adding or Updating Plugins](/docs/contributing/adding-plugins/) for the implementation detail in Adding or Updating Plugins, and [Ionic Enterprise Plugin Alternatives](/ionic-enterprise-plugins/) for the product workflow in Ionic Enterprise Plugin Alternatives.

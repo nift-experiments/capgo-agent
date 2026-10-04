@@ -1,0 +1,224 @@
+<SYSTEM>Plugin App Attest: cross-platform app attestation plugin using Apple App Attest and Google Play Integrity Standard</SYSTEM>
+
+# @capgo/capacitor-app-attest
+
+> Unified cross-platform attestation plugin for Capacitor.
+
+## Overview [Section titled “Overview”](#overview) Unified cross-platform attestation plugin for Capacitor. ## Core Capabilities [Section titled “Core Capabilities”](#core-capabilities) * `isSupported` - Checks whether native attestation is available on this device. * `prepare` - Prepares attestation state and returns the key handle used for later calls. * `createAttestation` - Creates a registration attestation token bound to a backend-issued challenge. * `createAssertion` - Creates a request assertion token bound to a request payload. ## Public API [Section titled “Public API”](#public-api) | Method | Description | | ------------------- | ----------------------------------------------------------------------------- | | `isSupported` | Checks whether native attestation is available on this device. | | `prepare` | Prepares attestation state and returns the key handle used for later calls. | | `createAttestation` | Creates a registration attestation token bound to a backend-issued challenge. | | `createAssertion` | Creates a request assertion token bound to a request payload. | | `storeKeyId` | Stores/prepares a key identifier for reuse. | | `getStoredKeyId` | Returns the currently stored/prepared key identifier. | | `clearStoredKeyId` | Clears stored/prepared key identifiers. | | `generateKey` | Legacy alias for `prepare()`. | | `attestKey` | Legacy alias for `createAttestation()`. | | `generateAssertion` | Legacy alias for `createAssertion()`. | ## Source Of Truth [Section titled “Source Of Truth”](#source-of-truth) This reference is synced from `src/definitions.ts` in [capacitor-app-attest](https://github.com/Cap-go/capacitor-app-attest/). ## Keep going from @capgo/capacitor-app-attest [Section titled “Keep going from @capgo/capacitor-app-attest”](#keep-going-from-capgocapacitor-app-attest) If you are using **@capgo/capacitor-app-attest** to plan security and compliance, connect it with [Using @capgo/capacitor-app-attest](/plugins/capacitor-app-attest/) for the native capability in Using @capgo/capacitor-app-attest, [Encryption](/docs/live-updates/encryption/) for the implementation detail in Encryption, [Compliance](/docs/live-updates/compliance/) for the implementation detail in Compliance, [Capgo Security Scanner](/security-scanner/) for the product workflow in Capgo Security Scanner, and [Capgo Security](/security/) for the product workflow in Capgo Security.
+
+# Android Setup & Backend Verification
+
+> Configure Google Play Integrity Standard API on Android and verify integrity tokens on your backend.
+
+## Android native system used [Section titled “Android native system used”](#android-native-system-used) On Android, this plugin uses **Google Play Integrity Standard API**: * `prepareIntegrityToken` during `prepare()` * `requestStandardIntegrityToken` for `createAttestation()` and `createAssertion()` ## Requirements [Section titled “Requirements”](#requirements) * Android app distributed through Google Play ecosystem * Google Play services available on device * Play Integrity API enabled for your app * Google Cloud project number configured ## Google setup [Section titled “Google setup”](#google-setup) 1. Enable **Play Integrity API** in your Google Cloud project. 2. Open Play Console and configure Play Integrity access for your app. 3. Provide `cloudProjectNumber` to the plugin. ## Capacitor config [Section titled “Capacitor config”](#capacitor-config) capacitor.config.ts 
+```ts
+plugins: {
+  AppAttest: {
+    cloudProjectNumber: '123456789012',
+  },
+}
+```
+ You can also pass `cloudProjectNumber` per call in method options. ## Client flow [Section titled “Client flow”](#client-flow) 
+```typescript
+import { AppAttest } from '@capgo/capacitor-app-attest';
+
+
+const { keyId } = await AppAttest.prepare({
+  cloudProjectNumber: '123456789012',
+});
+
+
+const attestation = await AppAttest.createAttestation({
+  keyId,
+  challenge: 'backend-registration-challenge',
+});
+
+
+const assertion = await AppAttest.createAssertion({
+  keyId,
+  payload: 'backend-request-payload',
+});
+```
+ `token` is a Play Integrity token and must be decoded server-side. ## Backend workflow (Android) [Section titled “Backend workflow (Android)”](#backend-workflow-android) ### Registration (`createAttestation`) [Section titled “Registration (createAttestation)”](#registration-createattestation) 1. Backend creates one-time `challenge`. 2. App calls `createAttestation({ keyId, challenge })`. 3. Backend calls Google `decodeIntegrityToken` API. 4. Backend verifies at minimum: * `requestDetails.requestHash === base64url(SHA256(challenge))` * `appIntegrity.packageName` equals your Android application id * `appIntegrity.certificateSha256Digest` contains your release signing cert digest * integrity verdicts match your security policy ### Request protection (`createAssertion`) [Section titled “Request protection (createAssertion)”](#request-protection-createassertion) 1. Backend creates one-time `payload`. 2. App calls `createAssertion({ keyId, payload })`. 3. Backend decodes token and checks `requestHash === base64url(SHA256(payload))`. 4. Enforce replay prevention (single-use + TTL) and integrity verdict policy. ## Android schema [Section titled “Android schema”](#android-schema) 
+```mermaid
+sequenceDiagram
+  participant App as Android App
+  participant Plugin as AppAttest plugin
+  participant PlaySDK as Play Integrity SDK
+  participant BE as Backend
+  participant Google as decodeIntegrityToken API
+
+
+  App->>Plugin: prepare(cloudProjectNumber)
+  Plugin->>PlaySDK: prepareIntegrityToken()
+  PlaySDK-->>Plugin: provider handle (keyId)
+
+
+  BE->>App: one-time challenge
+  App->>Plugin: createAttestation(keyId, challenge)
+  Plugin->>PlaySDK: requestStandardIntegrityToken(requestHash)
+  PlaySDK-->>Plugin: integrity token
+  Plugin-->>App: token + platform + format + keyId
+  App->>BE: token + challenge + keyId
+  BE->>Google: decodeIntegrityToken(token)
+  Google-->>BE: decoded payload
+  BE->>BE: verify requestHash + app identity + verdicts
+
+
+  BE->>App: one-time payload
+  App->>Plugin: createAssertion(keyId, payload)
+  Plugin->>PlaySDK: requestStandardIntegrityToken(requestHash)
+  PlaySDK-->>Plugin: integrity token
+  App->>BE: token + payload + keyId
+  BE->>Google: decodeIntegrityToken(token)
+  Google-->>BE: decoded payload
+  BE->>BE: verify requestHash + replay policy
+```
+ ## Minimal backend payload contract [Section titled “Minimal backend payload contract”](#minimal-backend-payload-contract) Registration: 
+```json
+{
+  "platform": "android",
+  "format": "google-play-integrity-standard",
+  "keyId": "string",
+  "challenge": "string",
+  "token": "string"
+}
+```
+ Assertion: 
+```json
+{
+  "platform": "android",
+  "format": "google-play-integrity-standard",
+  "keyId": "string",
+  "payload": "string",
+  "token": "string"
+}
+```
+ ## Keep going from Android Setup & Backend Verification [Section titled “Keep going from Android Setup & Backend Verification”](#keep-going-from-android-setup--backend-verification) If you are using **Android Setup & Backend Verification** to plan security and compliance, connect it with [Using @capgo/capacitor-app-attest](/plugins/capacitor-app-attest/) for the native capability in Using @capgo/capacitor-app-attest, [Encryption](/docs/live-updates/encryption/) for the implementation detail in Encryption, [Compliance](/docs/live-updates/compliance/) for the implementation detail in Compliance, [Capgo Security Scanner](/security-scanner/) for the product workflow in Capgo Security Scanner, and [Capgo Security](/security/) for the product workflow in Capgo Security.
+
+# Getting Started
+
+> Learn how to install and use App Attest with a unified API for iOS and Android attestation.
+
+## Installation [Section titled “Installation”](#installation) You can use our AI-Assisted Setup to install the plugin. Add the Capgo skills to your AI tool using the following command: 
+```bash
+npx skills add https://github.com/Cap-go/capgo-skills --skill capacitor-plugins
+```
+ Then use the following prompt: 
+```text
+Use the `capacitor-plugins` skill from `Cap-go/capgo-skills` to install the `@capgo/capacitor-app-attest` plugin in my project.
+```
+ If you prefer Manual Setup, install the plugin by running the following commands and follow the platform-specific instructions below: 1. **Install the package** 
+   ```sh
+   bun add @capgo/capacitor-app-attest
+   ```
+ 2. **Sync native projects** 
+   ```sh
+   bunx cap sync
+   ```
+ 3. **Configure platform requirements** * Complete [iOS setup](/docs/plugins/app-attest/ios/) for App Attest capability and backend verification flow. * Complete [Android setup](/docs/plugins/app-attest/android/) for Play Integrity Standard and backend verification flow. ## Why use this plugin [Section titled “Why use this plugin”](#why-use-this-plugin) This plugin provides one cross-platform API while keeping native platform security: * iOS: Apple App Attest (`DeviceCheck`) * Android: Google Play Integrity Standard API * No custom client-side crypto scheme * Normalized outputs for backend checks ## Usage [Section titled “Usage”](#usage) 
+```typescript
+import { AppAttest } from '@capgo/capacitor-app-attest';
+
+
+const support = await AppAttest.isSupported();
+if (!support.isSupported) {
+  throw new Error(`Attestation not supported on ${support.platform}`);
+}
+
+
+const prepared = await AppAttest.prepare();
+
+
+const registration = await AppAttest.createAttestation({
+  keyId: prepared.keyId,
+  challenge: 'backend-one-time-registration-challenge',
+});
+
+
+const assertion = await AppAttest.createAssertion({
+  keyId: prepared.keyId,
+  payload: 'backend-one-time-request-payload',
+});
+
+
+console.log(registration.platform, registration.format, registration.token);
+console.log(assertion.platform, assertion.format, assertion.token);
+```
+ ## Unified response shape [Section titled “Unified response shape”](#unified-response-shape) `createAttestation()` and `createAssertion()` return the same key fields on iOS and Android: | Field | Type | Description | | ---------- | ----------------------------- | ------------------------------------------------------ | | `platform` | `'ios' \| 'android' \| 'web'` | Native platform that produced the token | | `format` | `AttestationFormat` | `apple-app-attest` or `google-play-integrity-standard` | | `keyId` | `string` | Key/provider handle used for attestation | | `token` | `string` | Token to verify on your backend | ## Backend requirement [Section titled “Backend requirement”](#backend-requirement) Attestation is only useful when verified server-side. * Never trust client-only success. * Require one-time challenge/payload values from your backend. * Verify `token`, app identity, and replay protections in backend logic. Use the platform-specific backend guides: * [iOS setup and backend verification](/docs/plugins/app-attest/ios/) * [Android setup and backend verification](/docs/plugins/app-attest/android/) ## Keep going from Getting Started [Section titled “Keep going from Getting Started”](#keep-going-from-getting-started) If you are using **Getting Started** to plan security and compliance, connect it with [Using @capgo/capacitor-app-attest](/plugins/capacitor-app-attest/) for the native capability in Using @capgo/capacitor-app-attest, [Encryption](/docs/live-updates/encryption/) for the implementation detail in Encryption, [Compliance](/docs/live-updates/compliance/) for the implementation detail in Compliance, [Capgo Security Scanner](/security-scanner/) for the product workflow in Capgo Security Scanner, and [Capgo Security](/security/) for the product workflow in Capgo Security.
+
+# iOS Setup & Backend Verification
+
+> Configure Apple App Attest on iOS and verify attestation/assertion payloads on your backend.
+
+## iOS native system used [Section titled “iOS native system used”](#ios-native-system-used) On iOS, this plugin uses **Apple App Attest** from the `DeviceCheck` framework. ## Requirements [Section titled “Requirements”](#requirements) * iOS 14+ * Physical device recommended for real validation flows * Xcode target with App Attest capability enabled ## Xcode setup [Section titled “Xcode setup”](#xcode-setup) 1. Open your iOS app target in Xcode. 2. Go to **Signing & Capabilities**. 3. Click **+ Capability** and add **App Attest**. No custom iOS permissions are required in `Info.plist` for App Attest itself. ## Client flow [Section titled “Client flow”](#client-flow) 
+```typescript
+import { AppAttest } from '@capgo/capacitor-app-attest';
+
+
+const { keyId } = await AppAttest.prepare();
+
+
+const attestation = await AppAttest.createAttestation({
+  keyId,
+  challenge: 'backend-registration-challenge',
+});
+
+
+const assertion = await AppAttest.createAssertion({
+  keyId,
+  payload: 'backend-request-payload',
+});
+```
+ Send `attestation.token` and `assertion.token` to your backend. Do not validate them in the app. ## Backend workflow (iOS) [Section titled “Backend workflow (iOS)”](#backend-workflow-ios) ### Registration (`createAttestation`) [Section titled “Registration (createAttestation)”](#registration-createattestation) 1. Backend creates one-time `challenge`. 2. App calls `createAttestation({ keyId, challenge })`. 3. Backend verifies App Attest attestation: * certificate chain is valid and anchored to Apple App Attest * app identity matches your app (`bundleId`, team) * `clientDataHash` matches `SHA256(challenge)` 4. Store device key state (`keyId`, public key, and verifier metadata). ### Request protection (`createAssertion`) [Section titled “Request protection (createAssertion)”](#request-protection-createassertion) 1. Backend creates one-time `payload` (or canonical request hash input). 2. App calls `createAssertion({ keyId, payload })`. 3. Backend verifies assertion signature with previously stored key material. 4. Enforce replay protection and nonce TTL checks. ## iOS schema [Section titled “iOS schema”](#ios-schema) 
+```mermaid
+sequenceDiagram
+  participant App as iOS App
+  participant Plugin as AppAttest plugin
+  participant Apple as Apple App Attest
+  participant BE as Backend
+
+
+  BE->>App: one-time challenge
+  App->>Plugin: prepare()
+  Plugin->>Apple: generateKey()
+  Apple-->>Plugin: keyId
+
+
+  App->>Plugin: createAttestation(keyId, challenge)
+  Plugin->>Apple: attestKey(keyId, SHA256(challenge))
+  Apple-->>Plugin: attestation token
+  Plugin-->>App: token + platform + format + keyId
+  App->>BE: token + challenge + keyId
+  BE->>BE: verify Apple attestation rules
+
+
+  BE->>App: one-time payload
+  App->>Plugin: createAssertion(keyId, payload)
+  Plugin->>Apple: generateAssertion(keyId, SHA256(payload))
+  Apple-->>Plugin: assertion token
+  Plugin-->>App: token + platform + format + keyId
+  App->>BE: token + payload + keyId
+  BE->>BE: verify signature + replay policy
+```
+ ## Minimal backend payload contract [Section titled “Minimal backend payload contract”](#minimal-backend-payload-contract) Registration: 
+```json
+{
+  "platform": "ios",
+  "format": "apple-app-attest",
+  "keyId": "string",
+  "challenge": "string",
+  "token": "string"
+}
+```
+ Assertion: 
+```json
+{
+  "platform": "ios",
+  "format": "apple-app-attest",
+  "keyId": "string",
+  "payload": "string",
+  "token": "string"
+}
+```
+ ## Keep going from iOS Setup & Backend Verification [Section titled “Keep going from iOS Setup & Backend Verification”](#keep-going-from-ios-setup--backend-verification) If you are using **iOS Setup & Backend Verification** to plan security and compliance, connect it with [Using @capgo/capacitor-app-attest](/plugins/capacitor-app-attest/) for the native capability in Using @capgo/capacitor-app-attest, [Encryption](/docs/live-updates/encryption/) for the implementation detail in Encryption, [Compliance](/docs/live-updates/compliance/) for the implementation detail in Compliance, [Capgo Security Scanner](/security-scanner/) for the product workflow in Capgo Security Scanner, and [Capgo Security](/security/) for the product workflow in Capgo Security.

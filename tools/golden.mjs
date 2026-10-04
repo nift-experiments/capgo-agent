@@ -1,0 +1,4 @@
+import {readFile,writeFile,readdir,stat,mkdir,copyFile} from 'node:fs/promises';import {resolve,dirname,extname} from 'node:path';import {createHash} from 'node:crypto';
+const hash=value=>createHash('sha256').update(value).digest('hex');
+export async function verify(root=resolve('golden/site'),inventory='golden/files.json'){const rows=JSON.parse(await readFile(inventory)),errors=[];for(const row of rows){try{const data=await readFile(resolve(root,row.path));if(data.length!==row.bytes||hash(data)!==row.sha256)errors.push({path:row.path,reason:'content differs'});}catch(error){errors.push({path:row.path,reason:error.code})}}return {checked:rows.length,errors};}
+if(process.argv[1]?.endsWith('/golden.mjs')){const result=await verify();console.log(JSON.stringify(result));if(result.errors.length)process.exitCode=1;}

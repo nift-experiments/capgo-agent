@@ -1,0 +1,1655 @@
+<SYSTEM>Public API: full reference documentation for public API</SYSTEM>
+
+# API Overview
+
+> Explore Capgo's public API for managing resources such as organizations, devices, channels, and bundles using RESTful HTTP methods and authentication.
+
+This is the documentation of the public API of Capgo cloud. The API allows you to programmatically manage your Capgo resources, including organizations, devices, channels, and bundles. It’s designed to be RESTful and uses standard HTTP methods. ## Authentication [Section titled “Authentication”](#authentication) All API endpoints require authentication. To authenticate your requests, add your API key in the `x-api-key` header. Example: 
+```bash
+curl -H "x-api-key: YOUR_API_KEY" https://api.capgo.app/organization/
+```
+ [Get API key ](https://console.capgo.app/settings/organization/api-keys)Generate your API key in the Capgo dashboard The `authorization` header is still accepted for legacy API keys, but `x-api-key` is the recommended header for all key types, including secure hashed keys. ## Rate Limiting [Section titled “Rate Limiting”](#rate-limiting) The API implements rate limiting to ensure fair usage. Current limits are: * 100 requests per minute for standard accounts * 1000 requests per minute for enterprise accounts If you exceed these limits, you’ll receive a 429 (Too Many Requests) response. ### Device channel changes [Section titled “Device channel changes”](#device-channel-changes) Device channel changes use the plugin API and have separate abuse-prevention limits that apply to every plan, including trials: * A device can make up to 5 requests per second for each channel operation (`set`, `get`, `delete`, or `list`). This limit is scoped to the app, device, and operation. * Setting the same device to the same channel more than once within 60 seconds returns a 429 response. Switching to a different channel is allowed after the per-second limit resets. * An additional limit of 1000 channel requests per minute applies to each app and IP address. These limits are not account-wide. If your channel switcher can return to a recently selected channel, wait for the `retryAfterSeconds` duration in the 429 response before retrying. ## Response Format [Section titled “Response Format”](#response-format) All responses are in JSON format. Successful responses typically include either a `data` object or a `status` field. Error responses include an `error` field with a description of what went wrong. Example success response: 
+```json
+{
+  "status": "ok",
+  "data": { ... }
+}
+```
+ Example error response: 
+```json
+{
+  "error": "Invalid API key",
+  "status": "KO"
+}
+```
+ ## Available Endpoints [Section titled “Available Endpoints”](#available-endpoints) [Organizations ](/docs/public-api/organizations/)Create and manage organizations, update settings, and handle organization-level configurations [API Keys ](/docs/public-api/api-keys/)Generate, list, and revoke API keys for secure access to the Capgo API [Members ](/docs/public-api/members/)Manage organization members, roles, and permissions [Statistics ](/docs/public-api/statistics/)Access detailed analytics about app usage, storage, and bandwidth consumption [Channels ](/docs/public-api/channels/)Control app update channels, bundles (versions), and update policies [Devices ](/docs/public-api/devices/)Track and manage devices running your app, including bundle (version) and channel assignments [Bundles ](/docs/public-api/bundles/)Handle app bundles, including uploading, listing, and managing bundles (versions) ## Best Practices [Section titled “Best Practices”](#best-practices) 1. **Error Handling**: Always check for error responses and handle them appropriately 2. **Rate Limiting**: Implement exponential backoff when hitting rate limits 3. **Caching**: Cache responses when appropriate to reduce API calls 4. **Versioning**: Keep track of API changes through our changelog ## Keep going from API Overview [Section titled “Keep going from API Overview”](#keep-going-from-api-overview) If you are using **API Overview** to plan authentication and account flows, connect it with [@capgo/capacitor-social-login](/docs/plugins/social-login/) for the implementation detail in @capgo/capacitor-social-login, [@capgo/capacitor-passkey](/docs/plugins/passkey/) for the implementation detail in @capgo/capacitor-passkey, [@capgo/capacitor-native-biometric](/docs/plugins/native-biometric/) for the implementation detail in @capgo/capacitor-native-biometric, [Two-factor authentication](/docs/webapp/mfa/) for the implementation detail in Two-factor authentication, and [SSO (Enterprise)](/docs/webapp/enterprise-sso/) for the implementation detail in SSO (Enterprise).
+
+# API Keys
+
+> Comprehensive documentation for API Keys, detailing authentication, RBAC permissions, and management within Capgo
+
+API keys are used to authenticate requests to the Capgo API. Keys are organization-specific and can be assigned RBAC roles for fine-grained access control. Each key can also have an optional expiration date and can be created as a “secure” (hashed) key where the plain-text value is only shown once. ## Using an API key [Section titled “Using an API key”](#using-an-api-key) Use the authentication header documented by the endpoint. For API-key requests, `authorization` is accepted: 
+```bash
+curl -H "authorization: YOUR_API_KEY" https://api.capgo.app/...
+```
+ Some endpoints also accept a dedicated key header. The [Channels API](/docs/public-api/channels/) accepts `authorization` or `capgkey`; use one of those headers for preview-channel automation. ## RBAC Permissions [Section titled “RBAC Permissions”](#rbac-permissions) API keys use the same role-based access control (RBAC) system as user accounts. When creating or managing keys through the web app or API, you assign roles at two levels: * **Organization role** — Defines the key’s baseline permissions across the entire organization (for example, `org_admin` or `org_member`). * **App roles** — Per-app permissions (for example, `app_admin`, `app_developer`, `app_uploader`, `app_reader`, or `app_preview`). If an API key has explicit role bindings, **only those bindings** are evaluated for permission checks. The key owner’s personal permissions are not inherited by the key. ### Preview channel automation [Section titled “Preview channel automation”](#preview-channel-automation) Bind `app_preview` only to the preview app for CI that creates a temporary, non-public preview channel, uploads and promotes a bundle, then deletes both. 
+```json
+{
+  "name": "PR preview key",
+  "hashed": true,
+  "bindings": [
+    {
+      "role_name": "app_preview",
+      "scope_type": "app",
+      "org_id": "<OWNING_ORG_UUID>",
+      "app_id": "<APP_UUID>"
+    }
+  ]
+}
+```
+ `org_id` is the UUID of the app’s owning organization. `app_id` is the app record’s internal UUID, not the public app identifier used by CLI commands (for example, `com.example.app`). The binding remains organization-bound even when the key has no organization-wide role. The app-level `app_preview` role includes only `app.read`, `app.read_bundles`, `app.upload_bundle`, and `app.create_channel`. When that key creates a channel, Capgo automatically adds a `channel_preview` binding on the newly created channel. That child binding grants `channel.read`, `channel.promote_bundle`, and `channel.delete` only for the channel the key created. `app_preview` retains `app.read`, so this is not strict channel-read isolation: the key may enumerate channel metadata in the selected app. The automatic child binding limits **lifecycle mutations** to the channel the key created. Capgo records the App Preview key that uploaded each bundle. The key can promote only its own bundle to each preview channel it creates. It has no channel lifecycle access to an existing default/main channel, a channel created by another preview key, or another key’s bundle. For this workflow, omit `public` and never use `--default`. Use `channel delete <preview-channel> <public-app-id> --delete-bundle` for cleanup. This is an atomic, ownership-checked preview cleanup route; it removes only the calling key’s preview channel and linked bundle. `app_preview` does not grant generic `bundle.delete`. For the dashboard setup and a complete CLI example, see [Use an App Preview key for preview workflows](/docs/webapp/api-keys/#use-an-app-preview-key-for-preview-workflows). ![A diagram explaining how RBAC API key permissions work](/capgo_apikeys_rbac_diagram.webp) ## Organization creation permission [Section titled “Organization creation permission”](#organization-creation-permission) Creating organizations with an API key now uses an explicit global permission: `org.create`. This permission is separate from normal org/app role bindings because a new organization does not exist yet when `POST /organization/` is called. To create organizations with an API key: * The API key must include `org.create` in `global_permissions`. * The same API key must also have a current organization-scoped `org_admin` or `org_super_admin` binding. * New API keys do not receive `org.create` by default. Enable **Allow creating organizations** when creating or editing an RBAC API key in the dashboard. * Existing write-capable org admin/super admin API keys were backfilled with `org.create` so existing integrations can continue creating organizations. When an API key creates an organization, Capgo automatically assigns that same API key as `org_super_admin` on the newly created organization. This lets the integration manage the organization it just created without needing a separate manual role binding. If you create an API key through the API, include `global_permissions` alongside the org admin binding: 
+```json
+{
+  "name": "Provisioning key",
+  "hashed": true,
+  "bindings": [
+    {
+      "role_name": "org_admin",
+      "scope_type": "org",
+      "org_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "global_permissions": ["org.create"]
+}
+```
+ `org.create` only applies to creating organizations. Deleting an organization still requires delete permission on the target organization, typically through `org_super_admin`. ## Secure (Hashed) Keys [Section titled “Secure (Hashed) Keys”](#secure-hashed-keys) When creating a secure key, the server generates the key material and returns the plain-text value once. Only a hash is stored. This means: * The plain-text key **cannot be retrieved** after creation. * Regeneration produces a new plain-text key (shown once) and updates the stored hash. * Hashed keys are recommended for production use. Some organizations enforce hashed keys via the `enforce_hashed_api_keys` org policy. ## Expiration [Section titled “Expiration”](#expiration) Keys can have an optional expiration date. Expired keys are rejected at the permission check layer. Organization policies can enforce: * **Mandatory expiration** (`require_apikey_expiration`) — All new keys must have an expiry. * **Maximum TTL** (`max_apikey_expiration_days`) — The expiry cannot be further than N days from now. ## Security Best Practices [Section titled “Security Best Practices”](#security-best-practices) 1. **Principle of Least Privilege**: Assign the most restrictive role that still allows your integration to function 2. **Regular Rotation**: Rotate your API keys periodically using the regenerate feature 3. **Secure Storage**: Store API keys securely and never commit them to version control 4. **Use Hashed Keys**: Create secure (hashed) keys for production integrations 5. **Set Expiration**: Always set an expiration date on keys used for temporary or CI/CD access 6. **Scope Restrictions**: Restrict keys to specific apps with the minimum required role ## Common Use Cases [Section titled “Common Use Cases”](#common-use-cases) 1. **CI/CD Integration**: Create keys scoped to specific apps with the `app_uploader` or `app_developer` role, and set an expiration date. 2. **PR Preview Channels**: Use `app_preview` on only the preview app or apps when CI needs to upload a bundle, create a temporary channel, and atomically clean up its own channel and bundle. 3. **Deployment Automation**: Use keys with the `app_developer` role for automated deployment scripts. 4. **Monitoring Tools**: Create keys with the `app_reader` role for external monitoring integrations. 5. **Admin Access**: Use keys with the `org_admin` role sparingly for administrative tools. 6. **Third-Party Integrations**: Create keys restricted to specific apps with the minimum required role. 7. **Organization Provisioning**: Use an `org_admin` or `org_super_admin` RBAC key with `org.create` only for trusted automation that needs to create organizations. ## Keep going from API Keys [Section titled “Keep going from API Keys”](#keep-going-from-api-keys) If you are using **API Keys** to plan authentication and account flows, connect it with [@capgo/capacitor-social-login](/docs/plugins/social-login/) for the implementation detail in @capgo/capacitor-social-login, [@capgo/capacitor-passkey](/docs/plugins/passkey/) for the implementation detail in @capgo/capacitor-passkey, [@capgo/capacitor-native-biometric](/docs/plugins/native-biometric/) for the implementation detail in @capgo/capacitor-native-biometric, [Two-factor authentication](/docs/webapp/mfa/) for the implementation detail in Two-factor authentication, and [SSO (Enterprise)](/docs/webapp/enterprise-sso/) for the implementation detail in SSO (Enterprise).
+
+# Apps
+
+> Detailed documentation for the Apps endpoint, providing comprehensive insights into managing and interacting with Capacitor applications through Capgo's platform.
+
+Apps are the foundational entities in Capgo. Each app represents a unique Capacitor application that you can manage and update through the platform. The Apps API allows you to create, retrieve, update, and delete app configurations. ## Understanding Apps [Section titled “Understanding Apps”](#understanding-apps) An app in Capgo represents your Capacitor application and includes: * **App ID**: Unique identifier for your application * **Name**: Human-readable name of your application * **Icons**: Visual identifiers for your app in the dashboard * **Configuration**: Settings that control how updates are delivered * **Ownership**: Organization and user access information * **Usage Statistics**: Metrics about installs and updates ## Best Practices [Section titled “Best Practices”](#best-practices) 1. **Naming Convention**: Use clear, identifiable names for your apps 2. **Security**: Protect your API keys and access credentials 3. **Organization**: Group related apps under the same organization 4. **Monitoring**: Regularly check app statistics and performance 5. **Backup**: Maintain configuration backups for critical apps ## Endpoints [Section titled “Endpoints”](#endpoints) ### GET [Section titled “GET”](#get) `https://api.capgo.app/app/` Retrieve information about your apps. #### Query Parameters [Section titled “Query Parameters”](#query-parameters) * `page`: Optional. Page number for pagination * `limit`: Optional. Number of results per page (default: 50) * `org_id`: Optional. Filter apps by organization ID. If not provided, returns apps from all organizations the user has access to For getting a specific app: * Use the app ID in the URL path: `https://api.capgo.app/app/:app_id` #### Response Type [Section titled “Response Type”](#response-type) Note: `last_version` refers to the last bundle (version) uploaded for the app. 
+```typescript
+interface App {
+  app_id: string
+  block_provider_infra_requests: boolean
+  created_at: string | null
+  default_upload_channel: string
+  icon_url: string
+  id: string | null
+  last_version: string | null // last bundle (version) name
+  name: string | null
+  owner_org: string
+  retention: number
+  transfer_history: Json[] | null
+  updated_at: string | null
+  user_id: string | null
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request) 
+```bash
+# Get all apps
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/app/"
+
+
+# Get apps from a specific organization
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/app/?org_id=046a36ac-e03c-4590-9257-bd6c9dba9ee8"
+
+
+# Get specific app
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/app/com.demo.app"
+```
+ #### Example Response [Section titled “Example Response”](#example-response) 
+```json
+{
+  "data": [
+    {
+      "block_provider_infra_requests": true,
+      "app_id": "com.demo.app",
+      "created_at": "2024-01-01T00:00:00Z",
+      "default_upload_channel": "dev",
+      "icon_url": "https://example.com/icon.png",
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "last_version": "1.0.0",
+      "name": "Demo App",
+      "owner_org": "046a36ac-e03c-4590-9257-bd6c9dba9ee8",
+      "retention": 2592000,
+      "transfer_history": null,
+      "updated_at": "2024-01-01T00:00:00Z",
+      "user_id": "6aa76066-55ef-4238-ade6-0b32334a4097"
+    }
+  ]
+}
+```
+ ### POST [Section titled “POST”](#post) `https://api.capgo.app/app/` Create a new app. #### Request Body [Section titled “Request Body”](#request-body) 
+```typescript
+interface CreateApp {
+  app_id: string
+  name: string
+  icon?: string
+  owner_org: string
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request-1) 
+```bash
+# Create new app
+curl -X POST \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My New App",
+    "app_id": "com.demo.myapp", // this id is unique in Capgo This cannot be reused by any account.
+    "icon": "https://example.com/icon.png",
+    "owner_org": "046a36ac-e03c-4590-9257-bd6c9dba9ee8"
+  }' \
+  https://api.capgo.app/app/
+```
+ #### Success Response [Section titled “Success Response”](#success-response) 
+```json
+{
+  "block_provider_infra_requests": true,
+  "app_id": "My New App",
+  "created_at": "2024-01-01T00:00:00Z",
+  "default_upload_channel": "dev",
+  "icon_url": "https://example.com/icon.png",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "My New App",
+  "owner_org": "046a36ac-e03c-4590-9257-bd6c9dba9ee8",
+  "retention": 2592000,
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+```
+ ### PUT [Section titled “PUT”](#put) `https://api.capgo.app/app/:app_id` Update an existing app. The app ID is specified in the URL path. #### Request Body [Section titled “Request Body”](#request-body-1) 
+```typescript
+interface UpdateApp {
+  block_provider_infra_requests?: boolean
+  name?: string
+  icon?: string
+  retention?: number
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request-2) 
+```bash
+curl -X PUT \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "block_provider_infra_requests": true,
+    "name": "Updated App Name",
+    "icon": "https://example.com/updated-icon.png",
+    "retention": 45
+  }' \
+  https://api.capgo.app/app/com.demo.app
+```
+ #### Success Response [Section titled “Success Response”](#success-response-1) 
+```json
+{
+  "app_id": "com.demo.app",
+  "created_at": "2024-01-01T00:00:00Z",
+  "default_upload_channel": "dev",
+  "block_provider_infra_requests": true,
+  "icon_url": "https://example.com/updated-icon.png",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Updated App Name",
+  "owner_org": "046a36ac-e03c-4590-9257-bd6c9dba9ee8",
+  "retention": 45,
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+```
+ ### DELETE [Section titled “DELETE”](#delete) `https://api.capgo.app/app/:app_id` Delete an app and all associated resources. The app ID is specified in the URL path. Use with extreme caution as this action cannot be undone. #### Example Request [Section titled “Example Request”](#example-request-3) 
+```bash
+curl -X DELETE \
+  -H "authorization: your-api-key" \
+  https://api.capgo.app/app/com.demo.app
+```
+ #### Success Response [Section titled “Success Response”](#success-response-2) 
+```json
+{
+  "status": "ok"
+}
+```
+ ## Error Handling [Section titled “Error Handling”](#error-handling) Common error scenarios and their responses: 
+```json
+// App not found
+{
+  "error": "App not found",
+  "status": "KO"
+}
+
+
+// Duplicate custom ID
+{
+  "error": "Custom ID already in use",
+  "status": "KO"
+}
+
+
+// Invalid parameters
+{
+  "error": "Invalid app configuration",
+  "status": "KO"
+}
+
+
+// Permission denied
+{
+  "error": "Insufficient permissions to manage app",
+  "status": "KO"
+}
+
+
+// Organization access denied
+{
+  "status": "You do not have access to this organization"
+}
+```
+ ## Common Use Cases [Section titled “Common Use Cases”](#common-use-cases) 1. **Create New App** 
+```typescript
+// Set up a new app
+{
+  "name": "Production App",
+  "owner_org": "046a36ac-e03c-4590-9257-bd6c9dba9ee8"
+}
+```
+ 2. **Update App Configuration** 
+```typescript
+// Change app name and icon
+{
+  "name": "Rebranded App Name",
+  "icon": "https://example.com/new-icon.png"
+}
+```
+ 3. **Set Retention Policy** 
+```typescript
+// Configure automatic bundle cleanup
+{
+  "retention": 30 // Keep bundles for 30 days
+}
+```
+ 4. **Get Apps by Organization** 
+```bash
+# List all apps in a specific organization
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/app/?org_id=046a36ac-e03c-4590-9257-bd6c9dba9ee8"
+```
+ ## Resource Management [Section titled “Resource Management”](#resource-management) 1. **Storage Optimization**: Monitor storage usage and set appropriate retention policies 2. **Organization**: Group related apps under a single organization 3. **Access Control**: Manage which team members can modify app settings 4. **Backup Strategy**: Back up critical app configurations and settings ## Keep going from Apps [Section titled “Keep going from Apps”](#keep-going-from-apps) If you are using **Apps** to plan dashboard and API operations, connect it with [API Overview](/docs/public-api/) for the implementation detail in API Overview, [Introduction](/docs/webapp/) for the implementation detail in Introduction, [API Keys](/docs/public-api/api-keys/) for the implementation detail in API Keys, [Devices](/docs/public-api/devices/) for the implementation detail in Devices, and [Bundles](/docs/public-api/bundles/) for the implementation detail in Bundles.
+
+# Bundles
+
+> Detailed guide for managing Capgo Bundles, covering listing, deleting, bundle (version) management, and storage optimization for app update packages.
+
+Bundles are the core update packages in Capgo. Each bundle contains the web assets (HTML, CSS, JS) that make up your app’s content. The Bundles API allows you to manage these update packages, including listing and deleting them. ## Understanding Bundles [Section titled “Understanding Bundles”](#understanding-bundles) A bundle represents a specific bundle (version) of your app’s web content and includes: * **Bundle (version)**: [Semantic version number](/semver_tester/) for the bundle * **Checksum**: Unique hash to verify bundle integrity * **Storage Info**: Details about where and how the bundle is stored * **Native Requirements**: Minimum native app version requirements * **Metadata**: Creation time, ownership, and other tracking information ## Manual Bundle Creation (Without CLI) [Section titled “Manual Bundle Creation (Without CLI)”](#manual-bundle-creation-without-cli) Here’s how to create and upload bundles manually without using the Capgo CLI: ### Step 1: Build Your App [Section titled “Step 1: Build Your App”](#step-1-build-your-app) First, build your app’s web assets: 
+```bash
+npm run build
+```
+ ### Step 2: Create Bundle Zip Using Same Packages as Capgo CLI [Section titled “Step 2: Create Bundle Zip Using Same Packages as Capgo CLI”](#step-2-create-bundle-zip-using-same-packages-as-capgo-cli) **Important**: Use the exact same JavaScript packages that Capgo CLI uses internally to ensure compatibility. #### Install Required Packages [Section titled “Install Required Packages”](#install-required-packages) 
+```bash
+npm install adm-zip @tomasklaen/checksum
+```
+ #### Create Zip Bundle with JavaScript (Same as Capgo CLI) [Section titled “Create Zip Bundle with JavaScript (Same as Capgo CLI)”](#create-zip-bundle-with-javascript-same-as-capgo-cli) Note: In the examples below, `version` refers to the bundle (version) name used by the API. 
+```javascript
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const AdmZip = require('adm-zip');
+const { checksum: getChecksum } = require('@tomasklaen/checksum');
+
+
+// Exact same implementation as Capgo CLI
+function zipFileUnix(filePath) {
+  const zip = new AdmZip();
+  zip.addLocalFolder(filePath);
+  return zip.toBuffer();
+}
+
+
+async function zipFileWindows(filePath) {
+  console.log('Zipping file windows mode');
+  const zip = new AdmZip();
+
+
+  const addToZip = (folderPath, zipPath) => {
+    const items = fs.readdirSync(folderPath);
+
+
+    for (const item of items) {
+      const itemPath = path.join(folderPath, item);
+      const stats = fs.statSync(itemPath);
+
+
+      if (stats.isFile()) {
+        const fileContent = fs.readFileSync(itemPath);
+        zip.addFile(path.join(zipPath, item).split(path.sep).join('/'), fileContent);
+      } else if (stats.isDirectory()) {
+        addToZip(itemPath, path.join(zipPath, item));
+      }
+    }
+  };
+
+
+  addToZip(filePath, '');
+  return zip.toBuffer();
+}
+
+
+// Main zipFile function (exact same logic as CLI)
+async function zipFile(filePath) {
+  if (os.platform() === 'win32') {
+    return zipFileWindows(filePath);
+  } else {
+    return zipFileUnix(filePath);
+  }
+}
+
+
+async function createBundle(inputPath, outputPath, version) {
+  // Create zip using exact same method as Capgo CLI
+  const zipped = await zipFile(inputPath);
+
+
+  // Write to file
+  fs.writeFileSync(outputPath, zipped);
+
+
+  // Calculate checksum using exact same package as CLI
+  const checksum = await getChecksum(zipped, 'sha256');
+
+
+  return {
+    filename: path.basename(outputPath),
+    version: version,
+    size: zipped.length,
+    checksum: checksum
+  };
+}
+
+
+// Usage
+async function main() {
+  try {
+    const result = await createBundle('./dist', './my-app-1.2.3.zip', '1.2.3');
+    console.log('Bundle info:', JSON.stringify(result, null, 2));
+  } catch (error) {
+    console.error('Error creating bundle:', error);
+  }
+}
+
+
+main();
+```
+ ### Step 3: Calculate SHA256 Checksum Using Same Package as CLI [Section titled “Step 3: Calculate SHA256 Checksum Using Same Package as CLI”](#step-3-calculate-sha256-checksum-using-same-package-as-cli) 
+```javascript
+const fs = require('node:fs');
+const { checksum: getChecksum } = require('@tomasklaen/checksum');
+
+
+async function calculateChecksum(filePath) {
+  const fileBuffer = fs.readFileSync(filePath);
+  // Use exact same package and method as Capgo CLI
+  const checksum = await getChecksum(fileBuffer, 'sha256');
+  return checksum;
+}
+
+
+// Usage
+async function main() {
+  const checksum = await calculateChecksum('./my-app-1.2.3.zip');
+  console.log('Checksum:', checksum);
+}
+
+
+main();
+```
+ ### Step 4: Upload Bundle to Your Storage [Section titled “Step 4: Upload Bundle to Your Storage”](#step-4-upload-bundle-to-your-storage) Upload your zip file to any web-accessible storage: 
+```bash
+# Example: Upload to your server via scp
+scp my-app-1.2.3.zip user@your-server.com:/var/www/bundles/
+
+
+# Example: Upload to S3 using AWS CLI
+aws s3 cp my-app-1.2.3.zip s3://your-bucket/bundles/
+
+
+# Example: Upload via curl to a custom endpoint
+curl -X POST https://your-storage-api.com/upload \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "file=@my-app-1.2.3.zip"
+```
+ **Important**: Your bundle must be **publicly accessible** via HTTPS URL (no authentication required). Capgo’s servers need to download the bundle from this URL. Examples of valid public URLs: * `https://your-storage.com/bundles/my-app-1.2.3.zip` * `https://github.com/username/repo/releases/download/v1.2.3/bundle.zip` * `https://cdn.jsdelivr.net/gh/username/repo@v1.2.3/dist.zip` ### Step 5: Register Bundle with Capgo API [Section titled “Step 5: Register Bundle with Capgo API”](#step-5-register-bundle-with-capgo-api) Register the external bundle with Capgo using direct API calls: 
+```javascript
+async function registerWithCapgo(appId, version, bundleUrl, checksum, apiKey) {
+  const fetch = require('node-fetch');
+
+
+  // Create bundle (version)
+  const response = await fetch('https://api.capgo.app/bundle/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'authorization': apiKey
+    },
+    body: JSON.stringify({
+      app_id: appId,
+      version: version,
+      external_url: bundleUrl,
+      checksum: checksum
+    })
+  });
+
+
+  if (!response.ok) {
+    throw new Error(`Failed to create bundle: ${response.statusText}`);
+  }
+
+
+  const data = await response.json();
+  console.log('Bundle created:', data);
+
+
+  return data;
+}
+```
+ #### API Parameters [Section titled “API Parameters”](#api-parameters) | Parameter | Description | Required | | -------------- | ----------------------------------------------------------------------------------- | -------- | | `app_id` | Your app identifier | Yes | | `version` | Bundle (version) [semantic version](/semver_tester/) (e.g., “1.2.3”) | Yes | | `external_url` | **Publicly accessible** HTTPS URL where bundle can be downloaded (no auth required) | Yes | | `checksum` | SHA256 checksum of the zip file | Yes | ## Bundle Structure Requirements [Section titled “Bundle Structure Requirements”](#bundle-structure-requirements) Your bundle zip must follow these requirements: 1. **Root Index File**: Must have `index.html` at the root level 2. **Capacitor Integration**: Must call `notifyAppReady()` in your app code 3. **Asset Paths**: Use relative paths for all assets ### Valid Bundle Structure [Section titled “Valid Bundle Structure”](#valid-bundle-structure) 
+```plaintext
+bundle.zip
+├── index.html
+├── assets/
+│   ├── app.js
+│   └── styles.css
+└── images/
+```
+ ## Complete Manual Workflow Example [Section titled “Complete Manual Workflow Example”](#complete-manual-workflow-example) Simple Node.js script to zip, checksum, and upload to Capgo: 
+```javascript
+const fs = require('node:fs');
+const os = require('node:os');
+const AdmZip = require('adm-zip');
+const { checksum: getChecksum } = require('@tomasklaen/checksum');
+const fetch = require('node-fetch');
+
+
+async function deployToCapgo() {
+  const APP_ID = 'com.example.app';
+  const VERSION = '1.2.3';
+  const BUNDLE_URL = 'https://your-storage.com/bundles/app-1.2.3.zip';
+  const API_KEY = process.env.CAPGO_API_KEY;
+
+
+  // 1. Create zip (same as Capgo CLI)
+  const zip = new AdmZip();
+  zip.addLocalFolder('./dist');
+  const zipped = zip.toBuffer();
+
+
+  // 2. Calculate checksum (same as Capgo CLI)
+  const checksum = await getChecksum(zipped, 'sha256');
+  console.log('Checksum:', checksum);
+
+
+  // 3. Upload to your storage (replace with your upload logic)
+  // fs.writeFileSync('./bundle.zip', zipped);
+  // ... upload bundle.zip to your storage ...
+
+
+  // 4. Register with Capgo API
+  const response = await fetch('https://api.capgo.app/bundle/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'authorization': API_KEY
+    },
+    body: JSON.stringify({
+      app_id: APP_ID,
+      version: VERSION,
+      external_url: BUNDLE_URL,
+      checksum: checksum
+    })
+  });
+
+
+  if (!response.ok) {
+    throw new Error(`Failed: ${response.statusText}`);
+  }
+
+
+  console.log('Bundle registered with Capgo!');
+}
+
+
+deployToCapgo().catch(console.error);
+```
+ Install dependencies: 
+```bash
+npm install adm-zip @tomasklaen/checksum node-fetch
+```
+ ## Checksum Verification [Section titled “Checksum Verification”](#checksum-verification) ### JavaScript Checksum Calculation (Same as Capgo CLI) [Section titled “JavaScript Checksum Calculation (Same as Capgo CLI)”](#javascript-checksum-calculation-same-as-capgo-cli) Use the exact same package and method that Capgo CLI uses internally: 
+```javascript
+const fs = require('node:fs');
+const { checksum: getChecksum } = require('@tomasklaen/checksum');
+
+
+async function calculateChecksum(filePath) {
+  const fileBuffer = fs.readFileSync(filePath);
+  // Use exact same package and method as Capgo CLI
+  const checksum = await getChecksum(fileBuffer, 'sha256');
+  return checksum;
+}
+
+
+// Verify checksum matches
+async function verifyChecksum(filePath, expectedChecksum) {
+  const actualChecksum = await calculateChecksum(filePath);
+  const isValid = actualChecksum === expectedChecksum;
+
+
+  console.log(`File: ${filePath}`);
+  console.log(`Expected: ${expectedChecksum}`);
+  console.log(`Actual:   ${actualChecksum}`);
+  console.log(`Valid:    ${isValid}`);
+
+
+  return isValid;
+}
+
+
+// Usage
+async function main() {
+  const bundleChecksum = await calculateChecksum('./my-app-1.2.3.zip');
+  console.log('SHA256 Checksum:', bundleChecksum);
+}
+
+
+main();
+```
+ ### Checksum Importance [Section titled “Checksum Importance”](#checksum-importance) * **Bundle Integrity**: Ensures the bundle hasn’t been corrupted during transfer * **API Verification**: Capgo verifies checksums before accepting bundles * **Plugin Verification**: The mobile plugin verifies checksums before applying updates ## Best Practices [Section titled “Best Practices”](#best-practices) 1. **Bundle (version) Management**: Use [semantic versioning](/semver_tester/) consistently 2. **Storage Optimization**: Remove unused bundles periodically 3. **Bundle (version) Compatibility**: Set appropriate minimum native version requirements 4. **Backup Strategy**: Maintain backups of critical bundles (versions) ## Endpoints [Section titled “Endpoints”](#endpoints) ### GET [Section titled “GET”](#get) `https://api.capgo.app/bundle/` Retrieve bundle information. Returns 50 bundles per page. #### Query Parameters [Section titled “Query Parameters”](#query-parameters) * `app_id`: Required. The ID of your app * `page`: Optional. Page number for pagination #### Response Type [Section titled “Response Type”](#response-type) 
+```typescript
+interface Bundle {
+  app_id: string
+  bucket_id: string | null
+  checksum: string | null
+  created_at: string | null
+  deleted: boolean
+  external_url: string | null
+  id: number
+  minUpdateVersion: string | null
+  name: string
+  native_packages: Json[] | null
+  owner_org: string
+  r2_path: string | null
+  session_key: string | null
+  storage_provider: string
+  updated_at: string | null
+  user_id: string | null
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request) 
+```bash
+# Get all bundles
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/bundle/?app_id=app_123"
+
+
+# Get next page
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/bundle/?app_id=app_123&page=1"
+```
+ #### Example Response [Section titled “Example Response”](#example-response) 
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "app_id": "app_123",
+      "name": "1.0.0",
+      "checksum": "abc123...",
+      "minUpdateVersion": "1.0.0",
+      "storage_provider": "r2",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "deleted": false,
+      "owner_org": "org_123",
+      "user_id": "user_123"
+    }
+  ]
+}
+```
+ ### DELETE [Section titled “DELETE”](#delete) `https://api.capgo.app/bundle/` Delete one or all bundles for an app. Use with caution as this action cannot be undone. #### Query Parameters [Section titled “Query Parameters”](#query-parameters-1) For deleting a specific bundle: 
+```typescript
+interface BundleDelete {
+  app_id: string
+  version: string
+}
+```
+ For deleting all bundles: 
+```typescript
+interface BundleDeleteAll {
+  app_id: string
+}
+```
+ #### Example Requests [Section titled “Example Requests”](#example-requests) 
+```bash
+# Delete specific bundle
+curl -X DELETE \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "app_123",
+    "version": "1.0.0"
+  }' \
+  https://api.capgo.app/bundle/
+
+
+# Delete all bundles
+curl -X DELETE \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "app_123"
+  }' \
+  https://api.capgo.app/bundle/
+```
+ #### Success Response [Section titled “Success Response”](#success-response) 
+```json
+{
+  "status": "ok"
+}
+```
+ ### POST [Section titled “POST”](#post) `https://api.capgo.app/bundle/` Create a new bundle with external URL. #### Request Body [Section titled “Request Body”](#request-body) 
+```typescript
+interface CreateBundleBody {
+  app_id: string
+  version: string
+  external_url: string // Must be publicly accessible HTTPS URL
+  checksum: string
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request-1) 
+```bash
+curl -X POST \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "com.example.app",
+    "version": "1.2.3",
+    "external_url": "https://your-storage.com/bundles/app-1.2.3.zip",
+    "checksum": "a1b2c3d4e5f6789abcdef123456789abcdef123456789abcdef123456789abcd"
+  }' \
+  https://api.capgo.app/bundle/
+```
+ #### Success Response [Section titled “Success Response”](#success-response-1) 
+```json
+{
+  "status": "ok"
+}
+```
+ ### POST (Metadata) [Section titled “POST (Metadata)”](#post-metadata) `https://api.capgo.app/bundle/metadata` Update bundle metadata such as link and comment information. #### Request Body [Section titled “Request Body”](#request-body-1) 
+```typescript
+interface UpdateMetadataBody {
+  app_id: string
+  version_id: number // bundle (version) id
+  link?: string
+  comment?: string
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request-2) 
+```bash
+curl -X POST \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "app_123",
+    "version_id": 456,
+    "link": "https://github.com/myorg/myapp/releases/tag/v1.0.0",
+    "comment": "Fixed critical bug in authentication"
+  }' \
+  https://api.capgo.app/bundle/metadata
+```
+ #### Success Response [Section titled “Success Response”](#success-response-2) 
+```json
+{
+  "status": "success"
+}
+```
+ ### PUT [Section titled “PUT”](#put) `https://api.capgo.app/bundle/` Set a bundle to a specific channel. This links a bundle (version) to a channel for distribution. #### Request Body [Section titled “Request Body”](#request-body-2) 
+```typescript
+interface SetChannelBody {
+  app_id: string
+  version_id: number // bundle (version) id
+  channel_id: number
+  target?: "auto" | "stable" | "rollout" // default: auto
+}
+```
+ `target` controls where the bundle is linked when the channel has progressive rollout configured: * `auto` — rollout target when progressive rollout is configured; stable otherwise (default). * `rollout` — always set the rollout target; stable fallback unchanged. * `stable` — replace stable fallback (escape hatch). #### Example Request [Section titled “Example Request”](#example-request-3) 
+```bash
+curl -X PUT \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "app_123",
+    "version_id": 456,
+    "channel_id": 789
+  }' \
+  https://api.capgo.app/bundle/
+```
+ #### Success Response [Section titled “Success Response”](#success-response-3) 
+```json
+{
+  "status": "success",
+  "message": "Bundle 1.0.0 set to channel production"
+}
+```
+ ## Error Handling [Section titled “Error Handling”](#error-handling) Common error scenarios and their responses: 
+```json
+// Bundle not found
+{
+  "error": "Bundle not found",
+  "status": "KO"
+}
+
+
+// Invalid bundle (version) format
+{
+  "error": "Invalid version format",
+  "status": "KO"
+}
+
+
+// Storage error
+{
+  "error": "Failed to delete bundle from storage",
+  "status": "KO"
+}
+
+
+// Permission denied
+{
+  "error": "Insufficient permissions to manage bundles",
+  "status": "KO"
+}
+```
+ ## Common Use Cases [Section titled “Common Use Cases”](#common-use-cases) 1. **Cleanup Old Bundles (Versions)** 
+```typescript
+// Delete outdated beta bundles (versions)
+{
+  "app_id": "app_123",
+  "version": "1.0.0-beta.1"
+}
+```
+ 2. **App Reset** 
+```typescript
+// Remove all bundles to start fresh
+{
+  "app_id": "app_123"
+}
+```
+ ## Storage Considerations [Section titled “Storage Considerations”](#storage-considerations) 1. **Retention Policy**: Define how long to keep old bundles 2. **Size Management**: Monitor bundle sizes and storage usage 3. **Backup Strategy**: Consider backing up critical bundles (versions) 4. **Cost Optimization**: Remove unnecessary bundles to optimize storage costs ## Keep going from Bundles [Section titled “Keep going from Bundles”](#keep-going-from-bundles) If you are using **Bundles** to plan storage and file handling, connect it with [@capgo/capacitor-data-storage-sqlite](/docs/plugins/data-storage-sqlite/) for the implementation detail in @capgo/capacitor-data-storage-sqlite, [Using @capgo/capacitor-data-storage-sqlite](/plugins/capacitor-data-storage-sqlite/) for the native capability in Using @capgo/capacitor-data-storage-sqlite, [@capgo/capacitor-file](/docs/plugins/file/) for the implementation detail in @capgo/capacitor-file, [Using @capgo/capacitor-file](/plugins/capacitor-file/) for the native capability in Using @capgo/capacitor-file, and [@capgo/capacitor-uploader](/docs/plugins/uploader/) for the implementation detail in @capgo/capacitor-uploader.
+
+# Channels
+
+> Guide to managing app update channels in Capgo, covering bundle (version) control, platform targeting, and update policies.
+
+Channels are the core mechanism for managing app updates in Capgo. They allow you to control how and when your users receive updates, enabling features like A/B testing, staged rollouts, and platform-specific updates. ## Understanding Channels [Section titled “Understanding Channels”](#understanding-channels) A channel represents a distribution track for your app updates. Each channel can be configured with specific rules and constraints: * **Bundle (version) Control**: Specify which bundle (version) users receive * **Platform Targeting**: Target specific platforms (iOS/Android/Electron) * **Update Policies**: Control how updates are delivered * **Device Restrictions**: Manage which devices can access updates ## Channel Configuration Options [Section titled “Channel Configuration Options”](#channel-configuration-options) * **public**: Set as default channel for new devices. * **disableAutoUpdateUnderNative**: Prevent updates when the device’s native app version is newer than the channel’s stable bundle. * **disableAutoUpdate**: Control update behavior (`major`, `minor`, `metadata`, `patch`, or `none`). * **updatePackage**: Control whether devices download a zip, a delta, or both (`all`, `zip`, `delta`, `zip_from_builtin`, or `delta_from_builtin`). See [Download format](/docs/webapp/channels/#download-format). * **ios/android/electron**: Enable or disable delivery by platform. * **allow\_device\_self\_set**: Let devices choose their channel. * **allow\_emulator**, **allow\_device**, **allow\_dev**, **allow\_prod**: Control which device and build types receive updates. * **Progressive rollout**: Keep a stable bundle while exposing a target bundle to a sticky cohort. See [Progressive rollouts](/docs/live-updates/progressive-rollouts/). ## Best Practices [Section titled “Best Practices”](#best-practices) 1. **Testing Channel**: Maintain a testing channel for internal validation 2. **Staged Rollout**: Use multiple channels for gradual update deployment 3. **Platform Separation**: Create separate channels for iOS, Android, and Electron when needed 4. **Bundle (version) Control**: Use [semantic versioning](/semver_tester/) for clear update paths ## Endpoints [Section titled “Endpoints”](#endpoints) ### POST [Section titled “POST”](#post) `https://api.capgo.app/channel/` Create or update a channel configuration. #### Request Body [Section titled “Request Body”](#request-body) 
+```typescript
+type DisableAutoUpdate = "major" | "minor" | "metadata" | "patch" | "none"
+type AutoPauseAction = "pause" | "rollback" | "notify"
+
+
+interface ChannelSet {
+  app_id: string
+  channel: string
+  version?: string | null // stable bundle name
+  public?: boolean
+  disableAutoUpdateUnderNative?: boolean
+  disableAutoUpdate?: DisableAutoUpdate
+  updatePackage?: "all" | "zip" | "delta" | "zip_from_builtin" | "delta_from_builtin"
+  ios?: boolean
+  android?: boolean
+  electron?: boolean
+  allow_device_self_set?: boolean
+  allow_emulator?: boolean
+  allow_device?: boolean
+  allow_dev?: boolean
+  allow_prod?: boolean
+
+
+  // Progressive rollout (camelCase is preferred)
+  rolloutVersion?: string | number | null // target bundle name or ID
+  rolloutPercentage?: number // 0–100
+  rolloutPercentageBps?: number // 0–10000; takes precedence when both are set
+  rolloutEnabled?: boolean
+  rolloutPaused?: boolean // input-only convenience flag
+  rolloutPausedAt?: string | null // ISO timestamp or null
+  rolloutPauseReason?: string | null
+  rolloutCacheTtlSeconds?: number // 60–31536000
+  rollback?: boolean
+  promoteToStable?: boolean
+
+
+  // Rollout auto-pause policy
+  autoPauseEnabled?: boolean
+  autoPauseWindowMinutes?: number
+  autoPauseFailureRateBps?: number | null
+  autoPauseConfidence?: number
+  autoPauseMinAttempts?: number | null
+  autoPauseMinFailures?: number | null
+  autoPauseAction?: AutoPauseAction
+  autoPauseCooldownMinutes?: number
+}
+```
+ For rollout and auto-pause fields, the API also accepts the equivalent `snake_case` form, such as `rollout_version` or `auto_pause_enabled`. `updatePackage` also accepts `update_package`. If both forms are supplied, the camelCase value wins. `rollback` is camelCase only. A rollout target requires an existing channel. It must have a stable bundle already assigned or receive one through `version` in the same POST request. `rollback` and `promoteToStable` are terminal actions; do not combine them with one another. #### Example Request [Section titled “Example Request”](#example-request) Configure a 5% rollout for an existing `production` channel whose stable bundle is already set: 
+```bash
+curl -X POST \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "com.example.app",
+    "channel": "production",
+    "rolloutVersion": "1.3.0",
+    "rolloutPercentage": 5,
+    "rolloutEnabled": true,
+    "rolloutCacheTtlSeconds": 2592000,
+    "autoPauseEnabled": true,
+    "autoPauseFailureRateBps": 500,
+    "autoPauseMinAttempts": 100,
+    "autoPauseAction": "pause"
+  }' \
+  https://api.capgo.app/channel/
+```
+ #### Success Response [Section titled “Success Response”](#success-response) 
+```json
+{
+  "status": "ok"
+}
+```
+ POST is an upsert and returns only its status. Make a GET request to read the resulting channel configuration. #### App Preview key boundary [Section titled “App Preview key boundary”](#app-preview-key-boundary) For a least-privilege PR preview, authenticate this endpoint with `authorization: $CAPGO_API_KEY` or `capgkey: $CAPGO_API_KEY`. The `x-api-key` header is not accepted by the Channels API. An `app_preview` key can create a new non-public preview channel. Creation automatically gives that key a channel-scoped lifecycle binding for that channel only. The role does not include `channel.update_settings`, so it cannot use POST to update an existing channel, including an existing default or main channel. Leave `public` unset (or set it to `false`) for PR preview channels. Use `bundle upload --channel` for the creation and upload flow instead of treating POST as a general preview-channel upsert. ### GET [Section titled “GET”](#get) `https://api.capgo.app/channel/` Retrieve channel information. Returns 50 channels per page. Without `channel`, the response is an array. With `channel`, the response is one channel object. #### Query Parameters [Section titled “Query Parameters”](#query-parameters) * `app_id`: Required. The ID of your app * `page`: Optional. Page number for pagination * `channel`: Optional. Specific channel name to retrieve #### Example Requests [Section titled “Example Requests”](#example-requests) 
+```bash
+# Get all channels
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/channel/?app_id=com.example.app"
+
+
+# Get a specific channel
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/channel/?app_id=com.example.app&channel=production"
+
+
+# Get the next page
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/channel/?app_id=com.example.app&page=1"
+```
+ #### Response Type [Section titled “Response Type”](#response-type) 
+```typescript
+interface Channel {
+  id: number
+  created_at: string
+  updated_at: string
+  name: string
+  app_id: string
+  created_by: string
+  public: boolean
+  disableAutoUpdateUnderNative: boolean
+  disableAutoUpdate: DisableAutoUpdate
+  updatePackage: "all" | "zip" | "delta" | "zip_from_builtin" | "delta_from_builtin"
+  allow_device_self_set: boolean
+  allow_emulator: boolean
+  allow_device: boolean
+  allow_dev: boolean
+  allow_prod: boolean
+  version: { id: number, name: string } | null // stable bundle
+
+
+  // These three response identifiers intentionally use snake_case.
+  rollout_version: number | null
+  rollout_id: string
+  rollout_version_info: { id: number, name: string } | null
+
+
+  rolloutPercentageBps: number
+  rolloutEnabled: boolean
+  rolloutPausedAt: string | null
+  rolloutPauseReason: string | null
+  rolloutCacheTtlSeconds: number
+  autoPauseEnabled: boolean
+  autoPauseWindowMinutes: number
+  autoPauseFailureRateBps: number | null
+  autoPauseConfidence: number
+  autoPauseMinAttempts: number | null
+  autoPauseMinFailures: number | null
+  autoPauseAction: AutoPauseAction
+  autoPauseCooldownMinutes: number
+  autoPauseLastTriggeredAt: string | null
+  autoPauseLastCheckedAt: string | null
+}
+```
+ `rolloutPaused` is an input-only shortcut and is not returned. A paused rollout is represented by a non-null `rolloutPausedAt`. #### Example Response [Section titled “Example Response”](#example-response) 
+```json
+[
+  {
+    "id": 1,
+    "name": "production",
+    "app_id": "com.example.app",
+    "updatePackage": "all",
+    "version": { "id": 1, "name": "1.2.0" },
+    "rollout_version": 2,
+    "rollout_id": "e60c19c9-2e65-4e0d-bc06-d1f5b4f96276",
+    "rollout_version_info": { "id": 2, "name": "1.3.0" },
+    "rolloutPercentageBps": 500,
+    "rolloutEnabled": true,
+    "rolloutPausedAt": null,
+    "rolloutCacheTtlSeconds": 2592000,
+    "autoPauseEnabled": true,
+    "autoPauseFailureRateBps": 500,
+    "autoPauseAction": "pause"
+  }
+]
+```
+ ### DELETE [Section titled “DELETE”](#delete) `https://api.capgo.app/channel/` Delete a channel. Note that this will affect all devices using this channel. #### Request Body [Section titled “Request Body”](#request-body-1) 
+```typescript
+interface Channel {
+  channel: string
+  app_id: string
+  delete_bundle?: boolean // also delete the linked bundle
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request-1) 
+```bash
+curl -X DELETE \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "app_id": "com.example.app",
+    "channel": "beta"
+  }' \
+  https://api.capgo.app/channel/
+```
+ #### Success Response [Section titled “Success Response”](#success-response-1) 
+```json
+{
+  "status": "ok"
+}
+```
+ #### App Preview cleanup [Section titled “App Preview cleanup”](#app-preview-cleanup) With `delete_bundle: true`, an `app_preview` key can atomically clean up only a channel it created and its linked, unshared bundle. The key does not receive general `bundle.delete` permission. 
+```bash
+curl -X DELETE \
+  -H "capgkey: $CAPGO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "com.example.app",
+    "channel": "pr-123",
+    "delete_bundle": true
+  }' \
+  https://api.capgo.app/channel/
+```
+ ## Error Handling [Section titled “Error Handling”](#error-handling) Common error scenarios and their responses: 
+```json
+// Channel not found
+{
+  "error": "Channel not found",
+  "status": "KO"
+}
+
+
+// Invalid bundle (version) format
+{
+  "error": "Invalid version format. Use semantic versioning",
+  "status": "KO"
+}
+
+
+// Invalid update policy
+{
+  "error": "Invalid disableAutoUpdate value",
+  "status": "KO"
+}
+
+
+// Permission denied
+{
+  "error": "Insufficient permissions to manage channels",
+  "status": "KO"
+}
+```
+ ## Common Use Cases [Section titled “Common Use Cases”](#common-use-cases) 1. **Beta Testing** 
+```typescript
+{
+  "app_id": "com.example.app",
+  "channel": "beta",
+  "version": "1.2.0-beta",
+  "public": false,
+  "allow_emulator": true,
+  "allow_dev": true
+}
+```
+ 2. **Production Rollout** 
+```typescript
+{
+  "app_id": "com.example.app",
+  "channel": "production",
+  "version": "1.2.0",
+  "public": true,
+  "disableAutoUpdate": "minor"
+}
+```
+ 3. **Platform-Specific Updates** 
+```typescript
+{
+  "app_id": "com.example.app",
+  "channel": "ios-hotfix",
+  "version": "1.2.1",
+  "ios": true,
+  "android": false
+}
+```
+ ## Keep going from Channels [Section titled “Keep going from Channels”](#keep-going-from-channels) If you are using **Channels** to plan channel routing and staged rollout, connect it with [Channels](/docs/live-updates/channels/) for the implementation detail in Channels, [Channels](/docs/webapp/channels/) for the implementation detail in Channels, [Beta Testing Solution](/solutions/beta-testing/) for the product workflow in Beta Testing Solution, [Version Targeting Solution](/solutions/version-targeting/) for the product workflow in Version Targeting Solution, and [Capgo Environment Best Practices: Staging with One Mobile App ID](/blog/staging-environments-with-capgo-channels/) for the practical context in Capgo Environment Best Practices: Staging with One Mobile App ID.
+
+# Devices
+
+> Retrieve device metadata and manage private channel overrides through the Capgo API.
+
+Devices are individual app installations that report updater metadata to Capgo. Use this API to retrieve that metadata or set and remove a device-specific private-channel override. ## Device metadata [Section titled “Device metadata”](#device-metadata) Each record can include the device ID, platform, updater and OS versions, native build, installed bundle, production and emulator state, custom ID, and channel override. When available, `country_code` is the latest valid two-letter ISO 3166-1 country code received from a Cloudflare-handled request for the device. It is not GPS or a location value supplied by your app. It can be `null` when unavailable; use a single-device lookup when you need this field. ## Endpoints [Section titled “Endpoints”](#endpoints) ### POST [Section titled “POST”](#post) `https://api.capgo.app/device/` Set a device-specific override to a **private** channel. To choose a bundle for a device, assign that bundle to the channel; direct per-device bundle overrides are not supported. The override expires 90 days after the last write unless you POST it again. #### Request body [Section titled “Request body”](#request-body) 
+```typescript
+interface DeviceChannelOverride {
+  app_id: string; // reverse-domain app ID, for example com.example.app
+  device_id: string;
+  channel: string; // existing non-public channel name
+}
+```
+ #### Example request [Section titled “Example request”](#example-request) 
+```bash
+curl -X POST \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "com.example.app",
+    "device_id": "device_456",
+    "channel": "beta"
+  }' \
+  https://api.capgo.app/device/
+```
+ Public channels cannot be used as device overrides. #### Success response [Section titled “Success response”](#success-response) 
+```json
+{
+  "status": "ok"
+}
+```
+ ### GET [Section titled “GET”](#get) `https://api.capgo.app/device/` Retrieve device metadata. Results are cursor-paginated when you omit `device_id`. #### Query parameters [Section titled “Query parameters”](#query-parameters) * `app_id`: Required reverse-domain app ID, such as `com.example.app`. * `device_id`: Optional device ID. When present, the response is a single device rather than a paginated list. * `customIdMode`: Optional boolean. Set to `true` to return only devices with a non-empty `custom_id`. * `cursor`: Optional cursor from the previous list response. * `limit`: Optional number of devices per page. #### Example requests [Section titled “Example requests”](#example-requests) 
+```bash
+# Get the first page
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/device/?app_id=com.example.app"
+
+
+# Get one device, including its request-derived country when available
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/device/?app_id=com.example.app&device_id=device_456"
+
+
+# Get only devices with a custom ID
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/device/?app_id=com.example.app&customIdMode=true"
+
+
+# Get the next page
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/device/?app_id=com.example.app&cursor=2024-01-01T00:00:00Z%7Cdevice_456"
+```
+ #### Response types [Section titled “Response types”](#response-types) 
+```typescript
+interface DeviceListResponse {
+  data: Device[];
+  nextCursor?: string;
+  hasMore: boolean;
+}
+
+
+interface Device {
+  updated_at: string;
+  device_id: string;
+  custom_id: string;
+  version?: number;
+  version_name: string | null;
+  channel?: string;
+  app_id: string;
+  platform: "ios" | "android" | "electron";
+  plugin_version: string;
+  os_version: string;
+  version_build: string;
+  is_prod: boolean;
+  is_emulator: boolean;
+  key_id: string | null;
+  install_source: string | null;
+  country_code: string | null;
+}
+```
+ `country_code` is populated by a device-specific lookup when Capgo has stored a valid Cloudflare-derived country code. Requests without a valid country do not clear the last valid value; list responses may return `null` for this field. #### Example response (list) [Section titled “Example response (list)”](#example-response-list) 
+```json
+{
+  "data": [
+    {
+      "device_id": "device_456",
+      "custom_id": "test-device-1",
+      "version": 1,
+      "version_name": "1.0.0",
+      "app_id": "com.example.app",
+      "platform": "ios",
+      "plugin_version": "5.0.0",
+      "os_version": "17.0",
+      "version_build": "1",
+      "is_prod": true,
+      "is_emulator": false,
+      "key_id": null,
+      "install_source": null,
+      "country_code": null,
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "nextCursor": "2024-01-01T00:00:00Z|device_456",
+  "hasMore": true
+}
+```
+ #### Example response (single device) [Section titled “Example response (single device)”](#example-response-single-device) 
+```json
+{
+  "device_id": "device_456",
+  "custom_id": "test-device-1",
+  "version": 1,
+  "version_name": "1.0.0",
+  "app_id": "com.example.app",
+  "platform": "ios",
+  "plugin_version": "5.0.0",
+  "os_version": "17.0",
+  "version_build": "1",
+  "is_prod": true,
+  "is_emulator": false,
+  "key_id": "MIIB",
+  "install_source": null,
+  "country_code": "FR",
+  "updated_at": "2024-01-01T00:00:00Z",
+  "channel": "beta"
+}
+```
+ ### DELETE [Section titled “DELETE”](#delete) `https://api.capgo.app/device/` Remove a device’s channel override. The device will use its normal channel selection again; this endpoint does not delete its metadata record. #### Request body or query parameters [Section titled “Request body or query parameters”](#request-body-or-query-parameters) 
+```typescript
+interface DeviceOverrideRemoval {
+  app_id: string;
+  device_id: string;
+}
+```
+ #### Example request [Section titled “Example request”](#example-request-1) 
+```bash
+curl -X DELETE \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "app_id": "com.example.app",
+    "device_id": "device_456"
+  }' \
+  https://api.capgo.app/device/
+```
+ #### Success response [Section titled “Success response”](#success-response-1) 
+```json
+{
+  "status": "ok"
+}
+```
+ ## Errors [Section titled “Errors”](#errors) Errors use an HTTP error status and a JSON body with `error` and `message` fields. Common error codes include: * `invalid_app_id` when `app_id` is not a reverse-domain identifier. * `device_not_found` for an unknown device lookup. * `channel_not_found` when the requested channel does not exist. * `public_channel_override` when attempting to override a device to a public channel. * `invalid_version_id` when attempting a direct bundle override; use a channel instead. * `cannot_access_app` or `cannot_access_channel` when the API key lacks the required permission. ## Common use cases [Section titled “Common use cases”](#common-use-cases) 1. **Move a test device to a private beta channel** 
+   ```json
+   {
+     "app_id": "com.example.app",
+     "device_id": "device_456",
+     "channel": "beta"
+   }
+   ```
+ 2. **Reset a device to normal channel selection** Use the `DELETE` endpoint with the app and device IDs. ## Keep going from Devices [Section titled “Keep going from Devices”](#keep-going-from-devices) If you are using **Devices** to plan channel routing and staged rollout, connect it with [Channels](/docs/live-updates/channels/) for the implementation detail in Channels, [Channels](/docs/public-api/channels/) for the implementation detail in Channels, [Channels](/docs/webapp/channels/) for the implementation detail in Channels, [Beta Testing Solution](/solutions/beta-testing/) for the product workflow in Beta Testing Solution, and [Version Targeting Solution](/solutions/version-targeting/) for the product workflow in Version Targeting Solution.
+
+# Members
+
+> Comprehensive guide to managing organization members in Capgo, covering roles, permissions, and best practices for security and collaboration.
+
+Organization members are users who have access to your Capgo organization. Each member has a specific role that determines their permissions within the organization. Managing members effectively is crucial for maintaining security and collaboration in your team. ## Member Roles [Section titled “Member Roles”](#member-roles) ### Regular Roles [Section titled “Regular Roles”](#regular-roles) * **read**: Can view resources but cannot make changes * **upload**: Can upload new bundles and view resources * **write**: Can modify resources and upload bundles * **admin**: Can manage organization settings and members * **super\_admin**: Has full control over the organization ### Invite Roles [Section titled “Invite Roles”](#invite-roles) * **invite\_read**: Pending invitation for read access * **invite\_upload**: Pending invitation for upload access * **invite\_write**: Pending invitation for write access * **invite\_admin**: Pending invitation for admin access * **invite\_super\_admin**: Pending invitation for super admin access ## Best Practices [Section titled “Best Practices”](#best-practices) 1. **Role Assignment**: Follow the principle of least privilege when assigning roles 2. **Regular Audits**: Periodically review member access and remove unused accounts 3. **Onboarding**: Have a clear process for adding new members and assigning roles 4. **Offboarding**: Promptly remove access for members who leave the organization ## Endpoints [Section titled “Endpoints”](#endpoints) ### POST [Section titled “POST”](#post) `https://api.capgo.app/organization/members/` Add a new member to an organization or update an existing member’s role. Note that you can only invite users who already have a Capgo account - the email must correspond to an existing Capgo user. #### Request Body [Section titled “Request Body”](#request-body) 
+```typescript
+interface MemberCreate {
+  orgId: string
+  email: string
+  role: "read" | "upload" | "write" | "admin" | "super_admin"
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request) 
+```bash
+curl -X POST \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "orgId": "org_123",
+    "email": "newmember@example.com",
+    "role": "write"
+  }' \
+  https://api.capgo.app/organization/members/
+```
+ #### Success Response [Section titled “Success Response”](#success-response) 
+```json
+{
+  "status": "OK",
+  "data": {
+    "uid": "user_789",
+    "email": "newmember@example.com",
+    "role": "invite_write",
+    "image_url": null
+  }
+}
+```
+ Notes: * When adding a new member, they will receive an invitation email. Their role will be prefixed with “invite\_” until they accept the invitation. * The user must already have a Capgo account before they can be invited. If they don’t have an account, they should first create one at <https://console.capgo.app/register/> ### GET [Section titled “GET”](#get) `https://api.capgo.app/organization/members/` Retrieve all members of an organization. #### Query Parameters [Section titled “Query Parameters”](#query-parameters) 
+```typescript
+interface MemberQuery {
+  orgId: string
+}
+```
+ #### Response Type [Section titled “Response Type”](#response-type) 
+```typescript
+interface Member {
+  uid: string;
+  email: string;
+  image_url: string;
+  role: "invite_read" | "invite_upload" | "invite_write" | "invite_admin" | "invite_super_admin" | "read" | "upload" | "write" | "admin" | "super_admin";
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request-1) 
+```bash
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/organization/members/?orgId=org_123"
+```
+ #### Example Response [Section titled “Example Response”](#example-response) 
+```json
+{
+  "data": [
+    {
+      "uid": "user_123",
+      "email": "john@example.com",
+      "image_url": "https://example.com/avatar.png",
+      "role": "admin"
+    },
+    {
+      "uid": "user_456",
+      "email": "jane@example.com",
+      "image_url": "https://example.com/avatar2.png",
+      "role": "write"
+    },
+    {
+      "uid": "user_789",
+      "email": "bob@example.com",
+      "image_url": null,
+      "role": "invite_read"
+    }
+  ]
+}
+```
+ ### DELETE [Section titled “DELETE”](#delete) `https://api.capgo.app/organization/members/` Remove a member from an organization. This will immediately revoke their access. #### Request Body [Section titled “Request Body”](#request-body-1) 
+```typescript
+interface MemberDelete {
+  orgId: string
+  email: string
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request-2) 
+```bash
+curl -X DELETE \
+  -H "authorization: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "orgId": "org_123",
+    "email": "user@example.com"
+  }' \
+  https://api.capgo.app/organization/members/
+```
+ #### Success Response [Section titled “Success Response”](#success-response-1) 
+```json
+{
+  "status": "OK"
+}
+```
+ ## Error Handling [Section titled “Error Handling”](#error-handling) Common error scenarios and their responses: 
+```json
+// Member not found
+{
+  "error": "Member not found",
+  "status": "KO"
+}
+
+
+// Invalid role
+{
+  "error": "Invalid role specified",
+  "status": "KO"
+}
+
+
+// Permission denied
+{
+  "error": "Insufficient permissions to manage members",
+  "status": "KO"
+}
+
+
+// Cannot remove last admin
+{
+  "error": "Cannot remove the last admin from the organization",
+  "status": "KO"
+}
+
+
+// Invalid email
+{
+  "error": "Invalid email format",
+  "status": "KO"
+}
+
+
+// Member already exists
+{
+  "error": "Member already exists in organization",
+  "status": "KO"
+}
+```
+ ## Common Use Cases [Section titled “Common Use Cases”](#common-use-cases) 1. **Team Expansion**: Adding new team members with appropriate roles 2. **Access Control**: Managing member permissions as responsibilities change 3. **Security Audit**: Reviewing member list and roles periodically 4. **Team Restructuring**: Updating roles during organizational changes ## Keep going from Members [Section titled “Keep going from Members”](#keep-going-from-members) If you are using **Members** to plan security and compliance, connect it with [Encryption](/docs/live-updates/encryption/) for the implementation detail in Encryption, [Compliance](/docs/live-updates/compliance/) for the implementation detail in Compliance, [Capgo Security Scanner](/security-scanner/) for the product workflow in Capgo Security Scanner, [Capgo Security](/security/) for the product workflow in Capgo Security, and [Capgo Trust Center](/trust/) for the product workflow in Capgo Trust Center.
+
+# Organizations
+
+> Guide to managing organizations in Capgo, covering creation, settings, updates, and retrieval of organization details.
+
+Organizations are the top-level entities in Capgo. They allow you to group apps, team members, and resources under a single umbrella. Each organization can have multiple members with different roles and permissions. ## Common Use Cases [Section titled “Common Use Cases”](#common-use-cases) * Creating a new organization for your company * Managing organization settings * Updating organization information * Retrieving organization details ## Endpoints [Section titled “Endpoints”](#endpoints) ### GET [Section titled “GET”](#get) `https://api.capgo.app/organization/` Retrieve organization information. If `orgId` is provided in the parameters, returns a single organization. Otherwise, returns all accessible organizations. #### Query Parameters [Section titled “Query Parameters”](#query-parameters) * `orgId` (optional): The ID of the specific organization to retrieve #### Response Type [Section titled “Response Type”](#response-type) 
+```typescript
+interface Organization {
+  id: string
+  created_by: string
+  created_at: string
+  updated_at: string
+  logo: string | null
+  name: string
+  management_email: string
+  customer_id: string | null
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request) 
+```bash
+# Get all organizations
+curl -H "x-api-key: YOUR_API_KEY" https://api.capgo.app/organization/
+
+
+# Get specific organization
+curl -H "x-api-key: YOUR_API_KEY" https://api.capgo.app/organization/?orgId=org_123
+```
+ #### Example Response [Section titled “Example Response”](#example-response) 
+```json
+{
+  "data": {
+    "id": "org_123",
+    "name": "My Company",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z",
+    "logo": "https://example.com/logo.png",
+    "management_email": "admin@example.com",
+    "customer_id": "cus_123"
+  }
+}
+```
+ ### POST [Section titled “POST”](#post) `https://api.capgo.app/organization/` Create a new organization. When using an API key, the key must have the global `org.create` permission and a current organization-scoped `org_admin` or `org_super_admin` binding. This is required because the target organization does not exist yet, so normal org-scoped RBAC cannot be checked against it. When the request succeeds, Capgo automatically assigns the same API key as `org_super_admin` on the new organization. #### Request Body [Section titled “Request Body”](#request-body) 
+```typescript
+interface OrganizationCreate {
+  name: string
+  email?: string
+  estimatedMau?: number
+  website?: string
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request-1) 
+```bash
+curl -X POST \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "New Organization",
+    "email": "admin@example.com",
+    "website": "https://example.com"
+  }' \
+  https://api.capgo.app/organization/
+```
+ #### Example Response [Section titled “Example Response”](#example-response-1) 
+```json
+{
+  "id": "org_456"
+}
+```
+ #### Permission Error [Section titled “Permission Error”](#permission-error) If the API key does not have `org.create`, the API returns: 
+```json
+{
+  "error": "permission_denied"
+}
+```
+ ### PUT [Section titled “PUT”](#put) `https://api.capgo.app/organization/` Update an existing organization. Requires admin role on the target organization. #### Request Body [Section titled “Request Body”](#request-body-1) 
+```typescript
+interface OrganizationUpdate {
+  orgId: string
+  logo?: string
+  name?: string
+  management_email?: string
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request-2) 
+```bash
+curl -X PUT \
+  -H "x-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "orgId": "org_123",
+    "name": "New Company Name",
+    "management_email": "newemail@example.com"
+  }' \
+  https://api.capgo.app/organization/
+```
+ #### Example Response [Section titled “Example Response”](#example-response-2) 
+```json
+{
+  "status": "Organization updated",
+  "data": {
+    "id": "org_123",
+    "name": "New Company Name",
+    "management_email": "newemail@example.com"
+  }
+}
+```
+ ### DELETE [Section titled “DELETE”](#delete) `https://api.capgo.app/organization/` Delete an existing organization. Requires delete permission on the target organization, typically through the `org_super_admin` role. This action is irreversible and will remove all associated apps, bundles (versions), and resources. The `org.create` global permission does not allow deleting organizations. #### Query Parameters [Section titled “Query Parameters”](#query-parameters-1) * `orgId`: The ID of the organization to delete #### Example Request [Section titled “Example Request”](#example-request-3) 
+```bash
+curl -X DELETE \
+  -H "x-api-key: YOUR_API_KEY" \
+  https://api.capgo.app/organization/?orgId=org_123
+```
+ #### Example Response [Section titled “Example Response”](#example-response-3) 
+```json
+{
+  "status": "ok"
+}
+```
+ ## Error Handling [Section titled “Error Handling”](#error-handling) Common error scenarios and their responses: 
+```json
+// Invalid API key
+{
+  "error": "Invalid API key",
+  "status": "KO"
+}
+
+
+// Missing required field
+{
+  "error": "Name is required",
+  "status": "KO"
+}
+
+
+// Insufficient permissions
+{
+  "error": "Admin role required",
+  "status": "KO"
+}
+```
+ ## Best Practices [Section titled “Best Practices”](#best-practices) 1. **Naming**: Use clear, descriptive names for organizations 2. **Roles**: Assign appropriate roles to team members 3. **Email**: Use a group email for management\_email to avoid issues with personal email changes 4. **Logo**: Host logos on a reliable CDN and use HTTPS URLs ## Keep going from Organizations [Section titled “Keep going from Organizations”](#keep-going-from-organizations) If you are using **Organizations** to plan dashboard and API operations, connect it with [API Overview](/docs/public-api/) for the implementation detail in API Overview, [Introduction](/docs/webapp/) for the implementation detail in Introduction, [API Keys](/docs/public-api/api-keys/) for the implementation detail in API Keys, [Devices](/docs/public-api/devices/) for the implementation detail in Devices, and [Bundles](/docs/public-api/bundles/) for the implementation detail in Bundles.
+
+# Statistics
+
+> Detailed guide to Statistics API endpoints, providing insights into Monthly Active Users (MAU), storage, and bandwidth metrics for apps and organizations.
+
+The Statistics endpoints provide detailed analytics about your apps and organizations. You can track Monthly Active Users (MAU), storage usage, and bandwidth consumption across different time periods. This data is essential for monitoring app growth, resource usage, and planning capacity. ## Understanding the Metrics [Section titled “Understanding the Metrics”](#understanding-the-metrics) * **MAU (Monthly Active Users)**: Number of unique devices that accessed your app in the last 30 days * **Storage**: Total size of all bundles and resources stored in bytes * **Bandwidth**: Total data transfer for bundle downloads in bytes ## Best Practices [Section titled “Best Practices”](#best-practices) 1. **Regular Monitoring**: Check statistics periodically to track growth and usage patterns 2. **Resource Planning**: Use storage and bandwidth metrics for capacity planning 3. **User Engagement**: Track MAU to understand user engagement trends 4. **Cost Management**: Monitor resource usage to optimize costs ## Endpoints [Section titled “Endpoints”](#endpoints) ### GET /statistics/app/:app\_id/ [Section titled “GET /statistics/app/:app\_id/”](#get-statisticsappapp_id) Get statistics for a specific app. This endpoint is useful for monitoring individual app performance. #### Query Parameters [Section titled “Query Parameters”](#query-parameters) 
+```typescript
+interface StatsQuery {
+  from: Date  // Start date for the statistics (format: YYYY-MM-DD)
+  to: Date    // End date for the statistics (format: YYYY-MM-DD)
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request) 
+```bash
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/statistics/app/com.demo.app/?from=2024-01-01&to=2024-02-01"
+```
+ #### Example Response [Section titled “Example Response”](#example-response) 
+```json
+[
+  {
+    "date": "2024-01-01",
+    "mau": 1500,
+    "storage": 536870912,  // 512MB in bytes
+    "bandwidth": 1073741824 // 1GB in bytes
+  },
+  {
+    "date": "2024-01-02",
+    "mau": 1550,
+    "storage": 537919488,  // 513MB in bytes
+    "bandwidth": 1074790400 // 1.01GB in bytes
+  }
+]
+```
+ ### GET /statistics/org/:org\_id/ [Section titled “GET /statistics/org/:org\_id/”](#get-statisticsorgorg_id) Get statistics for a specific organization. Useful for monitoring organization-level usage. #### Query Parameters [Section titled “Query Parameters”](#query-parameters-1) 
+```typescript
+interface StatsQuery {
+  from: Date  // Start date for the statistics (format: YYYY-MM-DD)
+  to: Date    // End date for the statistics (format: YYYY-MM-DD)
+  breakdown: boolean  // default false, optional if true it return the breakdown by app
+  noAccumulate: boolean // default false, optional if true it will not accumulate data and just return day by day result
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request-1) 
+```bash
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/statistics/org/046a36ac-e03c-4590-9257-bd6c9dba9ee8/?from=2024-01-01&to=2024-02-01"
+```
+ #### Example Response [Section titled “Example Response”](#example-response-1) 
+```json
+[
+  {
+    "date": "2024-01-01",
+    "mau": 10000,
+    "storage": 536870912,   // 512MB in bytes
+    "bandwidth": 1073741824  // 1GB in bytes
+  },
+  {
+    "date": "2024-01-02",
+    "mau": 10200,
+    "storage": 537919488,   // 513MB in bytes
+    "bandwidth": 1074790400  // 1.01GB in bytes
+  }
+]
+```
+ ### GET /statistics/user/ [Section titled “GET /statistics/user/”](#get-statisticsuser) Get aggregated statistics across all organizations you have access to. Perfect for overall usage monitoring. #### Query Parameters [Section titled “Query Parameters”](#query-parameters-2) 
+```typescript
+interface StatsQuery {
+  from: Date  // Start date for the statistics (format: YYYY-MM-DD)
+  to: Date    // End date for the statistics (format: YYYY-MM-DD)
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request-2) 
+```bash
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/statistics/user/?from=2024-01-01&to=2024-02-01"
+```
+ #### Example Response [Section titled “Example Response”](#example-response-2) 
+```json
+[
+  {
+    "date": "2024-01-01",
+    "mau": 25000,
+    "storage": 1073741824,  // 1GB in bytes
+    "bandwidth": 2147483648  // 2GB in bytes
+  },
+  {
+    "date": "2024-01-02",
+    "mau": 25500,
+    "storage": 1074790400,  // 1.01GB in bytes
+    "bandwidth": 2148532224  // 2.01GB in bytes
+  }
+]
+```
+ ### GET /statistics/app/:app\_id/bundle\_usage [Section titled “GET /statistics/app/:app\_id/bundle\_usage”](#get-statisticsappapp_idbundle_usage) Get bundle usage statistics for a specific app, showing the distribution of bundles (versions) among users over a specified period. #### Query Parameters [Section titled “Query Parameters”](#query-parameters-3) 
+```typescript
+interface BundleUsageQuery {
+  from: Date  // Start date for the statistics (format: YYYY-MM-DD)
+  to: Date    // End date for the statistics (format: YYYY-MM-DD)
+}
+```
+ #### Example Request [Section titled “Example Request”](#example-request-3) 
+```bash
+curl -H "authorization: your-api-key" \
+  "https://api.capgo.app/statistics/app/com.demo.app/bundle_usage?from=2024-01-01&to=2024-02-01"
+```
+ #### Example Response [Section titled “Example Response”](#example-response-3) 
+```json
+{
+  "labels": ["2024-01-01", "2024-01-02", "2024-01-03"],
+  "datasets": [
+    {
+      "label": "1.0.0",
+      "data": [60.5, 58.2, 55.3]
+    },
+    {
+      "label": "1.0.1",
+      "data": [39.5, 41.8, 44.7]
+    }
+  ]
+}
+```
+ ## Error Handling [Section titled “Error Handling”](#error-handling) Common error scenarios and their responses: 
+```json
+// Invalid body
+{
+  "status": "Invalid body",
+  "error": "Invalid date format or missing parameters"
+}
+
+
+// Permission denied
+{
+  "status": "You can't access this app",
+  "error": "Insufficient permissions to access statistics"
+}
+
+
+// Permission denied for organization
+{
+  "status": "You can't access this organization",
+  "error": "Insufficient permissions to access organization statistics"
+}
+
+
+// No organizations found for user statistics
+{
+  "status": "No organizations found",
+  "error": "No organizations found"
+}
+
+
+// Internal server error
+{
+  "status": "Cannot get app statistics",
+  "error": "Internal server error message"
+}
+```
+ ## Common Use Cases [Section titled “Common Use Cases”](#common-use-cases) 1. **Growth Tracking**: Monitor MAU growth over time 2. **Resource Optimization**: Track storage and bandwidth usage to optimize costs 3. **Capacity Planning**: Use trends to plan for future resource needs 4. **Usage Reports**: Generate periodic usage reports for stakeholders 5. **Bundle (version) Distribution Analysis**: Understand how users are distributed across different app bundles (versions) with bundle usage statistics ## Tips for Analysis [Section titled “Tips for Analysis”](#tips-for-analysis) 1. **Compare Periods**: Look at month-over-month or year-over-year trends 2. **Track Ratios**: Monitor bandwidth per user or storage per app 3. **Set Alerts**: Create alerts for unusual spikes in usage 4. **Regular Backups**: Export statistics regularly for historical analysis 5. **Bundle (version) Adoption**: Use bundle usage to track adoption rates of new bundles (versions) ## Keep going from Statistics [Section titled “Keep going from Statistics”](#keep-going-from-statistics) If you are using **Statistics** to plan storage and file handling, connect it with [@capgo/capacitor-data-storage-sqlite](/docs/plugins/data-storage-sqlite/) for the implementation detail in @capgo/capacitor-data-storage-sqlite, [Using @capgo/capacitor-data-storage-sqlite](/plugins/capacitor-data-storage-sqlite/) for the native capability in Using @capgo/capacitor-data-storage-sqlite, [@capgo/capacitor-file](/docs/plugins/file/) for the implementation detail in @capgo/capacitor-file, [Using @capgo/capacitor-file](/plugins/capacitor-file/) for the native capability in Using @capgo/capacitor-file, and [@capgo/capacitor-uploader](/docs/plugins/uploader/) for the implementation detail in @capgo/capacitor-uploader.
