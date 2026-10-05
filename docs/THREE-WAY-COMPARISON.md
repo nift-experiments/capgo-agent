@@ -40,6 +40,45 @@ The 103 unreferenced old JS assets (5,457,094 bytes) were removed from served ou
 
 Agent lockfile has 187 packages; installed regular dependency files total 228,622,975 bytes / 11,529 files (not allocated disk size or a network-download metric). Faithful root lock has 188 packages, but also uses the separate locked MDX renderer and other renderer inputs, so these root counts are not whole-system comparable footprints. Upstream’s monorepo/Bun workspace scope differs. Equivalent total install/download footprints were not measured; no percentage reduction is claimed. Full current accounting is `../evidence/runtime/architecture-audit.json`.
 
+## Development iteration and explicit-target measurements
+
+Full-build performance and everyday editing are different measurements. Historical ordinary real-edit family medians are **4.28–6.41s faithful** and **1.04–1.09s Agent**, with no-op 4.60s / 1.08s. Equivalent Astro edit/no-op/HMR latency is **not measured**: the 106.09s full build must not be substituted for it. The full feedback loop is edit → build → validate → inspect → correct → repeat; these timings measure only the build stage.
+
+A new reporting-only suite measured three temporary real edits per family with ordinary `nift build <target>`, warm caches, normal hooks, threads −1 and no architecture changes. Faithful was frozen 590c1eec, Agent source unchanged from 6371356 (report HEAD 7d45594). Raw evidence, exact sources, commands and metadata are in `../evidence/targeted-builds/`. Agent retains converted HTML; faithful edits authored MDX/Markdown or a product title. These are different source representations. The same four output targets were tested in this new suite; historical ordinary edit examples are not an identical paired experiment, so no precise ordinary-versus-targeted speedup ratio is claimed.
+
+| Family | Exact explicit target | Faithful median (range) | Agent median (range) | Maximum process RSS, faithful / Agent |
+|---|---|---:|---:|---:|
+| docs | `docs/getting-started/quickstart/` | 3.21s (3.06–3.39) | 0.91s (0.85–0.94) | 255.9 / 101.6 MiB |
+| rich | `docs/builder/getting-started/` | 3.71s (3.65–3.74) | 0.86s (0.83–0.91) | 275.3 / 101.5 MiB |
+| marketing | `native-build/` | 2.07s (2.07–2.36) | 0.89s (0.84–0.93) | 236.6 / 101.2 MiB |
+| blog | `blog/yarn-clear-cache/` | 2.33s (1.87–2.38) | 0.87s (0.86–0.89) | 236.4 / 101.6 MiB |
+
+Family median ranges are **2.07–3.71s faithful**, **0.86–0.91s Agent**. All 24 source edits reached rendered output. SHA-256 comparisons of all served HTML/JS found exactly one changed HTML file per target and zero changed JS. Target logs rebuilt one selected page; faithful preparation observations are retained separately because hooks may reconsider/prepare more inputs than the selected rendered page. Installed dependencies, assets, preparation and Nift output caches were warm; a full unmeasured prime preceded each implementation. GNU time maximum process RSS is not simultaneous process-total memory. Installation, fingerprints, marker assertions, restoration and parity checks are outside timings. No shared-structure/controller edit timings were collected.
+
+An explicit target does not automatically rebuild every consumer of an edited shared include. Use an ordinary dependency-aware build or select the complete affected set for shared changes; run relevant browser and corpus validation. Each sample restored source and ran ordinary build afterward. The first complete faithful restoration gate caught two semantic differences: targeted test output survived because ordinary restoration reported all routes up to date. An unmeasured full `nift build --all` restores final output; initial/final gate logs are retained. Agent ordinary restoration passed its complete gate. This observed mixed-workflow limitation is an experiment/build-state correctness caveat, not performance tuning; root cause is not established here. Users reverting a faithful target edit should explicitly rebuild its target or all outputs and validate the result. Final source/output parity is separately verified. This workflow is useful when an agent knows the changed page, not a substitute for general dependency handling or complete site validation.
+
+### Maintenance workflows, traced to actual sources
+
+| Change | Original Astro | Faithful Nift | Agent Nift | What is measured / validation boundary |
+|---|---|---|---|---|
+| One docs paragraph | Edit docs MDX; dev/HMR or production build are different workflows | Edit authored MDX; ordinary build or known route target | Edit mapped HTML fragment; ordinary build or target | Nift ordinary and targeted content builds measured; Astro edit/HMR not measured; inspect output and applicable parity delta |
+| Shared navigation item | Edit Header/menu component or docs sidebar config | Edit shared Nift shell or recovered authored config, according to its source map | Edit shared include or parameterised docs shell | Build complete affected route set, inspect desktop/mobile menus; shared-change elapsed/fan-out not measured |
+| Shared visual component | Edit component/template/style inputs; compiler scopes styles | Edit registered authored component within adapter support; regenerate retained CSS separately if required | Edit shared HTML/CSS; agent may apply mapped cross-cutting changes | Source-location count depends on component, not measured generically; DOM/pixel checks catch regressions; neither golden equality nor a single target approves intended redesign |
+| Browser behaviour | Edit original client script/component and bundle through pipeline | Retained bundle or explicit source recovery/rebundle needed | Edit `frontend/` source; normal esbuild hook bundles all entries | Readable ownership demonstrated; controller-edit latency, browser test time and Astro HMR not measured |
+| Add/change locale | Update locale definitions and separately deployed translation worker/context/config | English head/menu source mapping plus compatible worker deployment required | English HTML/menu mapping plus worker deployment required | Existing local language links do not certify translations; deployed locale/error/fallback tests needed |
+| Hundreds of page edits | Collection/source queries or scripted edits possible | Familiar authored corpus plus preparation/dependency graph | Deterministic converted fragments and explicit mappings suit directed bulk edits | Agents can automate any version; comparative reliability, human effort and agent cost were not measured |
+| Add a route | Glob/collection discovery for relevant content families | Extend body/metadata mappings and Nift route registration | Add wrapper/fragments/head + registry/listing references | Current tooling convenience differs; update expected routes/golden policy deliberately |
+
+### What iteration changes in the recommendation
+
+**Existing Capgo organisation today:** remaining on the incumbent avoids migration/certification work and preserves the already-implemented worker/service deployment. This is a transition-risk argument, not proof of better development iteration. Actual team familiarity is unknown and private workflows were not certified. A production migration decision needs those requirements and comparable Astro dev/edit measurements.
+
+**Already committed to Nift, humans + agents:** we would prefer faithful when preserving MDX/content authoring matters. Full captured corpus support, source-backed metadata, shared composition and ordinary 4–6s measured edit-family medians give a concrete engineering basis. Known-page explicit targets are 2.07–3.71s here. Complete schemas/discovery and fresh style/asset generation remain current migration-tooling tasks, not general Nift capability limits.
+
+**Designed for agent-mediated implementation:** we would prefer Agent for this premise: explicit inspectable HTML/source maps, readable controller ownership, normal roughly-one-second measured edits and 0.86–0.91s targeted family medians support repeated build feedback. Humans direct, review and accept. These numbers reduce observed build waiting, but total validation/review latency, tokens, cost and agent productivity were not measured. Shared/corpus-wide changes still require broader builds and validation.
+
+A technically preferred authoring workflow and a cautious production migration recommendation can coexist. No definitive Astro maintenance-loop advantage or agent-economics saving can be inferred from missing measurements. The original content/composition/i18n/integration investigation below remains applicable.
+
 ## Maintenance investigation: evidence before preference
 
 This reporting checkpoint replaces the earlier recommendation to retain Astro because of its “content/component/i18n model and established integrations.” That phrasing was too broad. The comparison below inspects the pinned source and both finished implementations; it does not modify any implementation or remeasure builds. Operation comparisons are source-traced, not timed usability studies. Team familiarity, future maintenance throughput and ecosystem size were not measured.

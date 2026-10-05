@@ -49,3 +49,7 @@ Fresh clone of architecture `fbc7bb5` passed locked installation, no-project-cac
 ## Final F/G closure
 
 Repeated corrected-revision Agent measurements: full median 2.23s / maximum process RSS 101.7 MiB; no-op 1.08s; actual HTML edit medians 1.04–1.09s. All edits assert propagation and restore output. See docs/FINAL-BENCHMARKS.md and docs/THREE-WAY-COMPARISON.md. Faithful remains frozen at 590c1eec. No post-measurement architecture tuning. Private-production and representative-browser limits remain explicit.
+
+## Targeted iteration reporting checkpoint
+
+Three real edits per family and implementation with explicit `nift build <target>`. Faithful family medians 2.07–3.71s; Agent 0.86–0.91s. All 24 edits reach their target; one HTML/no JS byte changes per target. Sources restored. Faithful ordinary restoration sometimes skips changed targeted output; final full rebuild restores complete parity. Initial failed/final passed gates are retained. Root cause is not established; no implementation changed. Agent ordinary restoration parity passes. See THREE-WAY-COMPARISON.md and evidence/targeted-builds. Ordinary edit numbers remain historical/non-paired; Astro edit/HMR and total validation/agent cost remain unmeasured.
