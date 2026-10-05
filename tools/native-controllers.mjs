@@ -2,6 +2,9 @@ import {build} from 'esbuild';
 import {readFile,writeFile,mkdir,unlink} from 'node:fs/promises';
 import {dirname,relative,resolve} from 'node:path';
 export const controllerManifest=JSON.parse(await readFile(new URL('../migration/native-controllers.json',import.meta.url)));
+export const retiredPolicy=JSON.parse(await readFile(new URL('../migration/retired-assets.json',import.meta.url)));
+if(retiredPolicy.reference!==controllerManifest.reference)throw Error('Retired asset policy reference mismatch');
+export const retiredAssets=new Set(retiredPolicy.retired);
 export async function nativeControllerOutputs(){
  let config={};try{config=JSON.parse(await readFile('config/public.json','utf8'))}catch(error){if(error.code!=='ENOENT')throw error}
  const entryPoints=Object.fromEntries(controllerManifest.controllers.map(row=>[row.asset.replace(/\.js$/,''),row.source]));
@@ -10,7 +13,9 @@ export async function nativeControllerOutputs(){
  outputs.metafile=result.metafile;return outputs;
 }
 export async function prepareNativeControllers(){
- const outputs=await nativeControllerOutputs();let prior=[];try{prior=JSON.parse(await readFile('.nift/native-outputs.json','utf8'))}catch(error){if(error.code!=='ENOENT')throw error}
+ const outputs=await nativeControllerOutputs();
+ for(const asset of retiredAssets){if(!asset.endsWith('.js')||asset.includes('..')||asset.startsWith('/'))throw Error('Invalid retired asset');try{await unlink('public/'+asset)}catch(error){if(error.code!=='ENOENT')throw error}}
+ let prior=[];try{prior=JSON.parse(await readFile('.nift/native-outputs.json','utf8'))}catch(error){if(error.code!=='ENOENT')throw error}
  for(const asset of prior)if(asset.startsWith('native/chunks/')&&!outputs.has(asset)){try{await unlink('public/'+asset)}catch(error){if(error.code!=='ENOENT')throw error}}
  for(const [asset,bytes] of outputs){
   const path='public/'+asset;await mkdir(dirname(path),{recursive:true});

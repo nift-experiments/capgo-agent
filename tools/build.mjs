@@ -1,2 +1,2 @@
-// Faithful migration entry point. The superseded prototype builder is preserved in docs/prototype.
+// Nift-native reconstruction entry point; bodies remain maintained HTML.
 import './migrate-build.mjs';

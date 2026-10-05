@@ -37,3 +37,7 @@ All 21 browser entry modules now build from tracked JavaScript; exhaustive runti
 ## Agent Checkpoint B — bounded interaction matrix
 
 13 route classes captured against the pinned upstream production build at verified desktop/mobile viewports. Menu navigation, disclosure, pricing recommendation, Algolia results, clipboard, keyboard tabs, Mermaid, questionnaire, mobile TOC, blog filtering, SemVer and empty form validation were exercised. `docs/INTERACTION-MATRIX.md` records observations and external/private-workflow limits; it does not claim complete authenticated production parity. The missing French rich-doc route and unavailable static live metrics are upstream behaviours, preserved and recorded.
+
+## Agent Checkpoint C — architecture audit
+
+Retired 103 unreachable original JS output artifacts, removed unused MDX/prototype dependencies and dormant MDX preparation, fixed unsupported test command, and connected the recovered controller URLs to the compatible own-provider adapter. Quantified source, CSS, JS, dependency/install footprint and per-entry/lazy graphs in `docs/NATIVE-ARCHITECTURE.md`. No general client-JS reduction claim: Astro already shipped largely vanilla browser code. Full route parity, tracked-input audit and integrity/provider tests pass. Final fresh reproduction and architecture freeze precede repeated measurements.
