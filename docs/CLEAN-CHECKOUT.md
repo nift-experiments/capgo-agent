@@ -1,17 +1,21 @@
-# Agent clean checkout
+# Agent final clean reproduction — Checkpoint D
 
-Revision `13d2a55` built in an independent local clone with no copied dependencies, generated state, or output. Locked dependency installation is excluded from the 6.26s / 157.9 MiB first-build observation. Node 22.22.1, Nift 4.6.0, build threads -1; no MDX preparation or global package resolution is used. Raw results: `evidence/clean-checkout-native/`.
+Architecture revision `fbc7bb5021097631eb43a6ca4b56ac96a348210f` passed in a fresh shallow clone with no copied dependencies, output, Nift hash state or generated controller records. Dependency installation used the lockfile and an already-populated npm download cache (`npm ci --ignore-scripts --offline`); cache-free here describes project/build state, not the machine's package-download cache. The documented online install is below.
+
+Node.js 22.22.1 and installed Nift 4.6.0 were used, with build threads `-1`. No global module lookup, sibling project, upstream checkout or machine-specific source path was required. `NODE_PATH` was removed for preparation. First wrapper preparation/build took **5.07s / 165.4 MiB**, a single bootstrap observation excluding installation. Raw logs are in `evidence/clean-checkout-final`.
 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund
 node tools/build.mjs --all
+nift build --all
 node tools/parity.mjs
-git ls-files -z | node tools/audit-tracked-inputs.mjs --stdin
-node runtime/server.mjs
+npm run audit
+npm test
+npm run preview
 ```
 
-The first wrapper build initializes reference assets, then invokes Nift. Subsequent `nift build` or `nift build --all` prepares maintained vanilla controllers and renders maintained HTML. Nift output hashes/locks are ignored and reproducible. All 1,347 wrappers and 7,873 distinct directly referenced includes are tracked; zero audit issues. The historical `migration/structure.json` records extraction history, not the current include dependency graph.
+Nift must be on PATH. The wrapper additionally accepts `NIFT` to select an executable. `.npmrc` selects the public JSR npm bridge required by the pinned @std/semver alias. The first wrapper initializes retained styles/assets and configuration, independently compiles browser controllers, then invokes Nift. Subsequent ordinary Nift builds run the native pre-build hook automatically.
 
-Five native-controller asset differences are allowed only when bytes match freshly bundled maintained source. HTML, other assets, routes, DOM and introduced link defects remain gated against the immutable oracle. APIs/signing/private backend and remaining controller recovery are not certified by this clean-build result.
+All 1,347 routes pass; 21 replacement entries and 133 generated browser assets match freshly built sources. The 103 retired reference JS files are absent. The audit covers 7,873 distinct referenced includes and four tracked Nift source/config files, with zero issues. Git status stayed clean after builds, parity and tests. Hashes/locks and the generated output inventory remain ignored/reproducible. Historical `migration/structure.json` is extraction history, not the authoritative dependency graph.
 
-Local preview is http://127.0.0.1:4173/. `PORT` overrides it. The static browser verification preview additionally runs on port 4177 in this session.
+Serving was checked from the clean checkout on local port 4178: rich docs render, including the recovered browser modules. Normal preview is http://127.0.0.1:4173/; set `PORT` to override. See `NATIVE-ARCHITECTURE.md` for own-provider setup. Clean reproduction does not certify private account creation, signing/device services, every language or external provider availability.

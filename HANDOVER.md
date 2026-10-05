@@ -41,3 +41,7 @@ All 21 browser entry modules now build from tracked JavaScript; exhaustive runti
 ## Agent Checkpoint C — architecture audit
 
 Retired 103 unreachable original JS output artifacts, removed unused MDX/prototype dependencies and dormant MDX preparation, fixed unsupported test command, and connected the recovered controller URLs to the compatible own-provider adapter. Quantified source, CSS, JS, dependency/install footprint and per-entry/lazy graphs in `docs/NATIVE-ARCHITECTURE.md`. No general client-JS reduction claim: Astro already shipped largely vanilla browser code. Full route parity, tracked-input audit and integrity/provider tests pass. Final fresh reproduction and architecture freeze precede repeated measurements.
+
+## Agent Checkpoints D/E — clean reproduction and freeze
+
+Fresh clone of architecture `fbc7bb5` passed locked installation, no-project-cache preparation, ordinary full build, 1,347-route parity, 7,873-include tracked audit and tests; Git remained clean. Single bootstrap: 5.07s / 165.4 MiB, installation excluded. Documented server renders rich docs from the clone. Architecture is frozen; only correctness/reproducibility/methodology changes now. Final repeated full/no-op/real-HTML-edit samples and the honest three-way comparison remain.
