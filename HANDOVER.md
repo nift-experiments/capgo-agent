@@ -33,3 +33,7 @@ Native checkpoint clean reproduction passes: 6.26s / 157.9 MiB first wrapper bui
 ## Agent Checkpoint A — controller recovery
 
 All 21 browser entry modules now build from tracked JavaScript; exhaustive runtime accounting is in `docs/RUNTIME-RECOVERY.md` and `evidence/runtime/browser-inventory.json`. Full parity and entry/lazy-chunk corruption tests pass. Broad interaction matrix, retained-chunk pruning/audit, final clean checkout, freeze, repeated benchmarks and final comparison remain pending. Faithful stays frozen at `590c1eec`.
+
+## Agent Checkpoint B — bounded interaction matrix
+
+13 route classes captured against the pinned upstream production build at verified desktop/mobile viewports. Menu navigation, disclosure, pricing recommendation, Algolia results, clipboard, keyboard tabs, Mermaid, questionnaire, mobile TOC, blog filtering, SemVer and empty form validation were exercised. `docs/INTERACTION-MATRIX.md` records observations and external/private-workflow limits; it does not claim complete authenticated production parity. The missing French rich-doc route and unavailable static live metrics are upstream behaviours, preserved and recorded.
