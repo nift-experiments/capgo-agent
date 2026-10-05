@@ -1,0 +1,258 @@
+// Cap-go/website 7d5b69d, AGPL-3.0. Maintained vanilla browser source.
+import { buildContiguousDailyPlatformRows, sliceSparklineRows, TREND_HISTORY_DAYS } from "./metricsTrendChart.js";
+const LIVE_UPDATE_METRICS_PATH = "/live-update-metrics.json";
+const LIVE_UPDATE_METRICS_CACHE_TTL_SECONDS = 300;
+const LIVE_UPDATE_KPI_WINDOW_DAYS = 30;
+const PUBLIC_MIN_DIMENSION_OUTCOMES = 50;
+const PUBLIC_TOP_COUNTRIES = 12;
+const PUBLIC_TOP_VERSIONS = 10;
+const PUBLIC_FAILURE_ACTIONS = [
+  "set_fail",
+  "update_fail",
+  "download_fail",
+  "windows_path_fail",
+  "canonical_path_fail",
+  "directory_path_fail",
+  "unzip_fail",
+  "low_mem_fail",
+  "download_manifest_file_fail",
+  "download_manifest_checksum_fail",
+  "download_manifest_brotli_fail",
+  "finish_download_fail",
+  "manifest_path_fail",
+  "decrypt_fail",
+  "insufficient_disk_space",
+  "cannotGetBundle",
+  "checksum_fail",
+  "blocked_by_server_url",
+  "backend_refusal"
+];
+const PUBLIC_ZIP_FAIL_ACTIONS = ["unzip_fail", "download_fail"];
+const PUBLIC_DELTA_FAIL_ACTIONS = ["download_manifest_file_fail", "download_manifest_checksum_fail", "download_manifest_brotli_fail", "manifest_path_fail"];
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+function formatDateCF(date) {
+  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())} ${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}:${pad2(date.getUTCSeconds())}`;
+}
+function roundPublicPercent(value) {
+  return Number(value.toFixed(1));
+}
+function rawShare(part, total) {
+  return total > 0 ? part / total * 100 : 0;
+}
+function rateFromParts(part, total) {
+  return total > 0 ? roundPublicPercent(part / total * 100) : null;
+}
+function rateFromOutcomes(successes, failures) {
+  return rateFromParts(successes, successes + failures);
+}
+function buildBreakdownMetrics(shareRows, outcomeRows, failureRows, limit) {
+  const shareTotal = shareRows.reduce((sum, row) => sum + (Number(row.devices) || 0), 0);
+  const outcomesByKey = /* @__PURE__ */ new Map();
+  for (const row of outcomeRows) {
+    const key = String(row.key || "").trim();
+    if (!key) continue;
+    outcomesByKey.set(key, {
+      successes: Number(row.successes) || 0,
+      failures: Number(row.failures) || 0
+    });
+  }
+  const failuresByKey = /* @__PURE__ */ new Map();
+  for (const row of failureRows) {
+    const key = String(row.key || "").trim();
+    if (!key) continue;
+    const list = failuresByKey.get(key) ?? [];
+    list.push({ reason: row.action, devices: Number(row.devices) || 0 });
+    failuresByKey.set(key, list);
+  }
+  return shareRows.map((row) => {
+    const key = String(row.key || "").trim();
+    const devices = Number(row.devices) || 0;
+    const outcomes = outcomesByKey.get(key);
+    const totalOutcomes = outcomes ? outcomes.successes + outcomes.failures : 0;
+    const success_rate = totalOutcomes >= PUBLIC_MIN_DIMENSION_OUTCOMES ? roundPublicPercent(outcomes.successes / totalOutcomes * 100) : null;
+    const dimFailures = failuresByKey.get(key) ?? [];
+    const failureTotal = dimFailures.reduce((sum, item) => sum + item.devices, 0);
+    const top = [...dimFailures].sort((a, b) => b.devices - a.devices)[0];
+    return {
+      key,
+      devices,
+      success_rate,
+      top_failure: top && failureTotal ? { reason: top.reason, share: roundPublicPercent(rawShare(top.devices, failureTotal)) } : null
+    };
+  }).filter((row) => row.key && row.devices > 0).sort((a, b) => b.devices - a.devices || (b.success_rate ?? -1) - (a.success_rate ?? -1)).slice(0, limit).map(({ key, devices, success_rate, top_failure }) => ({
+    key,
+    share: roundPublicPercent(rawShare(devices, shareTotal)),
+    success_rate,
+    top_failure
+  }));
+}
+function buildDailyPlatforms(rows) {
+  const byDate = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const date = String(row.date || "").trim();
+    const key = String(row.key || "").trim();
+    if (!date || key !== "ios" && key !== "android") continue;
+    const current = byDate.get(date) ?? { date, ios: null, android: null };
+    current[key] = rateFromOutcomes(Number(row.successes) || 0, Number(row.failures) || 0);
+    byDate.set(date, current);
+  }
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+function buildAnalyticsWindow(referenceDate, days) {
+  const end = new Date(Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), referenceDate.getUTCDate()));
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - days);
+  return `timestamp >= toDateTime('${formatDateCF(start)}') AND timestamp < toDateTime('${formatDateCF(end)}')`;
+}
+function buildRollingHourlyWindow(referenceDate) {
+  const end = new Date(referenceDate);
+  end.setUTCMinutes(0, 0, 0);
+  end.setUTCHours(end.getUTCHours() + 1);
+  const start = new Date(end);
+  start.setUTCHours(start.getUTCHours() - 24);
+  return `timestamp >= toDateTime('${formatDateCF(start)}') AND timestamp < toDateTime('${formatDateCF(end)}')`;
+}
+function buildOutcomeBase(window, failureActions, day) {
+  return `SELECT ${day} AS date, index1 AS app_id, blob1 AS device_id, max(if(blob2 = 'set', 1, 0)) AS succeeded, max(if(blob2 IN (${failureActions}), 1, 0)) AS failed, argMax(blob5, timestamp) AS platform, argMax(blob6, timestamp) AS country, argMax(blob7, timestamp) AS plugin_version FROM app_log WHERE ${window} AND (blob2 = 'set' OR blob2 IN (${failureActions})) GROUP BY date, app_id, device_id`;
+}
+function buildPublicLiveUpdateQueries(referenceDate = /* @__PURE__ */ new Date()) {
+  const window = buildAnalyticsWindow(referenceDate, LIVE_UPDATE_KPI_WINDOW_DAYS);
+  const trendWindow = buildAnalyticsWindow(referenceDate, TREND_HISTORY_DAYS);
+  const hourlyWindow = buildRollingHourlyWindow(referenceDate);
+  const failureActions = PUBLIC_FAILURE_ACTIONS.map((action) => `'${action}'`).join(", ");
+  const zipFailActions = PUBLIC_ZIP_FAIL_ACTIONS.map((action) => `'${action}'`).join(", ");
+  const deltaFailActions = PUBLIC_DELTA_FAIL_ACTIONS.map((action) => `'${action}'`).join(", ");
+  const day = `formatDateTime(toStartOfInterval(timestamp, INTERVAL '1' DAY), '%Y-%m-%d')`;
+  const hour = `formatDateTime(toStartOfInterval(timestamp, INTERVAL '1' HOUR), '%Y-%m-%d %H:00')`;
+  const outcomeBase = buildOutcomeBase(window, failureActions, day);
+  const trendOutcomeBase = buildOutcomeBase(trendWindow, failureActions, day);
+  const hourlyOutcomeBase = buildOutcomeBase(hourlyWindow, failureActions, hour);
+  return {
+    outcomes: `SELECT date, sum(succeeded) AS successes, sum(if(succeeded = 0, failed, 0)) AS failures, sum(if(succeeded = 1 AND failed = 0, 1, 0)) AS first_tries FROM (${outcomeBase}) GROUP BY date`,
+    rollback: `SELECT sum(has_reset) AS rollbacks, sum(if(has_set + has_reset > 0, 1, 0)) AS outcomes FROM (SELECT ${day} AS date, index1 AS app_id, blob1 AS device_id, max(if(blob2 = 'reset', 1, 0)) AS has_reset, max(if(blob2 = 'set', 1, 0)) AS has_set FROM app_log WHERE ${window} AND blob2 IN ('set', 'reset') GROUP BY date, app_id, device_id)`,
+    package: `SELECT sum(if(zip_ok = 1, 1, 0)) AS zip_successes, sum(if(zip_ok = 0 AND zip_fail = 1, 1, 0)) AS zip_failures, sum(if(delta_ok = 1, 1, 0)) AS delta_successes, sum(if(delta_ok = 0 AND delta_fail = 1, 1, 0)) AS delta_failures FROM (SELECT ${day} AS date, index1 AS app_id, blob1 AS device_id, max(if(blob2 = 'download_zip_complete', 1, 0)) AS zip_ok, max(if(blob2 IN (${zipFailActions}), 1, 0)) AS zip_fail, max(if(blob2 = 'download_manifest_complete', 1, 0)) AS delta_ok, max(if(blob2 IN (${deltaFailActions}), 1, 0)) AS delta_fail FROM app_log WHERE ${window} AND blob2 IN ('download_zip_complete', 'download_manifest_complete', ${zipFailActions}, ${deltaFailActions}) GROUP BY date, app_id, device_id)`,
+    failures: `SELECT action, count() AS devices FROM (SELECT ${day} AS date, blob2 AS action, index1 AS app_id, blob1 AS device_id FROM app_log WHERE ${window} AND blob2 IN (${failureActions}) GROUP BY date, action, app_id, device_id) GROUP BY action`,
+    platformsShare: `SELECT platform, count() AS devices FROM (SELECT double1 AS platform, index1 AS app_id, blob1 AS device_id FROM device_usage WHERE ${window} AND double1 IN (0.0, 1.0, 2.0) GROUP BY platform, app_id, device_id) GROUP BY platform`,
+    platformsDaily: `SELECT date, platform AS key, sum(succeeded) AS successes, sum(if(succeeded = 0, failed, 0)) AS failures FROM (${trendOutcomeBase}) WHERE platform IN ('ios', 'android') GROUP BY date, platform`,
+    platformsHourly: `SELECT date, platform AS key, sum(succeeded) AS successes, sum(if(succeeded = 0, failed, 0)) AS failures FROM (${hourlyOutcomeBase}) WHERE platform IN ('ios', 'android') GROUP BY date, platform`,
+    platformsOutcome: `SELECT platform AS key, sum(succeeded) AS successes, sum(if(succeeded = 0, failed, 0)) AS failures FROM (${outcomeBase}) WHERE platform IN ('ios', 'android', 'electron') GROUP BY platform`,
+    platformsFailure: `SELECT platform AS key, action, count() AS devices FROM (SELECT ${day} AS date, index1 AS app_id, blob1 AS device_id, blob2 AS action, argMax(blob5, timestamp) AS platform FROM app_log WHERE ${window} AND blob2 IN (${failureActions}) GROUP BY date, app_id, device_id, action) WHERE platform IN ('ios', 'android', 'electron') GROUP BY platform, action`,
+    countriesShare: `SELECT country AS key, count() AS devices FROM (SELECT index1 AS app_id, blob1 AS device_id, argMax(blob10, timestamp) AS country FROM device_info WHERE ${window} AND blob10 != '' GROUP BY app_id, device_id) WHERE country != '' GROUP BY country`,
+    countriesOutcome: `SELECT country AS key, sum(succeeded) AS successes, sum(if(succeeded = 0, failed, 0)) AS failures FROM (${outcomeBase}) WHERE country != '' GROUP BY country`,
+    countriesFailure: `SELECT country AS key, action, count() AS devices FROM (SELECT ${day} AS date, index1 AS app_id, blob1 AS device_id, blob2 AS action, argMax(blob6, timestamp) AS country FROM app_log WHERE ${window} AND blob2 IN (${failureActions}) GROUP BY date, app_id, device_id, action) WHERE country != '' GROUP BY country, action`,
+    versionsShare: `SELECT version AS key, count() AS devices FROM (SELECT index1 AS app_id, blob1 AS device_id, argMax(blob3, timestamp) AS version FROM device_info WHERE ${window} AND blob3 != '' GROUP BY app_id, device_id) WHERE version != '' GROUP BY version`,
+    versionsOutcome: `SELECT plugin_version AS key, sum(succeeded) AS successes, sum(if(succeeded = 0, failed, 0)) AS failures FROM (${outcomeBase}) WHERE plugin_version != '' GROUP BY plugin_version`,
+    versionsFailure: `SELECT plugin_version AS key, action, count() AS devices FROM (SELECT ${day} AS date, index1 AS app_id, blob1 AS device_id, blob2 AS action, argMax(blob7, timestamp) AS plugin_version FROM app_log WHERE ${window} AND blob2 IN (${failureActions}) GROUP BY date, app_id, device_id, action) WHERE plugin_version != '' GROUP BY plugin_version, action`
+  };
+}
+async function runQuery(auth, query) {
+  const fetchImpl = auth.fetch ?? fetch;
+  const response = await fetchImpl(`https://api.cloudflare.com/client/v4/accounts/${auth.accountId}/analytics_engine/sql`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${auth.token}`,
+      "Content-Type": "text/plain; charset=utf-8"
+    },
+    body: query,
+    signal: AbortSignal.timeout(2e4)
+  });
+  if (!response.ok) {
+    const preview = (await response.text()).replace(/\s+/g, " ").trim().slice(0, 300);
+    throw new Error(`Analytics Engine HTTP ${response.status}: ${preview}`);
+  }
+  const payload = await response.json();
+  return payload.data ?? [];
+}
+async function getPublicLiveUpdateMetrics(auth) {
+  if (!auth.accountId || !auth.token) throw new Error("Cloudflare Analytics Engine credentials are missing");
+  const now = auth.now ?? /* @__PURE__ */ new Date();
+  const queries = buildPublicLiveUpdateQueries(now);
+  const [
+    outcomeRows,
+    rollbackRows,
+    packageRows,
+    failureRows,
+    platformShareRows,
+    platformDailyRows,
+    platformHourlyRows,
+    platformOutcomeRows,
+    platformFailureRows,
+    countryShareRows,
+    countryOutcomeRows,
+    countryFailureRows,
+    versionShareRows,
+    versionOutcomeRows,
+    versionFailureRows
+  ] = await Promise.all([
+    runQuery(auth, queries.outcomes),
+    runQuery(auth, queries.rollback),
+    runQuery(auth, queries.package),
+    runQuery(auth, queries.failures),
+    runQuery(auth, queries.platformsShare),
+    runQuery(auth, queries.platformsDaily),
+    runQuery(auth, queries.platformsHourly),
+    runQuery(auth, queries.platformsOutcome),
+    runQuery(auth, queries.platformsFailure),
+    runQuery(auth, queries.countriesShare),
+    runQuery(auth, queries.countriesOutcome),
+    runQuery(auth, queries.countriesFailure),
+    runQuery(auth, queries.versionsShare),
+    runQuery(auth, queries.versionsOutcome),
+    runQuery(auth, queries.versionsFailure)
+  ]);
+  const daily = outcomeRows.map((row) => {
+    const successes = Number(row.successes) || 0;
+    const failures2 = Number(row.failures) || 0;
+    const outcomes = successes + failures2;
+    return { date: row.date, success_rate: outcomes ? roundPublicPercent(successes / outcomes * 100) : 0 };
+  }).sort((a, b) => a.date.localeCompare(b.date));
+  const totalSuccesses = outcomeRows.reduce((sum, row) => sum + (Number(row.successes) || 0), 0);
+  const totalFailures = outcomeRows.reduce((sum, row) => sum + (Number(row.failures) || 0), 0);
+  const totalFirstTries = outcomeRows.reduce((sum, row) => sum + (Number(row.first_tries) || 0), 0);
+  const totalOutcomes = totalSuccesses + totalFailures;
+  const rollback = rollbackRows[0];
+  const packages = packageRows[0];
+  const failureTotal = failureRows.reduce((sum, row) => sum + (Number(row.devices) || 0), 0);
+  const failures = [...failureRows].map((row) => ({ reason: row.action, devices: Number(row.devices) || 0 })).sort((a, b) => b.devices - a.devices).slice(0, 8).map((row) => ({
+    reason: row.reason,
+    share: failureTotal ? roundPublicPercent(rawShare(row.devices, failureTotal)) : 0
+  }));
+  const platformShareMapped = platformShareRows.map((row) => {
+    const platform = Number(row.platform);
+    const key = platform === 0 ? "android" : platform === 1 ? "ios" : platform === 2 ? "electron" : "";
+    return { key, devices: Number(row.devices) || 0 };
+  }).filter((row) => row.key);
+  const daily_platforms = buildContiguousDailyPlatformRows(buildDailyPlatforms(platformDailyRows), now, TREND_HISTORY_DAYS);
+  const daily_platforms_sparkline = sliceSparklineRows(daily_platforms, now);
+  const hourly_platforms = buildDailyPlatforms(platformHourlyRows);
+  return {
+    success_rate: totalOutcomes ? roundPublicPercent(totalSuccesses / totalOutcomes * 100) : 0,
+    first_try_rate: rateFromParts(totalFirstTries, totalSuccesses),
+    // AE SQL rejects the nested first-day-of-release query (HTTP 422).
+    first_day_rate: null,
+    first_day_success_rate: null,
+    rollback_rate: rateFromParts(Number(rollback?.rollbacks) || 0, Number(rollback?.outcomes) || 0),
+    zip_success_rate: rateFromOutcomes(Number(packages?.zip_successes) || 0, Number(packages?.zip_failures) || 0),
+    delta_success_rate: rateFromOutcomes(Number(packages?.delta_successes) || 0, Number(packages?.delta_failures) || 0),
+    period_days: LIVE_UPDATE_KPI_WINDOW_DAYS,
+    daily_window_days: TREND_HISTORY_DAYS,
+    updated_at: now.toISOString(),
+    daily,
+    daily_platforms,
+    daily_platforms_sparkline,
+    hourly_platforms,
+    failures,
+    platforms: buildBreakdownMetrics(platformShareMapped, platformOutcomeRows, platformFailureRows, 3),
+    countries: buildBreakdownMetrics(countryShareRows, countryOutcomeRows, countryFailureRows, PUBLIC_TOP_COUNTRIES),
+    updater_versions: buildBreakdownMetrics(versionShareRows, versionOutcomeRows, versionFailureRows, PUBLIC_TOP_VERSIONS)
+  };
+}
+export {
+  LIVE_UPDATE_KPI_WINDOW_DAYS,
+  LIVE_UPDATE_METRICS_CACHE_TTL_SECONDS,
+  LIVE_UPDATE_METRICS_PATH,
+  buildPublicLiveUpdateQueries,
+  getPublicLiveUpdateMetrics
+};
