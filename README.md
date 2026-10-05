@@ -15,3 +15,5 @@ Install Nift on PATH (or set `NIFT` for the preparation wrapper) and Node.js 22+
 See `docs/NATIVE-ARCHITECTURE.md`, `docs/INTERACTION-MATRIX.md`, `docs/CLEAN-CHECKOUT.md` and `HANDOVER.md`. Final architecture freeze and repeated benchmark results will be recorded separately. Earlier single-run timings are historical, not final performance claims.
 
 Capgo styling may include blue/light themes; dark/no-blue applies only to the Labs report site. Compatible own APIs are supported through public build configuration and the optional preview adapter. Private account/device/signing workflows still require compatible services; see the architecture report for exact limits.
+
+Final experiment: [three-way comparison](docs/THREE-WAY-COMPARISON.md), [repeated benchmarks](docs/FINAL-BENCHMARKS.md), [architecture freeze](docs/ARCHITECTURE-FREEZE.md).

@@ -45,3 +45,7 @@ Retired 103 unreachable original JS output artifacts, removed unused MDX/prototy
 ## Agent Checkpoints D/E — clean reproduction and freeze
 
 Fresh clone of architecture `fbc7bb5` passed locked installation, no-project-cache preparation, ordinary full build, 1,347-route parity, 7,873-include tracked audit and tests; Git remained clean. Single bootstrap: 5.07s / 165.4 MiB, installation excluded. Documented server renders rich docs from the clone. Architecture is frozen; only correctness/reproducibility/methodology changes now. Final repeated full/no-op/real-HTML-edit samples and the honest three-way comparison remain.
+
+## Final F/G closure
+
+Repeated corrected-revision Agent measurements: full median 2.23s / maximum process RSS 101.7 MiB; no-op 1.08s; actual HTML edit medians 1.04–1.09s. All edits assert propagation and restore output. See docs/FINAL-BENCHMARKS.md and docs/THREE-WAY-COMPARISON.md. Faithful remains frozen at 590c1eec. No post-measurement architecture tuning. Private-production and representative-browser limits remain explicit.
